@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grow A Language</title>
+        <!-- Use local favicon image -->
+    <link rel="icon" type="image/png" href="./images/0.png" sizes="32x32">
+
+    <link rel="stylesheet" href="style.pixel.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+
+
+    </head>
+    <body>
+        <nav class="navbar garden-wood">
+            <div class = "logoContainer">
+                <!-- Local logo image replaces visible title; add hidden text for screen readers -->
+                <img class="logo-img" src="./images/0.png" alt="" aria-hidden="true">
+                <span class="sr-only">Grow A Language</span>
+            </div>
+
+            <div class="hud">
+                <div class="coin-badge" id="coinCounter" title="Coins">0</div>
+                <div class="energy-wrap" title="Energy">
+                    <div class="energy-bar">
+                        <div class="energy-fill" id="energyFill" style="width: 100%"></div>
+                    </div>
+                    <span class="energy-label" id="energyLabel">100</span>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="runCode()">Run</button>
+                    <button class="dropdown-toggle" onclick="toggleDropdown()">▾</button>
+                </div>
+                <ul id="dropdown-menu" class="nav-links hidden">
+                    <li><a href="#" onclick="runLexer()">Lexical</a></li>
+                </ul>
+            </div>
+        </nav>
+            <!-- Toolbar -->
+            <div class="toolbar garden-wood">
+                <div class="toolbar-left"></div>
+                <div class="toolbar-right">
+                    <button class="tb-btn" id="btn-open">Open</button>
+                    <button class="tb-btn" id="btn-save">Save</button>
+                    <button class="tb-btn" id="btn-clear">Clear</button>
+                </div>
+            </div>
+
+            <!-- Workspace: sidebar + editor/tokens -->
+            <div class="workspace">
+                <aside class="sidebar" id="sidebar">
+                    <div class="sd-section">LEXEMES</div>
+                    <div class="side-tokens">
+                        <table class="side-token-table" aria-label="Lexeme tokens live update">
+                            <thead>
+                                <tr>
+                                    <th>LEXEME</th>
+                                    <th>TOKEN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tokenBodySide"></tbody>
+                        </table>
+                    </div>
+                </aside>
+
+                <div class="workspace-main">
+                    <div class="mainCont">
+                        <div class="textFieldCont">
+                            <div id="editor" style="width: 100%; height: 100%;"></div>
+                        </div>
+                        <div class="widthResizer"></div>        
+                        <div class="outputCont">
+                            <table class="tokenTable">
+                                <thead>
+                                    <tr>
+                                        <th>LEXEME</th>
+                                        <th>TOKEN</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tokenBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="terminalCont">
+                        <div class="terminal-header">
+                            <div class="term-title">
+                                <span class="dot dot-green" aria-hidden="true"></span>
+                                OUTPUT
+                            </div>
+                            <div class="term-actions">
+                                <button class="term-btn" id="term-autoscroll" aria-pressed="true" title="Toggle auto-scroll">Auto</button>
+                                <button class="term-btn" id="term-copy" title="Copy output">Copy</button>
+                                <button class="term-btn danger" id="term-clear" title="Clear output">Clear</button>
+                            </div>
+                        </div>
+                        <!-- Status chips inside output box (syntax/semantic removed) -->
+                        <div class="term-status" role="status" aria-label="Analysis status">
+                            <div class="status-chip" id="status-lex">Lexical: —</div>
+                            <div class="status-chip" id="status-exe">Execution: —</div>
+                        </div>
+                        <div class="terminal-body">
+                            <div id="terminal"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        
+
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+
+        <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.min.js"></script> <!-- xterm.js -->
+        <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.min.js"></script> <!-- xterm addon fit -->
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/loader.js"></script> <!-- Monaco editor -->
+
+        <!-- Include your main JavaScript file -->
+        <script src="main.js"></script>
+
+        
+
+    </body>
+</html>
