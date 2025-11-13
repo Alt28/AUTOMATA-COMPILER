@@ -8,44 +8,44 @@ LOW_ALPHA = 'abcdefghijklmnopqrstuvwxyz'
 UPPER_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 ALPHA = LOW_ALPHA + UPPER_ALPHA
-ALPHA_NUMERIC = ALPHA + ZERODIGIT
+ALPHANUM = ALPHA + ZERODIGIT
 
-# --- DELIMITER SETS (Based on PDF Regular Definitions & Transition Diagrams) ---
+# --- DELIMITER SETS ---
 
 
 
 space_delim = ' ', '\t', '\n'
-del2 = {';'}
-del3 = {'{'}
-del4 = {':'}
-del5 = {'('}
-del6 = {';', ',', '=', '>', '<', '!', '}', ')'}  
-del7 = {'('}
-del8 = {';'}  
-del9 = set(ALPHA + '(' + ',' + ';' + ')')  
-del10 = {';', ')'}  
-del11 = {'\n'}  
-del12 = set(ALPHA + ZERODIGIT + ']' + '~')
-del13 = {';', ')', '['}
-del14 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
-del15 = {'\n', ';', '}', ','}
-del16 = set(ALPHA_NUMERIC + ')' + '"' + '!' + '(' + '[' + '\'')
-del17 = {'}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
-del18 = {';', '{', ')', '&', '|', '+', '-', '*', '/', '%'}
-del19 = {';', ',', '}', ')', '=', '>', '<', '!'}
-del20 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
-del21 = set(DIGIT)
-del22 = {',', ';', '(', ')', '{', '[', ']'}
-del23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
-del24 = set(ZERODIGIT + ALPHA + '~' + '(')
+delim2 = {';'}
+delim3 = {'{'}
+delim4 = {':'}
+delim5 = {'('}
+delim6 = {';', ',', '=', '>', '<', '!', '}', ')'}  
+delim7 = {'('}
+delim8 = {';'}  
+delim9 = set(ALPHA + '(' + ',' + ';' + ')')  
+delim10 = {';', ')'}  
+delim11 = {'\n'}  
+delim12 = set(ALPHA + ZERODIGIT + ']' + '~')
+delim13 = {';', ')', '['}
+delim14 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
+delim15 = {'\n', ';', '}', ','}
+delim16 = set(ALPHANUM + ')' + '"' + '!' + '(' + '[' + '\'')
+delim17 = {'}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
+delim18 = {';', '{', ')', '&', '|', '+', '-', '*', '/', '%'}
+delim19 = {';', ',', '}', ')', '=', '>', '<', '!'}
+delim20 = set(ALPHA + ZERODIGIT  + '"' + "'" + '{' )
+delim21 = set(DIGIT)
+delim22 = {',', ';', '(', ')', '{', '[', ']'}
+delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
+delim24 = set(ZERODIGIT + ALPHA + '~' + '(')
 idf_delim = { ' , ', ';', '(', ')', '{', '[', ']', ':', '+', '-', '*', '/', '%' , '>', '<' }
 whlnum_delim = { ';', ' , ', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|' }
 decim_delim = { '}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|' }
     # Fix: set() takes a single iterable; combine into one string and use newline '\n'
-comment_delim = set(ALPHA_NUMERIC + ';+-*/%}{()' + '\n')
+comment_delim = set(ALPHANUM + ';+-*/%}{()' + '\n')
 
 
-#TOKENS (Aligned with GrowALanguage PDF)
+#TOKENS 
 
 # --- Reserved Words ---
 TT_RW_WATER       = 'water'     # Input
@@ -71,6 +71,7 @@ TT_RW_VARIETY     = 'variety'   # case
 TT_RW_FERTILE     = 'fertile'   # const
 TT_RW_SOIL        = 'soil'      # default
 TT_RW_BUNDLE      = 'bundle'    # struct
+TT_RW_STRING      = 'string'    # string data type
 
 # --- Literals ---
 TT_IDENTIFIER = 'idf'
@@ -117,6 +118,9 @@ TT_NEGDOUBLELIT = '~dbllit'
 TT_STRINGLIT = 'strnglit'
 TT_CHARLIT = 'chrlit'
 TT_STRCTACCESS = '.'
+TT_NL = '\n'
+TT_DOT = '.'
+
 
 class Position:
     def __init__(self, index, ln):
@@ -304,7 +308,7 @@ class Lexer:
                                     ident_str += self.current_char
                                     self.advance()
                                     if self.current_char is None or self.current_char in space_delim:
-                                        tokens.append(Token(TT_BRANCH, ident_str, line)) # Boolean Literal
+                                        tokens.append(Token(TT_RW_BRANCH, ident_str, line)) # Boolean Literal
                                         continue
                                     elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
                                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -546,10 +550,10 @@ class Lexer:
                             if self.current_char == "p":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char is None or self.current_char in delim1:
+                                if self.current_char is None or self.current_char in space_delim:
                                     tokens.append(Token(TT_RW_SKIP, ident_str, line))
                                     continue
-                                elif self.current_char is not None and self.current_char not in delim1 and self.current_char not in ALPHANUM:
+                                elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
                                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                     continue
                     elif self.current_char == "o": # soil
@@ -610,7 +614,7 @@ class Lexer:
                                                 ident_str += self.current_char
                                                 self.advance()
                                                 if self.current_char is None or self.current_char in space_delim:
-                                                    tokens.append(Token(TT_BRANCH, ident_str, line)) # Boolean Literal
+                                                    tokens.append(Token(TT_RW_BRANCH, ident_str, line)) # Boolean Literal
                                                     continue
                                                 elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
                                                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -755,14 +759,14 @@ class Lexer:
                 if self.current_char == "-":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is None or self.current_char in unary_dlm:
-                        tokens.append(Token(TT_DEC, ident_str, line))
+                    if self.current_char is None or self.current_char in delim20:
+                        tokens.append(Token(TT_MINUS, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         self.advance()
                         continue
-                elif self.current_char is not None and self.current_char in minus_dlm:
+                elif self.current_char is not None and self.current_char in delim20:
                     tokens.append(Token(TT_MINUS, ident_str, line))
                     continue
                 else:
@@ -773,8 +777,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in tilde_dlm: # Was operator_dlm
-                    tokens.append(Token(TT_TILDE, ident_str, line))
+                if self.current_char is not None and self.current_char in delim19: # Was operator_dlm
+                    tokens.append(Token(TT_NEGATIVE, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'."))
@@ -787,13 +791,13 @@ class Lexer:
                 if self.current_char == "=":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in relat_dlm:
-                        tokens.append(Token(TT_NEQ, ident_str, line))
+                    if self.current_char is not None and self.current_char in delim21:
+                        tokens.append(Token(TT_EQ, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                elif self.current_char is not None and self.current_char in not_dlm:
+                elif self.current_char is not None and self.current_char in delim21:
                     tokens.append(Token(TT_NOT, ident_str, line))
                     continue
                 else:
@@ -804,7 +808,7 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in arith_dlm: # was arith_operator_dlm
+                if self.current_char is not None and self.current_char in delim20: # was arith_operator_dlm
                     tokens.append(Token(TT_MOD, ident_str, line))
                     continue
                 else:
@@ -818,7 +822,7 @@ class Lexer:
                 if self.current_char == "&":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in operator_dlm:
+                    if self.current_char is not None and self.current_char in delim21:
                         tokens.append(Token(TT_AND, ident_str, line))
                         continue
                     else:
@@ -833,8 +837,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in oppar_dlm:
-                    tokens.append(Token(TT_OPPAR, ident_str, line))
+                if self.current_char is not None and self.current_char in delim15:
+                    tokens.append(Token(TT_LPAREN, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -844,8 +848,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is None or self.current_char in clpar_dlm:
-                    tokens.append(Token(TT_CLPAR, ident_str, line))
+                if self.current_char is None or self.current_char in delim18:
+                    tokens.append(Token(TT_RPAREN, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -855,7 +859,7 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is None or self.current_char in arith_dlm: # was arith_operator_dlm
+                if self.current_char is None or self.current_char in delim20: # was arith_operator_dlm
                     tokens.append(Token(TT_MUL, ident_str, line))
                     continue
                 else:
@@ -866,7 +870,7 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in comma_dlm:
+                if self.current_char is not None and self.current_char in delim20:
                     tokens.append(Token(TT_COMMA, ident_str, line))
                     continue
                 else:
@@ -883,8 +887,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in scolon_dlm:
-                    tokens.append(Token(TT_SEMICOL, ident_str, line))
+                if self.current_char is not None and self.current_char in delim10:
+                    tokens.append(Token(TT_COLON, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -894,8 +898,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in opbra_dlm:
-                    tokens.append(Token(TT_OPBRA, ident_str, line))
+                if self.current_char is not None and self.current_char in delim11:
+                    tokens.append(Token(TT_LSQBR, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -905,8 +909,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is None or self.current_char in clbra_dlm:
-                    tokens.append(Token(TT_CLBRA, ident_str, line))
+                if self.current_char is None or self.current_char in delim12:
+                    tokens.append(Token(TT_RSQBR, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -916,8 +920,8 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is not None and self.current_char in opcur_dlm:
-                    tokens.append(Token(TT_OPCUR, ident_str, line))
+                if self.current_char is not None and self.current_char in delim13:
+                    tokens.append(Token(TT_BLOCK_START, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -927,8 +931,8 @@ class Lexer:
                 ident_str = self.current_char 
                 pos = self.pos.copy() 
                 self.advance()
-                if self.current_char is None or self.current_char in clcur_dlm:
-                    tokens.append(Token(TT_CLCUR, ident_str, line))
+                if self.current_char is None or self.current_char in delim14:
+                    tokens.append(Token(TT_BLOCK_END, ident_str, line))
                     continue
                 else: 
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -941,7 +945,7 @@ class Lexer:
                 if self.current_char == "|":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in operator_dlm:
+                    if self.current_char is not None and self.current_char in delim21:
                         tokens.append(Token(TT_OR, ident_str, line))
                         continue
                     else:
@@ -959,13 +963,13 @@ class Lexer:
                 if self.current_char == "+":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is None or self.current_char in unary_dlm:
-                        tokens.append(Token(TT_INC, ident_str, line))
+                    if self.current_char is None or self.current_char in delim20:
+                        tokens.append(Token(TT_PLUS, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                elif self.current_char is not None and self.current_char in plus_dlm:
+                elif self.current_char is not None and self.current_char in delim20:
                     tokens.append(Token(TT_PLUS, ident_str, line))
                     continue
                 else:
@@ -979,13 +983,13 @@ class Lexer:
                 if self.current_char == "=":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in relat_dlm: # was arith_operator_dlm
-                        tokens.append(Token(TT_LTE, ident_str, line))
+                    if self.current_char is not None and self.current_char in delim21: # was arith_operator_dlm
+                        tokens.append(Token(TT_LT, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                elif self.current_char is not None and self.current_char in relat_dlm: # was arith_operator_dlm
+                elif self.current_char is not None and self.current_char in delim21: # was arith_operator_dlm
                     tokens.append(Token(TT_LT, ident_str, line))
                     continue
                 else:
@@ -999,14 +1003,14 @@ class Lexer:
                 if self.current_char == "=":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in relat_dlm:
+                    if self.current_char is not None and self.current_char in delim24:
                         tokens.append(Token(TT_EQ, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                elif self.current_char is not None and self.current_char in equal_dlm:
-                    tokens.append(Token(TT_IS, ident_str, line))
+                elif self.current_char is not None and self.current_char in delim24:
+                    tokens.append(Token(TT_EQ, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -1019,13 +1023,13 @@ class Lexer:
                 if self.current_char == "=":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char is not None and self.current_char in relat_dlm: # was arith_operator_dlm
-                        tokens.append(Token(TT_GTE, ident_str, line))
+                    if self.current_char is not None and self.current_char in delim21: 
+                        tokens.append(Token(TT_GT, ident_str, line))
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                elif self.current_char is not None and self.current_char in relat_dlm: # was arith_operator_dlm
+                elif self.current_char is not None and self.current_char in delim21: 
                     tokens.append(Token(TT_GT, ident_str, line))
                     continue
                 else:
@@ -1091,7 +1095,7 @@ class Lexer:
                         errors.append(LexicalError(pos, f"Missing closing '*/' after '{ident_str}'"))
                         continue
                     continue    
-                elif self.current_char is not None and self.current_char in arith_dlm: # was arith_operator_dlm
+                elif self.current_char is not None and self.current_char in delim21: # was arith_operator_dlm
                     tokens.append(Token(TT_DIV, ident_str, line))
                     continue
                 else:
@@ -1106,10 +1110,10 @@ class Lexer:
                     tokens.append(Token(TT_DOT, ident_str, line))
                     continue
 
-                elif self.current_char is not None and self.current_char in NUM:
+                elif self.current_char is not None and self.current_char in DIGIT:
                     fractional_part = ""
-                    while self.current_char is not None and self.current_char in NUM :
-                        if len(fractional_part + self.current_char) > 6: # PDF specifies max 6 digits right
+                    while self.current_char is not None and self.current_char in DIGIT:
+                        if len(fractional_part + self.current_char) > 6: 
                             errors.append(LexicalError(pos, f"'{ident_str}' exceeds maximum number of decimal places"))
                             break
 
@@ -1118,8 +1122,8 @@ class Lexer:
                         
                     ident_str = f"0.{fractional_part}"
                     
-                    if self.current_char is None or self.current_char in lit_dlm:
-                        tokens.append(Token(TT_TREE, ident_str, line)) # Changed to TT_TREE
+                    if self.current_char is None or self.current_char in delim21:
+                        tokens.append(Token(TT_RW_TREE, ident_str, line)) 
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -1134,21 +1138,21 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                if self.current_char is None or self.current_char in scolon_dlm: # was endln_dlm
-                    tokens.append(Token(TT_COL, ident_str, line))
+                if self.current_char is None or self.current_char in delim10: 
+                    tokens.append(Token(TT_COLON, ident_str, line))
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                     continue
 
-            elif self.current_char in NUM:
+            elif self.current_char in DIGIT:
                 dot_count = 0
                 ident_str = ""
                 pos = self.pos.copy()
                 digitCount = 0
                 has_e = False
 
-                while self.current_char is not None and self.current_char in NUM + ".":
+                while self.current_char is not None and self.current_char in DIGIT + ".":
                     if self.current_char == ".":
                         if dot_count == 1:
                             break
@@ -1169,10 +1173,10 @@ class Lexer:
                     if self.current_char in '+-': # Handle 1.2e-5
                         ident_str += self.current_char
                         self.advance()
-                    if self.current_char is None or self.current_char not in NUM:
+                    if self.current_char is None or self.current_char not in DIGIT:
                         errors.append(LexicalError(pos, f"Invalid scientific notation: 'e' must be followed by digits."))
                         continue
-                    while self.current_char is not None and self.current_char in NUM:
+                    while self.current_char is not None and self.current_char in DIGIT:
                         ident_str += self.current_char
                         self.advance()
 
@@ -1182,8 +1186,8 @@ class Lexer:
                         errors.append(LexicalError(pos, f"'{ident_str}' exceeds maximum number of characters"))
                         continue
                     
-                    if self.current_char is None or self.current_char in lit_dlm:
-                        tokens.append(Token(TT_SEED, ident_str, line)) # Changed to TT_SEED
+                    if self.current_char is None or self.current_char in delim21:
+                        tokens.append(Token(TT_RW_SEED, ident_str, line)) # Changed to TT_RW_SEED
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -1203,8 +1207,8 @@ class Lexer:
                         errors.append(LexicalError(pos, f"'{ident_str}' exceeds maximum number of characters"))
                         continue
 
-                    if self.current_char is None or self.current_char in lit_dlm:
-                        tokens.append(Token(TT_TREE, ident_str, line)) # Changed to TT_TREE
+                    if self.current_char is None or self.current_char in delim21:
+                        tokens.append(Token(TT_RW_TREE, ident_str, line)) 
                         continue
                     else:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
@@ -1245,12 +1249,12 @@ class Lexer:
                     errors.append(LexicalError(pos, f"Missing closing '\"' after '{string}'"))
                     continue
 
-                if self.current_char is not None and self.current_char not in lit_dlm:
+                if self.current_char is not None and self.current_char not in delim21:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after string literal '{string}'"))
                     continue
             
                 string = string.replace('\n', '\\n')
-                tokens.append(Token(TT_STRING, string, line)) # Changed to TT_STRING
+                tokens.append(Token(TT_RW_STRING, string, line)) # Changed to TT_STRING
                 continue
     
             elif self.current_char == "'":
@@ -1302,11 +1306,11 @@ class Lexer:
                      continue
 
 
-                if self.current_char is not None and self.current_char not in lit_dlm:
+                if self.current_char is not None and self.current_char not in delim21:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{string}'"))
                     continue
 
-                tokens.append(Token(TT_LEAF, string, line)) # Changed to TT_LEAF
+                tokens.append(Token(TT_RW_LEAF, string, line)) # Changed to TT_LEAF
                 continue
 
             else:
