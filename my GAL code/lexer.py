@@ -8,7 +8,7 @@ LOW_ALPHA = 'abcdefghijklmnopqrstuvwxyz'
 UPPER_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 ALPHA = LOW_ALPHA + UPPER_ALPHA
-ALPHANUM = ALPHA + ZERODIGIT
+ALPHANUM = ALPHA + ZERODIGIT + '_'
 
 # --- DELIMITER SETS ---
 
@@ -40,7 +40,7 @@ delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<',
 delim24 = set(ZERODIGIT + ALPHA + '~' + '(')
 idf_delim = { ' ', ',', ';', '(', ')', '{', '[', ']', ':', '+', '-', '*', '/', '%' , '>', '<', '=', '\t', '\n'}
 whlnum_delim = { ';', ' ', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', '\t', '\n' }
-decim_delim = { '}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', ' ', '\t', '\n' }
+decim_delim = { '}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', ' ', '\t', '\n', ')' }
     # Fix: set() takes a single iterable; combine into one string and use newline '\n'
 comment_delim = set(ALPHANUM + ';+-*/%}{()' + '\n')
 
@@ -213,12 +213,8 @@ class Lexer:
                         if self.current_char == "d": # bud
                             ident_str += self.current_char
                             self.advance()
-                            if self.current_char is not None and self.current_char in delim4:
+                            if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                 tokens.append(Token(TT_RW_BUD, ident_str, line))
-                                continue
-                            elif self.current_char is not None and self.current_char not in delim4 and self.current_char not in ALPHANUM:
-                                errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                self.advance()
                                 continue
                         elif self.current_char == "n": # bundle
                             ident_str += self.current_char
@@ -232,12 +228,8 @@ class Lexer:
                                     if self.current_char == "e":
                                         ident_str += self.current_char
                                         self.advance()
-                                        if self.current_char is not None and self.current_char in space_delim: # struct delimiter (was hawk_dlm)
+                                        if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                             tokens.append(Token(TT_RW_BUNDLE, ident_str, line))
-                                            continue
-                                        elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                            errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                            self.advance()
                                             continue
                 
                 #Letter C
@@ -268,11 +260,8 @@ class Lexer:
                                                 if self.current_char == "e":
                                                     ident_str += self.current_char
                                                     self.advance()
-                                                    if self.current_char is not None and self.current_char in delim4:
+                                                    if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                                         tokens.append(Token(TT_RW_CULTIVATE, ident_str, line))
-                                                        continue
-                                                    elif self.current_char is not None and self.current_char not in delim4 and self.current_char not in ALPHANUM:
-                                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                                         continue
                 
                 # Letter E
@@ -314,12 +303,10 @@ class Lexer:
                                 if self.current_char == "t":
                                     ident_str += self.current_char
                                     self.advance()
-                                    if self.current_char is None or self.current_char in space_delim:
+                                    if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                         tokens.append(Token(TT_RW_BRANCH, ident_str, line)) # Boolean Literal
                                         continue
-                                    elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                        continue
+                                    # If followed by alphanum/underscore, continue to identifier parsing
                     elif self.current_char == "e": # fertile
                         ident_str += self.current_char
                         self.advance()
@@ -338,11 +325,8 @@ class Lexer:
                                         if self.current_char == "e":
                                             ident_str += self.current_char
                                             self.advance()
-                                            if self.current_char is None or self.current_char in space_delim:
+                                            if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                                 tokens.append(Token(TT_RW_FERTILE, ident_str, line))
-                                                continue
-                                            elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                                errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                                 continue
                                             
                 # Letter G
@@ -387,11 +371,8 @@ class Lexer:
                                         if self.current_char == "t":
                                             ident_str += self.current_char
                                             self.advance()
-                                            if self.current_char is not None and self.current_char in delim4:
+                                            if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                                 tokens.append(Token(TT_RW_HARVEST, ident_str, line))
-                                                continue
-                                            elif self.current_char is not None and self.current_char not in delim4 and self.current_char not in ALPHANUM:
-                                                errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                                 continue
                                 
                 # Letter L
@@ -407,11 +388,8 @@ class Lexer:
                             if self.current_char == "f":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char is None or self.current_char in space_delim:
+                                if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                     tokens.append(Token(TT_RW_LEAF, ident_str, line))
-                                    continue
-                                elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                     continue
                         
                 # Letter P
@@ -507,12 +485,10 @@ class Lexer:
                                         if self.current_char == "m":
                                             ident_str += self.current_char
                                             self.advance()
-                                            if self.current_char is None or self.current_char in delim8:
+                                            if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                                 tokens.append(Token(TT_RW_RECLAIM, ident_str, line))
                                                 continue
-                                            elif self.current_char is not None and self.current_char not in delim8 and self.current_char not in ALPHANUM:
-                                                errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                                continue
+                                            # If followed by alphanum/underscore, continue to identifier parsing
                     elif self.current_char == "o": # root
                         ident_str += self.current_char
                         self.advance()
@@ -542,12 +518,10 @@ class Lexer:
                             if self.current_char == "d":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char is None or self.current_char in space_delim:
+                                if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                     tokens.append(Token(TT_RW_SEED, ident_str, line))
                                     continue
-                                elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                    continue
+                                # If followed by alphanum/underscore, continue to identifier parsing
                     elif self.current_char == "k": # skip
                         ident_str += self.current_char
                         self.advance()
@@ -620,12 +594,10 @@ class Lexer:
                                             if self.current_char == "e":
                                                 ident_str += self.current_char
                                                 self.advance()
-                                                if self.current_char is None or self.current_char in space_delim:
+                                                if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                                     tokens.append(Token(TT_RW_BRANCH, ident_str, line)) # Boolean Literal
                                                     continue
-                                                elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                                    continue
+                                                # If followed by alphanum/underscore, continue to identifier parsing
 
                 # Letter T
                 elif self.current_char == "t":
@@ -640,12 +612,10 @@ class Lexer:
                             if self.current_char == "d":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char is not None and self.current_char in delim3:
+                                if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                     tokens.append(Token(TT_RW_TEND, ident_str, line))
                                     continue
-                                elif self.current_char is not None and self.current_char not in delim3 and self.current_char not in ALPHANUM:
-                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                    continue
+                                # If followed by alphanum/underscore, continue to identifier parsing
                     elif self.current_char == "r": # tree
                         ident_str += self.current_char
                         self.advance()
@@ -655,11 +625,8 @@ class Lexer:
                             if self.current_char == "e":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char is None or self.current_char in space_delim:
+                                if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                     tokens.append(Token(TT_RW_TREE, ident_str, line))
-                                    continue
-                                elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                                     continue
 
                 # Letter V
@@ -728,12 +695,10 @@ class Lexer:
                                     if self.current_char == "r":
                                         ident_str += self.current_char
                                         self.advance()
-                                        if self.current_char is not None and self.current_char in delim3:
+                                        if self.current_char is None or (self.current_char not in ALPHANUM and self.current_char != '_'):
                                             tokens.append(Token(TT_RW_WITHER, ident_str, line))
                                             continue
-                                        elif self.current_char is not None and self.current_char not in delim3 and self.current_char not in ALPHANUM:
-                                            errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                            continue
+                                        # If followed by alphanum/underscore, continue to identifier parsing
 
                 #Identifier            
                 maxIdentifierLength = 16 # Changed from 20 to 16
