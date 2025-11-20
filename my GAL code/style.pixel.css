@@ -17,12 +17,12 @@
 /* Monaco Editor Line Highlighting */
 .current-line-highlight {
   background: rgba(124, 210, 111, 0.03) !important;
-  border-left: 3px solid #7cd26f !important;
+  border-left: none !important;
 }
 
 .current-line-glyph {
-  background: #7cd26f !important;
-  width: 3px !important;
+  background: transparent !important;
+  width: 0px !important;
 }
 
 /* Base */
