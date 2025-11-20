@@ -1,8 +1,0 @@
-// Example Grow A Language program
-seed{
-  // grow 3 sprouts
-  sprout ~3;
-  bud 'X';
-  // more tokens
-  grow;
-}
