@@ -3,18 +3,18 @@ from flask_cors import CORS
 import os
 from lexer import lex
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../UI', static_url_path='')
 CORS(app)
 
 @app.route('/')
 def index():
     """Serve the main HTML file"""
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('../UI', 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
     """Serve static files (CSS, JS, images, etc.)"""
-    return send_from_directory('.', path)
+    return send_from_directory('../UI', path)
 
 @app.route('/api/lex', methods=['POST'])
 def lexer_endpoint():
