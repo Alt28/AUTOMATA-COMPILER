@@ -11,9 +11,14 @@ def index():
     """Serve the main HTML file"""
     return send_from_directory('../UI', 'index.html')
 
+@app.route('/images/<path:filename>')
+def serve_images(filename):
+    """Serve image files from root images folder"""
+    return send_from_directory('../images', filename)
+
 @app.route('/<path:path>')
 def serve_static(path):
-    """Serve static files (CSS, JS, images, etc.)"""
+    """Serve static files (CSS, JS, etc.) from UI folder"""
     return send_from_directory('../UI', path)
 
 @app.route('/api/lex', methods=['POST'])
