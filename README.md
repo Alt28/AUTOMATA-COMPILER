@@ -1,4 +1,4 @@
-# Grow A Language - Local Test Guide
+# Grow A Language - guide
 
 This project includes a small Flask + Socket.IO backend and a web UI (Monaco editor + xterm) to test the lexer and simulate program runs.
 The lexer supports line comments with both `//` and `#`, and block comments with `/* ... */`.
