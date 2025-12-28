@@ -1,17 +1,12 @@
 How to start server 
 
+# install this first 
+python -m pip install -r requirements.txt 
 
+# next step to create environment
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
 
-python .\server.py
-
-
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-python -m pip install -r requirements.txt
-
-python .\server.py
-
+# start server
+python .\Backend\server.py
