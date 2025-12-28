@@ -1271,7 +1271,7 @@ class Lexer:
                 elif self.current_char is not None and self.current_char in ZERODIGIT:
                     fractional_part = ""
                     while self.current_char is not None and self.current_char in ZERODIGIT:
-                        if len(fractional_part + self.current_char) > 6: 
+                        if len(fractional_part + self.current_char) > 8: 
                             errors.append(LexicalError(pos, f"'{ident_str}' exceeds maximum number of decimal places"))
                             break
 
@@ -1303,7 +1303,7 @@ class Lexer:
                 ident_str = ""              # Build the number string
                 pos = self.pos.copy()       # Save position for errors
                 integer_digit_count = 0     # Count digits before decimal (max 16)
-                fractional_digit_count = 0  # Count digits after decimal (max 7)
+                fractional_digit_count = 0  # Count digits after decimal (max 8)
                 has_e = False               # Track if scientific notation (e.g., 1e10)
 
                 # Step 1: Read integer part (before decimal point)
@@ -1332,8 +1332,8 @@ class Lexer:
                     # Read fractional part (digits after decimal point)
                     while self.current_char is not None and self.current_char in ZERODIGIT:
                         fractional_digit_count += 1
-                        if fractional_digit_count > 7:
-                            errors.append(LexicalError(pos, f"Fractional part exceeds maximum of 7 digits"))
+                        if fractional_digit_count > 8:
+                            errors.append(LexicalError(pos, f"Fractional part exceeds maximum of 8 digits"))
                             # Consume the rest of the invalid number
                             while self.current_char is not None and self.current_char in ZERODIGIT:
                                 self.advance()
@@ -1342,11 +1342,11 @@ class Lexer:
                         self.advance()
 
                 # Error check: Skip if digit limits exceeded
-                if integer_digit_count > 16 or fractional_digit_count > 7:
+                if integer_digit_count > 16 or fractional_digit_count > 8:
                     continue
 
                 # Duplicate check removed (was redundant)
-                if integer_digit_count > 16 or fractional_digit_count > 7:
+                if integer_digit_count > 16 or fractional_digit_count > 8:
                     continue
 
                 # Step 3: Check for scientific notation (e.g., 1.5e10, 2.3e-5)
