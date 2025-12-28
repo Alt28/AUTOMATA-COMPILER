@@ -1,4 +1,3 @@
-/* Pixel Garden Theme - clean stylesheet */
 :root{
   --bg: #0d1b0f;           /* deep garden night */
   --panel: #18361d;        /* foliage panel */
@@ -81,7 +80,7 @@ img, canvas{ image-rendering: pixelated; }
 .themes-list .active{ background:linear-gradient(90deg, rgba(34,75,43,.9) 0%, rgba(26,58,33,.7) 100%); border-left-color:#7cd26f; box-shadow: inset 0 1px 3px rgba(0,0,0,.2); }
 .navbar img{ margin-right: 10px; }
 .logoContainer{ display:flex; justify-content:flex-end; align-items:center; }
-.logo-img{ height: 64px; width: auto; max-width: 260px; object-fit: contain; }
+.logo-img{ height: 96px; width: auto; max-width: 260px; object-fit: contain; }
 .logoName{ text-shadow: 2px 2px 0 #3a271c; margin: 0 0 0 8px; }
 
 /* Sidebar tokens table */
