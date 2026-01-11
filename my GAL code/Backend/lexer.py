@@ -22,7 +22,7 @@ ALPHANUM = ALPHA + ZERODIGIT + '_'  # Letters, digits, and underscore (valid for
 # Delimiters are characters that can legally appear AFTER certain tokens.
 # Different token types have different valid delimiters to ensure proper syntax.
 
-space_delim = {' ', ';', '{'}  # Valid after keywords like 'seed', 'tree', 'leaf'
+space_delim = {' ', '\t', '\n'}  # Valid after keywords like 'seed', 'tree', 'leaf'
 delim2 = {';', ':'}  # Valid after 'soil' (default case)
 delim3 = {'{'}  # Valid after 'tend' (do-while), 'wither' (else)
 delim4 = {':', '('}  # Valid after 'bud' (else-if), 'cultivate' (for), 'harvest' (switch)
@@ -80,7 +80,7 @@ TT_RW_VARIETY     = 'variety'   # Case label in switch statement
 TT_RW_FERTILE     = 'fertile'   # Constant declaration
 TT_RW_SOIL        = 'soil'      # Default case in switch statement
 TT_RW_BUNDLE      = 'bundle'    # Struct definition
-TT_RW_STRING      = 'string'    # String data type
+TT_RW_VINE        = 'vine'      # String data type
 
 # --- Operators & Symbols ---
 TT_IDENTIFIER = 'id'        # Variable/function names (e.g., myVar, calcTotal)
@@ -743,31 +743,47 @@ class Lexer:
                 elif self.current_char == "v":
                     ident_str += self.current_char
                     self.advance()
-                    if self.current_char == "a": # variety
+                    if self.current_char == "i": # vine or variety
                         ident_str += self.current_char
                         self.advance()
-                        if self.current_char == "r":
+                        if self.current_char == "n": # vine
                             ident_str += self.current_char
                             self.advance()
-                            if self.current_char == "i":
+                            if self.current_char == "e":
                                 ident_str += self.current_char
                                 self.advance()
-                                if self.current_char == "e":
+                                if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in space_delim:
+                                    tokens.append(Token(TT_RW_VINE, ident_str, line))
+                                    continue
+                                elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in space_delim and self.current_char not in ALPHANUM:
+                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                                    self.advance()
+                                    continue
+                        elif self.current_char == "a": # variety
+                            ident_str += self.current_char
+                            self.advance()
+                            if self.current_char == "r":
+                                ident_str += self.current_char
+                                self.advance()
+                                if self.current_char == "i":
                                     ident_str += self.current_char
                                     self.advance()
-                                    if self.current_char == "t":
+                                    if self.current_char == "e":
                                         ident_str += self.current_char
                                         self.advance()
-                                        if self.current_char == "y":
+                                        if self.current_char == "t":
                                             ident_str += self.current_char
                                             self.advance()
-                                            if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in space_delim:
-                                                tokens.append(Token(TT_RW_VARIETY, ident_str, line))
-                                                continue
-                                            elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                                errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                                            if self.current_char == "y":
+                                                ident_str += self.current_char
                                                 self.advance()
-                                                continue
+                                                if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in space_delim:
+                                                    tokens.append(Token(TT_RW_VARIETY, ident_str, line))
+                                                    continue
+                                                elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in space_delim and self.current_char not in ALPHANUM:
+                                                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                                                    self.advance()
+                                                    continue
 
                 # Letter W
                 elif self.current_char == "w":
@@ -816,10 +832,12 @@ class Lexer:
                                             continue
 
                 #Identifier            
-                maxIdentifierLength = 16 # Changed from 20 to 16
+                maxIdentifierLength = 15 # Changed from 20 to 15
+                identifier_exceeded = False  # Track if identifier exceeded max length
                 while self.current_char is not None and self.current_char in ALPHANUM:
                     if len(ident_str) + 1 > maxIdentifierLength:
                         errors.append(LexicalError(pos, f"Identifier '{ident_str}...' exceeds maximum length of {maxIdentifierLength} characters."))
+                        identifier_exceeded = True  # Mark as exceeded
                         # Consume the rest of the invalid identifier
                         while self.current_char is not None and self.current_char in ALPHANUM:
                             self.advance()
@@ -827,16 +845,16 @@ class Lexer:
                     ident_str += self.current_char
                     self.advance()
 
-                if len(ident_str) <= maxIdentifierLength:
+                # Only add token if identifier did NOT exceed max length
+                if not identifier_exceeded:
                     if self.current_char is None or self.current_char in idf_delim:
                         tokens.append(Token(TT_IDENTIFIER, ident_str, line))
                         continue
                     elif self.current_char is not None and self.current_char not in idf_delim and self.current_char not in ALPHANUM:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
                         continue
-                else:
-                    # Error was already appended, just continue to next token
-                    continue
+                # Error was already appended, just continue to next token
+                continue
 
             
             elif self.current_char == "-":
@@ -1295,22 +1313,22 @@ class Lexer:
                 continue
 
             # =====================================================================
-            # NUMBER LITERAL PARSING: integers, doubles, scientific notation
-            # Examples: 42, 3.14, 1.5e10, 2.3e-5
+            # 
+            # 
             # =====================================================================
             elif self.current_char in ZERODIGIT:
                 dot_count = 0               # Count decimal points (max 1)
                 ident_str = ""              # Build the number string
                 pos = self.pos.copy()       # Save position for errors
-                integer_digit_count = 0     # Count digits before decimal (max 16)
+                integer_digit_count = 0     # Count digits before decimal (max 15)
                 fractional_digit_count = 0  # Count digits after decimal (max 8)
                 has_e = False               # Track if scientific notation (e.g., 1e10)
 
                 # Step 1: Read integer part (before decimal point)
                 while self.current_char is not None and self.current_char in ZERODIGIT:
                     integer_digit_count += 1
-                    if integer_digit_count > 16:
-                        errors.append(LexicalError(pos, f"Integer part exceeds maximum of 16 digits"))
+                    if integer_digit_count > 15:
+                        errors.append(LexicalError(pos, f"Integer part exceeds maximum of 15 digits"))
                         # Consume the rest of the invalid number
                         while self.current_char is not None and self.current_char in ZERODIGIT + ".":
                             self.advance()
@@ -1319,7 +1337,7 @@ class Lexer:
                     self.advance()
 
                 # Step 2: Check for decimal point (converts to double/float)
-                if self.current_char == "." and integer_digit_count <= 16:
+                if self.current_char == "." and integer_digit_count <= 15:
                     dot_count = 1  # Mark that we found a decimal point
                     ident_str += self.current_char
                     self.advance()
@@ -1342,11 +1360,11 @@ class Lexer:
                         self.advance()
 
                 # Error check: Skip if digit limits exceeded
-                if integer_digit_count > 16 or fractional_digit_count > 8:
+                if integer_digit_count > 15 or fractional_digit_count > 8:
                     continue
 
                 # Duplicate check removed (was redundant)
-                if integer_digit_count > 16 or fractional_digit_count > 8:
+                if integer_digit_count > 15 or fractional_digit_count > 8:
                     continue
 
                 # Step 3: Check for scientific notation (e.g., 1.5e10, 2.3e-5)
@@ -1412,7 +1430,7 @@ class Lexer:
                             # Check if it's a reserved word
                             reserved_words = {'water', 'plant', 'seed', 'leaf', 'branch', 'tree', 'spring', 'wither', 'bud', 
                                             'harvest', 'grow', 'cultivate', 'tend', 'empty', 'prune', 'skip', 'reclaim', 
-                                            'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'sunshine', 'frost'}
+                                            'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'vine', 'sunshine', 'frost'}
                             
                             if temp_str in reserved_words:
                                 errors.append(LexicalError(pos, f"Reserved word cannot start with a number: '{ident_str}{temp_str}'"))
@@ -1434,7 +1452,7 @@ class Lexer:
                                 
                                 reserved_words = {'water', 'plant', 'seed', 'leaf', 'branch', 'tree', 'spring', 'wither', 'bud', 
                                                 'harvest', 'grow', 'cultivate', 'tend', 'empty', 'prune', 'skip', 'reclaim', 
-                                                'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'sunshine', 'frost'}
+                                                'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'vine', 'sunshine', 'frost'}
                                 
                                 if temp_str in reserved_words:
                                     errors.append(LexicalError(pos, f"Reserved word cannot start with a number: '{ident_str}_{temp_str}'"))
@@ -1681,7 +1699,7 @@ class Lexer:
                         
                         reserved_words = {'water', 'plant', 'seed', 'leaf', 'branch', 'tree', 'spring', 'wither', 'bud', 
                                         'harvest', 'grow', 'cultivate', 'tend', 'empty', 'prune', 'skip', 'reclaim', 
-                                        'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'sunshine', 'frost'}
+                                        'root', 'pollinate', 'variety', 'fertile', 'soil', 'bundle', 'string', 'vine', 'sunshine', 'frost'}
                         
                         if temp_str in reserved_words:
                             errors.append(LexicalError(pos, f"Reserved word cannot start with a symbol: '_{temp_str}'"))
