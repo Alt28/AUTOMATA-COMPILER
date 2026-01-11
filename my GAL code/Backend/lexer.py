@@ -571,6 +571,7 @@ class Lexer:
                                                 continue
                                             elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in delim8 and self.current_char not in ALPHANUM:
                                                 errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                                                self.advance()
                                                 continue
                     elif self.current_char == "o": # root
                         ident_str += self.current_char
@@ -886,10 +887,12 @@ class Lexer:
                 # Check for valid delimiter after -
                 if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\' ' + '\t' + '\n'):
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                    self.advance()
                     continue
                 # Check if previous token was an operator (catch "- -" case with whitespace)
                 if len(tokens) > 0 and tokens[-1].type in [TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD]:
                     errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_MINUS, ident_str, line))
                 continue
@@ -904,6 +907,7 @@ class Lexer:
                     continue
                 else:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'."))
+                    self.advance()
                     continue
             
             elif self.current_char == "!":
@@ -914,8 +918,9 @@ class Lexer:
                     ident_str += self.current_char
                     self.advance()
                     # Check for consecutive comparison operators
-                    if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                    if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                        self.advance()
                         continue
                     tokens.append(Token(TT_NOTEQ, ident_str, line))
                     continue
@@ -940,10 +945,12 @@ class Lexer:
                 # Check for valid delimiter after %
                 if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\' ;' + '\t' + '\n'):
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                    self.advance()
                     continue
                 # Check if previous token was an operator (catch "% +" case with whitespace)
                 if len(tokens) > 0 and tokens[-1].type in [TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD]:
                     errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_MOD, ident_str, line))
                 continue
@@ -998,10 +1005,12 @@ class Lexer:
                 # Check for valid delimiter after *
                 if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\' ' + '\t' + '\n'):
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                    self.advance()
                     continue
                 # Check if previous token was an operator (catch "* +" case with whitespace)
                 if len(tokens) > 0 and tokens[-1].type in [TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD]:
                     errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_MUL, ident_str, line))
                 continue
@@ -1107,10 +1116,12 @@ class Lexer:
                 # Check for valid delimiter after +
                 if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\' ' + '\t' + '\n'):
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                    self.advance()
                     continue
                 # Check if previous token was an operator (catch "+ +" case with whitespace)
                 if len(tokens) > 0 and tokens[-1].type in [TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD]:
                     errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_PLUS, ident_str, line))
                 continue
@@ -1123,14 +1134,16 @@ class Lexer:
                     ident_str += self.current_char
                     self.advance()
                     # Check for consecutive comparison operators
-                    if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                    if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                        self.advance()
                         continue
                     tokens.append(Token(TT_LTEQ, ident_str, line))
                     continue
                 # Check for consecutive comparison operators
-                if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                     errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_LT, ident_str, line))
                 continue
@@ -1155,8 +1168,9 @@ class Lexer:
                         continue
                     
                     # Prevent consecutive comparison operators (e.g., "< ==" or "> ==")
-                    if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                    if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
+                        self.advance()
                         continue
                     
                     # Valid '==' (equality comparison operator)
@@ -1175,14 +1189,16 @@ class Lexer:
                     ident_str += self.current_char
                     self.advance()
                     # Check for consecutive comparison operators
-                    if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                    if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
+                        self.advance()
                         continue
                     tokens.append(Token(TT_GTEQ, ident_str, line))
                     continue
                 # Check for consecutive comparison operators
-                if len(tokens) > 0 and tokens[-1].type in ['>', '<', '==', '!=', '>=', '<=']:
+                if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                     errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
+                    self.advance()
                     continue
                 tokens.append(Token(TT_GT, ident_str, line))
                 continue
@@ -1270,10 +1286,12 @@ class Lexer:
                     # Check for valid delimiter after /
                     if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\'  ' + '\t' + '\n'):
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                        self.advance()
                         continue
                     # Check if previous token was an operator (catch "/ +" case with whitespace)
                     if len(tokens) > 0 and tokens[-1].type in [TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD]:
                         errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
+                        self.advance()
                         continue
                     tokens.append(Token(TT_DIV, ident_str, line))
                     continue
@@ -1324,20 +1342,22 @@ class Lexer:
                 fractional_digit_count = 0  # Count digits after decimal (max 8)
                 has_e = False               # Track if scientific notation (e.g., 1e10)
 
-                # Step 1: Read integer part (before decimal point)
+                
+                # Read all digits before decimal point
                 while self.current_char is not None and self.current_char in ZERODIGIT:
                     integer_digit_count += 1
-                    if integer_digit_count > 15:
-                        errors.append(LexicalError(pos, f"Integer part exceeds maximum of 15 digits"))
-                        # Consume the rest of the invalid number
-                        while self.current_char is not None and self.current_char in ZERODIGIT + ".":
-                            self.advance()
-                        break
                     ident_str += self.current_char
                     self.advance()
 
                 # Step 2: Check for decimal point (converts to double/float)
-                if self.current_char == "." and integer_digit_count <= 15:
+                if self.current_char == ".":
+                    # For decimals, check if integer part exceeds 15 digits
+                    if integer_digit_count > 15:
+                        errors.append(LexicalError(pos, f"Integer part of decimal exceeds maximum of 15 digits"))
+                        # Consume the rest of the invalid number
+                        while self.current_char is not None and self.current_char in ZERODIGIT + ".":
+                            self.advance()
+                        continue
                     dot_count = 1  # Mark that we found a decimal point
                     ident_str += self.current_char
                     self.advance()
@@ -1360,11 +1380,13 @@ class Lexer:
                         self.advance()
 
                 # Error check: Skip if digit limits exceeded
-                if integer_digit_count > 15 or fractional_digit_count > 8:
+                # For pure integers: max 8 digits
+                # For decimals: max 15 before decimal, max 8 after decimal
+                if dot_count == 0 and integer_digit_count > 8:
+                    errors.append(LexicalError(pos, f"exceeds maximum of 8 digits"))
                     continue
-
-                # Duplicate check removed (was redundant)
-                if integer_digit_count > 15 or fractional_digit_count > 8:
+                
+                if fractional_digit_count > 8:
                     continue
 
                 # Step 3: Check for scientific notation (e.g., 1.5e10, 2.3e-5)
@@ -1390,27 +1412,16 @@ class Lexer:
                         self.advance()
 
                 if dot_count == 0 and not has_e:
-                    # DEBUG: Always show what we have before integer
-                    print(f"DEBUG INTEGER CHECK: tokens count={len(tokens)}, integer={ident_str}")
-                    if len(tokens) >= 2:
-                        print(f"  Last tokens: {[(t.type, t.value) for t in tokens[-min(4, len(tokens)):]]}")
-                    
                     # Check if this is after a type declaration for tree (tree only accepts doubles, not integers)
                     type_token = None
                     if len(tokens) >= 3 and tokens[-2].type == 'idf' and tokens[-1].type == '=':
                         type_token = tokens[-3].type
-                        print(f"  Pattern 1 matched! type_token={type_token}")
                     elif len(tokens) >= 4 and tokens[-3].type == ':' and tokens[-2].type == 'idf' and tokens[-1].type == '=':
                         type_token = tokens[-4].type
-                        print(f"  Pattern 2 matched! type_token={type_token}")
                     elif len(tokens) >= 2 and tokens[-1].type == '=' and tokens[-2].type in ['tree', 'seed', 'branch']:
                         type_token = tokens[-2].type
-                        print(f"  Pattern 3 (no identifier) matched! type_token={type_token}")
-                    else:
-                        print(f"  No pattern matched")
                     
                     if type_token == 'tree':
-                        print(f"  REJECTING integer {ident_str} for tree variable")
                         errors.append(LexicalError(pos, f"Tree variables cannot be assigned integer literals. Use double values (e.g., {ident_str}.0)"))
                         continue
                     
@@ -1481,6 +1492,7 @@ class Lexer:
                     # Check for valid delimiter after double
                     if self.current_char is not None and self.current_char not in decim_delim:
                         errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                        self.advance()
                         continue
                     if not has_e: # Only re-format if not scientific notation
                          parts = ident_str.split(".")
@@ -1538,6 +1550,7 @@ class Lexer:
 
                 if self.current_char is not None and self.current_char not in delim23 and self.current_char not in space_delim:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after string literal '{string}'"))
+                    self.advance()
                     continue
             
                 # Check if this is after a type declaration 
@@ -1656,6 +1669,7 @@ class Lexer:
 
                 if self.current_char is not None and self.current_char not in delim23 and self.current_char not in space_delim:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{string}'"))
+                    self.advance()
                     continue
 
                 # Check if this is after a type declaration 
