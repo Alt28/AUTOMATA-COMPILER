@@ -206,10 +206,13 @@ def semantic_endpoint():
         }), 500
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('DEBUG', 'False') != 'True'
+    
     print("Starting GAL Compiler Server...")
-    print("Server running at http://localhost:5000")
+    print(f"Server running at http://0.0.0.0:{port}")
     print("API endpoints:")
-    print("  - POST http://localhost:5000/api/lex (Lexical Analysis)")
-    print("  - POST http://localhost:5000/api/parse (Syntax Analysis)")
-    print("  - POST http://localhost:5000/api/semantic (Semantic Analysis)")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print(f"  - POST http://localhost:{port}/api/lex (Lexical Analysis)")
+    print(f"  - POST http://localhost:{port}/api/parse (Syntax Analysis)")
+    print(f"  - POST http://localhost:{port}/api/semantic (Semantic Analysis)")
+    app.run(host='0.0.0.0', port=port, debug=debug)
