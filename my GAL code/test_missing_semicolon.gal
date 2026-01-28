@@ -1,0 +1,5 @@
+root() {
+ seed x
+ x = 1;
+ reclaim;
+}
