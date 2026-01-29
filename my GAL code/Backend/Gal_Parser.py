@@ -151,9 +151,9 @@ class LL1Parser:
                         prev_line = prev_tok.line
                         prev_col = prev_tok.col + len(str(prev_tok.value))
                         if prev_line != line:  # Previous token on different line
-                            return (f"Ln {prev_line}, Col {prev_col}: Syntax Error: Missing semicolon ';' after '{prev_tok.value}'")
+                            return (f"Ln {prev_line}, Col {prev_col}: Syntax error expected ';' after '{prev_tok.value}'")
                         else:
-                            return f"Ln {line}, Col {col}: Syntax Error: Missing semicolon ';' before '{token_value}'"
+                            return f"Ln {line}, Col {col}: Syntax error expected ';' before '{token_value}'"
             elif token_type == '}':
                 # Missing semicolon before closing brace
                 if index > 0:
@@ -166,9 +166,9 @@ class LL1Parser:
                         prev_line = prev_tok.line
                         prev_col = prev_tok.col + len(str(prev_tok.value))
                         if prev_line != line:
-                            return f"Ln {prev_line}, Col {prev_col}: Syntax Error: Missing semicolon ';' after '{prev_tok.value}'"
+                            return f"Ln {prev_line}, Col {prev_col}: Syntax error expected ';' after '{prev_tok.value}'"
                         else:
-                            return f"Ln {line}, Col {col}: Syntax Error: Missing semicolon ';' before '}}'"
+                            return f"Ln {line}, Col {col}: Syntax error expected ';' before '}}"
         
         # Check for unary minus/plus usage (not supported in grammar)
         if token_type in {'-', '+'} and non_terminal in {'<expression>', '<factor>', '<term>', '<arithmetic>', '<logic_or>', '<logic_and>', '<relational>'}:
@@ -182,27 +182,27 @@ class LL1Parser:
                     prev_tok = toks[prev_index]
                     # If preceded by assignment or operators, likely trying to use unary operator
                     if prev_tok.type in {'=', '+=', '-=', '*=', '/=', '%=', '(', ','}:
-                        return f"Ln {line}, Col {col}: Syntax Error: Unary '{token_value}' operator not supported. Use parentheses for expressions like '(0 {token_value} value)'"
+                        return f"Ln {line}, Col {col}: Syntax error: Unary '{token_value}' operator not supported. Use parentheses for expressions like '(0 {token_value} value)'"
         
         # Check for missing reclaim statement
         if 'reclaim' in expected and token_type == '}':
-            return f"Ln {line}, Col {col}: Syntax Error: Missing 'reclaim' statement before '}}'"
+            return f"Ln {line}, Col {col}: Syntax error expected 'reclaim' statement before '}}"
         
         # Check for missing prune (break) in variety (case) statements
         if 'prune' in expected and token_type in {'variety', 'soil', '}'}:
             if token_type == 'variety':
-                return f"Ln {line}, Col {col}: Syntax Error: Missing 'prune;' statement before next 'variety'. Each case must end with 'prune;'"
+                return f"Ln {line}, Col {col}: Syntax error expected 'prune;' statement before next 'variety'. Each case must end with 'prune;'"
             elif token_type == 'soil':
-                return f"Ln {line}, Col {col}: Syntax Error: Missing 'prune;' statement before 'soil' (default case). Each case must end with 'prune;'"
+                return f"Ln {line}, Col {col}: Syntax error expected 'prune;' statement before 'soil' (default case). Each case must end with 'prune;'"
             else:  # token_type == '}'
-                return f"Ln {line}, Col {col}: Syntax Error: Missing 'prune;' statement before '}}'. Each case must end with 'prune;'"
+                return f"Ln {line}, Col {col}: Syntax error expected 'prune;' statement before '}}'. Each case must end with 'prune;'"
         
         # Check for missing opening parenthesis
         if '(' in expected and token_type != '(':
             # Don't report misleading "missing parenthesis" for assignment operators
             # This likely indicates an invalid chained assignment
             if token_type in {'=', '+=', '-=', '*=', '/=', '%='}:
-                return f"Ln {line}, Col {col}: Syntax Error: Unexpected token '{token_value}'. Expected: {expected}"
+                return f"Ln {line}, Col {col}: Syntax error: Unexpected token '{token_value}'. Expected: {expected}"
             
             # Look back to find the keyword/statement that needs parentheses
             if index > 0:
@@ -215,26 +215,26 @@ class LL1Parser:
                     # Keywords that require parentheses
                     keywords_needing_parens = {'spring', 'grow', 'cultivate', 'harvest', 'water', 'plant', 'tend', 'bud'}
                     if prev_tok.type in keywords_needing_parens:
-                        return f"Ln {line}, Col {col}: Syntax Error: Missing opening parenthesis '(' after '{prev_tok.value}'"
+                        return f"Ln {line}, Col {col}: Syntax error expected '(' after '{prev_tok.value}'"
             
             # Fallback message
-            return f"Ln {line}, Col {col}: Syntax Error: Missing opening parenthesis '('"
+            return f"Ln {line}, Col {col}: Syntax error expected '('"
         
         # Check for missing closing braces
         if '}' in expected and token_type in statement_starters:
             # Special case: bud/wither appearing without a preceding spring
             if token_type == 'bud':
-                return f"Ln {line}, Col {col}: Syntax Error: 'bud' can only appear after a 'spring' statement"
+                return f"Ln {line}, Col {col}: Syntax error: 'bud' can only appear after a 'spring' statement"
             elif token_type == 'wither':
-                return f"Ln {line}, Col {col}: Syntax Error: 'wither' can only appear after a 'spring' or 'bud' statement"
-            return f"Ln {line}, Col {col}: Syntax Error: Missing closing brace '}}' before '{token_value}'"
+                return f"Ln {line}, Col {col}: Syntax error: 'wither' can only appear after a 'spring' or 'bud' statement"
+            return f"Ln {line}, Col {col}: Syntax error expected '}}' before '{token_value}'"
         
         # Check for missing closing parenthesis
         if ')' in expected and token_type not in {')'}:
-            return f"Ln {line}, Col {col}: Syntax Error: Missing closing parenthesis ')' before '{token_value}'"
+            return f"Ln {line}, Col {col}: Syntax error expected ')' before '{token_value}'"
         
         # Default message with helpful context
-        return f"Ln {line}, Col {col}: Syntax Error: Unexpected token '{token_value}'. Expected: {expected}"
+        return f"Ln {line}, Col {col}: Syntax error: Unexpected token '{token_value}'. Expected: {expected}"
 
     def parse(self, tokens: Sequence[Any]) -> Tuple[bool, List[str]]:
         """Parse tokens according to the supplied CFG/PREDICT sets.
@@ -316,7 +316,7 @@ class LL1Parser:
                                             # These keywords require at least one statement in their blocks
                                             conditional_keywords = {'spring', 'bud', 'wither', 'grow', 'cultivate', 'tend', 'harvest'}
                                             if kw.type in conditional_keywords:
-                                                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Empty block after '{kw.value}' statement - at least one statement required")
+                                                errors.append(f"Ln {line}, Col {tok.col}: Syntax error: Empty block after '{kw.value}' statement - at least one statement required")
                                                 return False, errors
                     
                     stack.pop()
@@ -362,7 +362,7 @@ class LL1Parser:
                                     next_idx += 1
                                 
                                 if next_idx < len(toks) and toks[next_idx].type == ')':
-                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: '{kw.value}' requires a boolean condition, not a numeric literal")
+                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error: '{kw.value}' requires a boolean condition, not a numeric literal")
                                     return False, errors
                 
                 stack.pop()
@@ -379,20 +379,20 @@ class LL1Parser:
             
             # Enhanced error messages for specific missing tokens
             if top == 'reclaim' and token_type == '}':
-                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing 'reclaim' statement before '}}'")
+                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected 'reclaim' statement before '}}'")
             elif top == 'prune' and token_type in {'variety', 'soil', '}'}:
                 # Missing prune (break) in variety (case) statement
                 if token_type == 'variety':
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing 'prune' statement before next 'variety'. Each case must end with 'prune;'")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected 'prune' statement before next 'variety'. Each case must end with 'prune;'")
                 elif token_type == 'soil':
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing 'prune' statement before 'soil' (default case). Each case must end with 'prune;'")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected 'prune' statement before 'soil' (default case). Each case must end with 'prune;'")
                 else:
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing 'prune' statement before '}}'. Each case must end with 'prune;'")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected 'prune' statement before '}}'. Each case must end with 'prune;'")
             elif top == '(' and token_type != '(':
                 # Don't give misleading "missing opening parenthesis" error for assignment operators
                 # This happens when there's a chained assignment which is not supported
                 if token_type in {'=', '+=', '-=', '*=', '/=', '%='}:
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Unexpected token '{token_value}'. Expected: {expected}")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error: Unexpected token '{token_value}'. Expected: {expected}")
                 elif index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
@@ -420,21 +420,21 @@ class LL1Parser:
                                     kw_idx -= 1
                                 
                                 if kw_idx >= 0 and toks[kw_idx].type == 'tend':
-                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: 'tend' requires a condition after closing brace '}}'. Format: tend {{ ... }} (condition);")
+                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '(' after closing brace. 'tend' requires a condition after closing brace '}}'. Format: tend {{ ... }} (condition);")
                                 else:
-                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '('")
+                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '('")
                             else:
-                                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '('")
+                                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '('")
                         else:
                             keywords_needing_parens = {'spring', 'grow', 'cultivate', 'harvest', 'water', 'plant', 'tend', 'bud'}
                             if prev_tok.type in keywords_needing_parens:
-                                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '(' after '{prev_tok.value}'")
+                                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '(' after '{prev_tok.value}'")
                             else:
-                                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '('")
+                                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '('")
                     else:
-                        errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '('")
+                        errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '('")
                 else:
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening parenthesis '('")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '('")
             elif top == '{' and token_type != '{':
                 # Missing opening brace - look back to find the keyword
                 if index > 0:
@@ -467,27 +467,27 @@ class LL1Parser:
                                     if kw_index >= 0:
                                         kw_tok = toks[kw_index]
                                         if kw_tok.type in {'spring', 'grow', 'cultivate', 'tend', 'harvest', 'bud', 'pollinate', 'root'}:
-                                            errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{' after '{kw_tok.value}' statement")
+                                            errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{' after '{kw_tok.value}' statement")
                                         else:
-                                            errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                                            errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
                                     else:
-                                        errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                                        errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
                                 else:
-                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
                             else:
-                                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{' after '{prev_tok.value}'")
+                                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{' after '{prev_tok.value}'")
                         else:
-                            errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                            errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
                     else:
-                        errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                        errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
                 else:
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing opening brace '{{'")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '{{'")
             elif top == '}' and token_type != '}':
                 # Missing closing brace
-                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing closing brace '}}'")
+                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected '}}'")
             elif top == ')' and token_type != ')':
                 # Missing closing parenthesis
-                errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing closing parenthesis ')'")
+                errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected ')'")
             elif top == ';' and token_type != ';':
                 # Missing semicolon - report on the line where it should be added
                 if index > 0:
@@ -498,14 +498,14 @@ class LL1Parser:
                     if prev_index >= 0:
                         prev_tok = toks[prev_index]
                         # Report error on the line of the previous token (where semicolon should be)
-                        errors.append(f"Ln {prev_tok.line}, Col {prev_tok.col + len(str(prev_tok.value))}: Syntax Error: Missing semicolon ';'")
+                        errors.append(f"Ln {prev_tok.line}, Col {prev_tok.col + len(str(prev_tok.value))}: Syntax error expected ';'")
                     else:
-                        errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing semicolon ';'")
+                        errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected ';'")
                 else:
-                    errors.append(f"Ln {line}, Col {tok.col}: Syntax Error: Missing semicolon ';'")
+                    errors.append(f"Ln {line}, Col {tok.col}: Syntax error expected ';'")
             else:
                 errors.append(
-                    f"Ln {line}, Col {tok.col}: Syntax Error: Unexpected token '{shown_value}'. Expected: {expected}"
+                    f"Ln {line}, Col {tok.col}: Syntax error: Unexpected token '{shown_value}'. Expected: {expected}"
                 )
             return False, errors
 
@@ -515,7 +515,7 @@ class LL1Parser:
         if index < len(toks) and toks[index].type != self.end_marker:
             tok = toks[index]
             errors.append(
-                f"Ln {tok.line}, Col {tok.col}: Syntax Error: Unexpected token '{tok.value}'. Expected: {{{self.end_marker}}}"
+                f"Ln {tok.line}, Col {tok.col}: Syntax error: Unexpected token '{tok.value}'. Expected: {{{self.end_marker}}}"
             )
             return False, errors
 
