@@ -4,7 +4,8 @@ This project includes a small Flask + Socket.IO backend and a web UI (Monaco edi
 The lexer supports line comments with both `//` and `#`, and block comments with `/* ... */`.
 
 
-![The compiler](./images/compiler-screenshot.png)
+<img src="/static/images/lexer-view.png" alt="The compiler" />
+
 
 
 
