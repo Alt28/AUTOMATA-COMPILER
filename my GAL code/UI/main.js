@@ -833,22 +833,34 @@
           term.onData(termDataListener);
         });
 
+          // Global variable to track selected run mode
+          let currentRunMode = 'lexer';
           
       window.runCode = async function () {
         // Clear terminal at the start of each run
         term.clear();
         
-        // Check which mode is selected
-        const selectedMode = document.querySelector('input[name="run-mode"]:checked');
-        const mode = selectedMode ? selectedMode.value : 'lexer';
-        
-        if (mode === 'syntax') {
+        // Use the current run mode
+        if (currentRunMode === 'syntax') {
           await runSyntax({ silent: false });
-        } else if (mode === 'semantic') {
+        } else if (currentRunMode === 'semantic') {
           await runSemantic({ silent: false });
         } else {
           await runLexer({ silent: false });
         }
+      };
+      
+      window.selectRunMode = function(mode) {
+        currentRunMode = mode;
+        const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
+        document.getElementById('run-mode-text').textContent = `Run - ${modeText}`;
+        document.getElementById('run-dropdown-menu').classList.add('hidden');
+      };
+      
+      window.toggleRunDropdown = function(event) {
+        event.stopPropagation();
+        const menu = document.getElementById('run-dropdown-menu');
+        menu.classList.toggle('hidden');
       };
         });
 
@@ -882,6 +894,14 @@
     
       if (!dropdown.contains(e.target)) {
         menu.classList.add("hidden");
+      }
+      
+      // Hide run dropdown if clicked outside
+      const runDropdown = document.querySelector(".run-dropdown");
+      const runMenu = document.getElementById("run-dropdown-menu");
+      
+      if (runDropdown && runMenu && !runDropdown.contains(e.target)) {
+        runMenu.classList.add("hidden");
       }
     });
 
