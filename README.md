@@ -3,8 +3,15 @@
 This project includes a small Flask + Socket.IO backend and a web UI (Monaco editor + xterm) to test the lexer and simulate program runs.
 The lexer supports line comments with both `//` and `#`, and block comments with `/* ... */`.
 
+## Compiler Interface
 
-<img src="/static/images/lexer-view.png" alt="The compiler" />
+<img src="/static/images/compiler-interface.png" alt="Compiler Interface" />
+
+The compiler interface features:
+- **Left Panel**: LEXEMES table displaying lexeme, token, and type information
+- **Right Panel**: Monaco code editor for writing and editing GAL code
+- **Bottom Panel**: OUTPUT terminal with tabs for Lexical, Syntax, Semantic, and Execution analysis
+- **Top Controls**: Open, Save, Clear, Run, and Lexer buttons for managing and executing code
 
 
 
