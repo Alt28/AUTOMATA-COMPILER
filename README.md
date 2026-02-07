@@ -3,8 +3,9 @@
 This project includes a small Flask + Socket.IO backend and a web UI (Monaco editor + xterm) to test the lexer and simulate program runs.
 The lexer supports line comments with both `//` and `#`, and block comments with `/* ... */`.
 
-The compiler
-<img width="1911" height="861" alt="image" src="./images/compiler-screenshot.png./docs/screenshots/lexer-view.png" />
+
+<img src="./docs/screenshots/lexer-view.png" alt="The compiler" width="1911" height="861" />
+
 
 
 ## 1) Install Python dependencies (local dev)
