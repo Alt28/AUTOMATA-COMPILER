@@ -30,23 +30,16 @@
                 </button>
             </div>
 
-            <div class="mode-selector">
-                <label class="mode-radio">
-                    <input type="radio" name="run-mode" value="lexer" checked>
-                    <span>Lexer</span>
-                </label>
-                <label class="mode-radio">
-                    <input type="radio" name="run-mode" value="syntax">
-                    <span>Syntax</span>
-                </label>
-                <label class="mode-radio">
-                    <input type="radio" name="run-mode" value="semantic">
-                    <span>Semantic</span>
-                </label>
-            </div>
-
-            <div class="dropdown">
-                <button class="btn btn-primary" onclick="runCode()">Run</button>
+            <div class="run-dropdown">
+                <button class="btn btn-primary" onclick="runCode()">
+                    <span id="run-mode-text">Run - Lexer</span>
+                </button>
+                <button class="btn btn-dropdown-toggle" onclick="toggleRunDropdown(event)">▼</button>
+                <div class="run-dropdown-menu hidden" id="run-dropdown-menu">
+                    <div class="run-dropdown-item" data-mode="lexer" onclick="selectRunMode('lexer')">Lexer</div>
+                    <div class="run-dropdown-item" data-mode="syntax" onclick="selectRunMode('syntax')">Syntax</div>
+                    <div class="run-dropdown-item" data-mode="semantic" onclick="selectRunMode('semantic')">Semantic</div>
+                </div>
             </div>
         </nav>
             <!-- Toolbar -->
