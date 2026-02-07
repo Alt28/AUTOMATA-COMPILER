@@ -1,0 +1,9 @@
+root(){
+	// Test missing closing double quote
+	vine str = "hello world;
+	
+	// Test missing closing single quote  
+	leaf ch = 'a;
+	
+	reclaim;
+}
