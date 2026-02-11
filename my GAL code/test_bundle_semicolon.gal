@@ -1,5 +1,0 @@
-seed x;
-bundle Animal { 
-seed dog; vine cat; };
-reclaim;
- }

@@ -1,7 +1,0 @@
-root(){
-	tree c = 1.5;
-	
-	plant(c);
-
-	reclaim 3;
-}
