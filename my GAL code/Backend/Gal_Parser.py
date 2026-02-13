@@ -1,24 +1,4 @@
-"""
 
-LL(1) table-driven parser for GrowALanguage (GAL).
-
-Aligned to GAL-FINALDOCX.pdf conventions:
-- The start symbol is <program>.
-- The empty/epsilon production is represented as λ in the document.
-
-You provide:
-- cfg: {NonTerminal: [production, ...]}, where production is a list[str]
-- predict_sets: {(NonTerminal, tuple(production)): set(terminals)}
-- first_sets: {NonTerminal: set(terminals including possibly λ)}
-
-Token requirements:
-- Each token must expose: .type, .value, .line
-  (dict tokens with keys 'type'/'value'/'line' are also accepted)
-
-Notes:
-- If your lexer emits newline tokens (e.g., 'nl'), you can skip them by default.
-  If your grammar explicitly expects newlines, pass skip_token_types=set().
-"""
 
 from __future__ import annotations
 
@@ -569,7 +549,7 @@ class LL1Parser:
                             prev_type_friendly = {
                                 'id': 'identifier',
                                 'intlit': 'integer literal',
-                                'dblit': 'float literal',
+                                'dblit': 'double literal',
                                 'stringlit': 'string literal',
                                 'chrlit': 'character literal'
                             }.get(prev_tok.type, prev_tok.type)
@@ -577,7 +557,7 @@ class LL1Parser:
                             curr_type_friendly = {
                                 'id': 'identifier',
                                 'intlit': 'integer literal',
-                                'dblit': 'float literal',
+                                'dblit': 'double literal',
                                 'stringlit': 'string literal',
                                 'chrlit': 'character literal'
                             }.get(token_type, token_type)
@@ -706,11 +686,11 @@ class LL1Parser:
                 elif expecting_value_for_type is not None and token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'sunshine', 'frost'}:
                     # Type checking mapping
                     type_value_map = {
-                        'seed': {'intlit'},              # seed = integer
-                        'tree': {'dblit', 'intlit'},     # tree = float (can accept int too)
-                        'leaf': {'chrlit'},              # leaf = char
-                        'branch': {'sunshine', 'frost'}, # branch = boolean (sunshine=true, frost=false)
-                        'vine': {'stringlit'}            # vine = string
+                        'seed': {'intlit'},              # seed = integer only
+                        'tree': {'dblit'},               # tree = double (decimals only)
+                        'leaf': {'chrlit'},              # leaf = char (single character only, validated below)
+                        'branch': {'sunshine', 'frost'}, # branch = boolean (sunshine=true, frost=false only)
+                        'vine': {'stringlit'}            # vine = string only
                     }
                     
                     expected_value_types = type_value_map.get(expecting_value_for_type, set())
@@ -719,14 +699,14 @@ class LL1Parser:
                         # Generate helpful error message
                         type_names = {
                             'seed': 'integer (seed)',
-                            'tree': 'float (tree)',
+                            'tree': 'double (tree)',
                             'leaf': 'character (leaf)',
                             'branch': 'boolean (branch)',
                             'vine': 'string (vine)'
                         }
                         value_type_names = {
                             'intlit': 'integer',
-                            'dblit': 'float',
+                            'dblit': 'double',
                             'stringlit': 'string',
                             'chrlit': 'character',
                             'sunshine': 'boolean',
