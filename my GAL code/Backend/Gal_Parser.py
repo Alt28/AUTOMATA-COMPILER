@@ -1,5 +1,4 @@
 
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,6 +43,7 @@ class LL1Parser:
         epsilon_symbols: Iterable[str] = ("λ", "ε"),
         skip_token_types: Optional[Set[str]] = None,
         token_type_alias: Optional[Dict[str, str]] = None,
+        max_errors: int = 10,
     ):
         self.cfg = cfg
         self.predict_sets = predict_sets
@@ -55,12 +55,28 @@ class LL1Parser:
         self.end_marker = end_marker
 
         # If lexer emits newlines as tokens, treat them as skippable by default.
-        self.skip_token_types: Set[str] = set(skip_token_types or {"nl"})
+        # The lexer uses '\n' as the token type for newlines
+        self.skip_token_types: Set[str] = set(skip_token_types or {"\n"})
         self.token_type_alias = token_type_alias or {
             # Helpful defaults based on inconsistencies seen in the document's token labels
             # (e.g., 'idf' vs 'id', 'dbllit' vs 'dblit').
             'idf': 'id',
             'dbllit': 'dblit',
+        }
+        
+        # Maximum number of errors to collect before stopping
+        self.max_errors = max_errors
+        
+        # Synchronization tokens for panic mode error recovery
+        # These are "safe" points where we can resume parsing after an error
+        self.sync_tokens: Set[str] = {
+            ';', '}', '{', 
+            'root', 'pollinate', 'bundle',  # Global declarations
+            'seed', 'tree', 'leaf', 'branch', 'vine', 'fertile',  # Type keywords
+            'spring', 'wither', 'bud', 'grow', 'cultivate', 'tend', 'harvest',  # Control flow
+            'reclaim', 'prune', 'skip',  # Return/break/continue
+            'plant', 'water',  # I/O
+            'EOF'
         }
 
         self.parsing_table: Dict[str, Dict[str, List[str]]] = self.construct_parsing_table()
@@ -96,6 +112,79 @@ class LL1Parser:
             last_col = toks[-1].col or 0
             toks = toks + [_TokView(self.end_marker, self.end_marker, last_line, last_col)]
         return toks
+
+    def _panic_mode_recovery(
+        self,
+        stack: List[str],
+        toks: List[_TokView],
+        index: int,
+        expected: Set[str]
+    ) -> Tuple[List[str], int]:
+        """
+        Panic mode error recovery for LL(1) parser.
+        
+        Attempts to synchronize by:
+        1. Skipping tokens until we find a synchronization point
+        2. Popping the stack until we can continue parsing
+        
+        Returns the modified stack and new token index.
+        """
+        # Strategy: Find a synchronization token in the input
+        # and pop the stack until we can accept it or reach a safe non-terminal
+        
+        original_index = index
+        
+        # First, try to find a sync token in the upcoming tokens
+        while index < len(toks):
+            tok = toks[index]
+            token_type = tok.type
+            
+            # Skip whitespace
+            if token_type in self.skip_token_types:
+                index += 1
+                continue
+            
+            # Found a synchronization point
+            if token_type in self.sync_tokens:
+                # Now pop the stack until we can handle this token
+                sync_stack = list(stack)
+                # Track important elements being popped for error reporting
+                popped_important = []
+                while sync_stack:
+                    top = sync_stack[-1]
+                    
+                    # If top is the sync token itself, we can match it
+                    if top == token_type:
+                        return sync_stack, index, popped_important
+                    
+                    # If top is a non-terminal that can derive something starting with this token
+                    if top in self.parsing_table:
+                        row = self.parsing_table[top]
+                        if token_type in row:
+                            return sync_stack, index, popped_important
+                    
+                    # Track important terminals being popped
+                    if top in {'}', '{', ')', '(', ';', 'reclaim'}:
+                        popped_important.append(top)
+                    
+                    # Pop and try next
+                    sync_stack.pop()
+                    
+                    # Don't pop past the end marker
+                    if top == self.end_marker:
+                        break
+                
+                # If we've emptied the stack (except EOF), return with current position
+                if not sync_stack or sync_stack == [self.end_marker]:
+                    return [self.end_marker], index, popped_important
+                    
+                return sync_stack, index, popped_important
+            
+            # Not a sync token - advance
+            index += 1
+        
+        # Reached end without finding sync token
+        return [self.end_marker], len(toks) - 1, []
 
     def _generate_helpful_error(
         self,
@@ -571,7 +660,7 @@ class LL1Parser:
         """Parse tokens according to the supplied CFG/PREDICT sets.
 
         Returns:
-            (success, errors)
+            (success, errors) - now collects multiple errors using panic mode recovery
         """
         toks = [_as_tok(t) for t in tokens]
         toks = [_TokView(self._normalize_token_type(t.type), t.value, t.line, t.col) for t in toks]
@@ -580,6 +669,7 @@ class LL1Parser:
         stack: List[str] = [self.end_marker, self.start_symbol]
         index = 0
         errors: List[str] = []
+        error_lines: Set[int] = set()  # Track lines with errors to avoid duplicate reports
         
         # Track variable declaration context for type checking
         current_var_type: Optional[str] = None
@@ -592,6 +682,51 @@ class LL1Parser:
                 last_col = toks[-1].col if toks else 0
                 return _TokView(self.end_marker, self.end_marker, last_line, last_col)
             return toks[index]
+
+        def record_error_and_recover(error_msg: str, line_num: int) -> bool:
+            """
+            Record an error and perform panic mode recovery.
+            Returns True if we should continue parsing, False if we should stop.
+            """
+            nonlocal stack, index
+            
+            # Record the error (deduplicate by full error message to avoid blocking different errors on same line)
+            if error_msg not in errors:
+                errors.append(error_msg)
+                error_lines.add(line_num)
+            
+            # Check if we've hit the error limit
+            if len(errors) >= self.max_errors:
+                return False
+            
+            # Perform panic mode recovery
+            expected = set()
+            if stack and stack[-1] in self.parsing_table:
+                expected = set(self.parsing_table[stack[-1]].keys())
+            
+            stack, index, popped_important = self._panic_mode_recovery(stack, toks, index, expected)
+            
+            # Report errors for important elements that were popped without being matched
+            # Get the current token for line/col info
+            current_tok = toks[min(index, len(toks) - 1)]
+            for popped in popped_important:
+                if popped == '}':
+                    # Check if any existing error already mentions missing closing brace
+                    if not any("Missing closing brace" in e or "expected '}'" in e for e in errors):
+                        err = f"SYNTAX error line {current_tok.line} col {current_tok.col} Missing closing brace '}}'"
+                        errors.append(err)
+                elif popped == 'reclaim':
+                    # Check if any existing error already mentions missing reclaim
+                    if not any("reclaim" in e.lower() for e in errors):
+                        # Check if we're in root() or a function
+                        is_root = any(toks[i].type == 'root' for i in range(min(index, len(toks))))
+                        if is_root:
+                            err = f"SYNTAX error line {current_tok.line} col {current_tok.col} Missing 'reclaim;' statement. The root() function must end with 'reclaim;'"
+                        else:
+                            err = f"SYNTAX error line {current_tok.line} col {current_tok.col} Missing 'reclaim;' statement"
+                        errors.append(err)
+            
+            return True  # Continue parsing
 
         while stack:
             top = stack[-1]
@@ -651,8 +786,9 @@ class LL1Parser:
                                             # These keywords require at least one statement in their blocks
                                             conditional_keywords = {'spring', 'bud', 'wither', 'grow', 'cultivate', 'tend', 'harvest'}
                                             if kw.type in conditional_keywords:
-                                                errors.append(f"SYNTAX error line {line} col {tok.col} Empty block after '{kw.value}' statement - at least one statement required")
-                                                return False, errors
+                                                if not record_error_and_recover(f"SYNTAX error line {line} col {tok.col} Empty block after '{kw.value}' statement - at least one statement required", line):
+                                                    return False, errors
+                                                continue
                     
                     stack.pop()
 
@@ -668,8 +804,9 @@ class LL1Parser:
                 
                 # Enhanced error messages for common mistakes
                 error_msg = self._generate_helpful_error(top, token_type, token_value, line, tok.col, expected, index, toks)
-                errors.append(error_msg)
-                return False, errors
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
 
             # Match terminal
             if top == token_type:
@@ -716,25 +853,37 @@ class LL1Parser:
                         declared_type = type_names.get(expecting_value_for_type, expecting_value_for_type)
                         actual_type = value_type_names.get(token_type, token_type)
                         
-                        errors.append(
-                            f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
-                        )
-                        return False, errors
+                        # Record type mismatch error but continue normal parsing
+                        # (the syntax is valid, just wrong type - don't do panic recovery)
+                        # Use message-based deduplication to avoid blocking different errors on same line
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
+                        if error_msg not in errors:
+                            errors.append(error_msg)
+                            error_lines.add(line)
+                        if len(errors) >= self.max_errors:
+                            return False, errors
+                        # Don't 'continue' - let normal parsing proceed to catch other errors like missing semicolon
                     
                     # Validate character literal length for leaf (char) type
                     if token_type == 'chrlit' and expecting_value_for_type == 'leaf':
                         # Extract the actual character content (remove single quotes)
                         char_content = token_value.strip("'")
                         if len(char_content) == 0:
-                            errors.append(
-                                f"SYNTAX error line {line} col {tok.col} Character literal cannot be empty. Expected a single character for leaf (character) variable"
-                            )
-                            return False, errors
+                            # Record error but continue normal parsing
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal cannot be empty. Expected a single character for leaf (character) variable"
+                            if error_msg not in errors:
+                                errors.append(error_msg)
+                                error_lines.add(line)
+                            if len(errors) >= self.max_errors:
+                                return False, errors
                         elif len(char_content) > 1:
-                            errors.append(
-                                f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf (character) variables can only hold a single character"
-                            )
-                            return False, errors
+                            # Record error but continue normal parsing
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf (character) variables can only hold a single character"
+                            if error_msg not in errors:
+                                errors.append(error_msg)
+                                error_lines.add(line)
+                            if len(errors) >= self.max_errors:
+                                return False, errors
                     
                     # Reset after checking
                     expecting_value_for_type = None
@@ -768,8 +917,9 @@ class LL1Parser:
                                     next_idx += 1
                                 
                                 if next_idx < len(toks) and toks[next_idx].type == ')':
-                                    errors.append(f"SYNTAX error line {line} col {tok.col} '{kw.value}' requires a boolean condition, not a numeric literal")
-                                    return False, errors
+                                    if not record_error_and_recover(f"SYNTAX error line {line} col {tok.col} '{kw.value}' requires a boolean condition, not a numeric literal", line):
+                                        return False, errors
+                                    continue
                 
                 stack.pop()
                 index += 1
@@ -797,25 +947,28 @@ class LL1Parser:
                         break
                 
                 if is_root:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected 'reclaim;' before '}}'. The root() function (main program) must end with 'reclaim;'")
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'reclaim;' before '}}'. The root() function (main program) must end with 'reclaim;'"
                 else:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected 'reclaim;' before '}}'. All functions must end with 'reclaim;'")
-                return False, errors
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'reclaim;' before '}}'. All functions must end with 'reclaim;'"
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
             elif top == 'prune' and token_type in {'variety', 'soil', '}'}:
                 # Missing prune (break) in variety (case) statement
                 if token_type == 'variety':
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected 'prune;' before next 'variety'. Each case in 'harvest' (switch) must end with 'prune;'")
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before next 'variety'. Each case in 'harvest' (switch) must end with 'prune;'"
                 elif token_type == 'soil':
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected 'prune;' before 'soil' (default case). Each case must end with 'prune;'")
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before 'soil' (default case). Each case must end with 'prune;'"
                 else:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected 'prune;' before closing '}}'. Each case must end with 'prune;'")
-                return False, errors
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before closing '}}'. Each case must end with 'prune;'"
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
             elif top == '(' and token_type != '(':
                 # Don't give misleading "missing opening parenthesis" error for assignment operators
                 # This happens when there's a chained assignment which is not supported
                 if token_type in {'=', '+=', '-=', '*=', '/=', '%='}:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected: {expected}")
-                    return False, errors
+                    error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected: {expected}"
                 elif index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
@@ -843,24 +996,27 @@ class LL1Parser:
                                     kw_idx -= 1
                                 
                                 if kw_idx >= 0 and toks[kw_idx].type == 'tend':
-                                    errors.append(f"SYNTAX error line {line} col {tok.col} expected '(' after closing brace. 'tend' requires a condition after closing brace '}}'. Format: tend {{ ... }} (condition);")
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '(' after closing brace. 'tend' requires a condition after closing brace '}}'. Format: tend {{ ... }} (condition);"
                                 else:
-                                    errors.append(f"SYNTAX error line {line} col {tok.col} expected '('")
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '('"
                             else:
-                                errors.append(f"SYNTAX error line {line} col {tok.col} expected '('")
+                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '('"
                         else:
                             keywords_needing_parens = {'spring', 'grow', 'cultivate', 'harvest', 'water', 'plant', 'tend', 'bud'}
                             if prev_tok.type in keywords_needing_parens:
-                                errors.append(f"SYNTAX error line {line} col {tok.col} expected '(' after '{prev_tok.value}'")
+                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '(' after '{prev_tok.value}'"
                             else:
-                                errors.append(f"SYNTAX error line {line} col {tok.col} expected '('")
+                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '('"
                     else:
-                        errors.append(f"SYNTAX error line {line} col {tok.col} expected '('")
+                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '('"
                 else:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected '('")
-                return False, errors
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '('"
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
             elif top == '{' and token_type != '{':
                 # Check for extra closing parenthesis - common mistake like root())
+                error_msg = None
                 if token_type == ')' and index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
@@ -886,11 +1042,10 @@ class LL1Parser:
                             if kw_index >= 0:
                                 kw_tok = toks[kw_index]
                                 if kw_tok.type in {'root', 'pollinate'}:
-                                    errors.append(f"SYNTAX error line {line} col {tok.col} Extra closing ')' after '{kw_tok.value}()'. Expected '{{'. Correct syntax: {kw_tok.value}(){{ ... }}")
-                                    return False, errors
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} Extra closing ')' after '{kw_tok.value}()'. Expected '{{'. Correct syntax: {kw_tok.value}(){{ ... }}"
                 
                 # Missing opening brace - look back to find the keyword
-                if index > 0:
+                if error_msg is None and index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
                         prev_index -= 1
@@ -920,30 +1075,34 @@ class LL1Parser:
                                     if kw_index >= 0:
                                         kw_tok = toks[kw_index]
                                         if kw_tok.type in {'spring', 'grow', 'cultivate', 'tend', 'harvest', 'bud', 'pollinate', 'root'}:
-                                            errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{' after '{kw_tok.value}' statement")
+                                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{' after '{kw_tok.value}' statement"
                                         else:
-                                            errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
+                                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
                                     else:
-                                        errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
+                                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
                                 else:
-                                    errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
                             else:
-                                errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{' after '{prev_tok.value}'")
+                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{' after '{prev_tok.value}'"
                         else:
-                            errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
+                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
                     else:
-                        errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
-                else:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected '{{'")
-                return False, errors
+                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
+                elif error_msg is None:
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'"
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
             elif top == '}' and token_type != '}':
                 # Missing closing brace
-                errors.append(f"SYNTAX error line {line} col {tok.col} expected '}}'. Missing closing brace")
-                return False, errors
+                if not record_error_and_recover(f"SYNTAX error line {line} col {tok.col} expected '}}'. Missing closing brace", line):
+                    return False, errors
+                continue
             elif top == ')' and token_type != ')':
                 # Missing closing parenthesis
-                errors.append(f"SYNTAX error line {line} col {tok.col} expected ')'. Missing closing parenthesis")
-                return False, errors
+                if not record_error_and_recover(f"SYNTAX error line {line} col {tok.col} expected ')'. Missing closing parenthesis", line):
+                    return False, errors
+                continue
             elif top == ';' and token_type != ';':
                 # Missing semicolon - but check if this might be an invalid keyword used as a function
                 # Pattern: "if (condition) {" where parser saw "if()" as a function call  
@@ -957,6 +1116,7 @@ class LL1Parser:
                     'print': 'plant', 'input': 'water'
                 }
                 
+                error_msg = None
                 # Check if current token is '{' after what looks like a function call with invalid keyword
                 if token_type == '{' and index > 0:
                     # Look back for a closing parenthesis
@@ -984,17 +1144,15 @@ class LL1Parser:
                             if id_idx >= 0 and toks[id_idx].type == 'id' and toks[id_idx].value in common_keyword_mistakes:
                                 keyword_tok = toks[id_idx]
                                 correct_keyword = common_keyword_mistakes[keyword_tok.value]
-                                errors.append(f"SYNTAX error line {keyword_tok.line} col {keyword_tok.col} '{keyword_tok.value}' expected '{correct_keyword}'")
-                                return False, errors
+                                error_msg = f"SYNTAX error line {keyword_tok.line} col {keyword_tok.col} '{keyword_tok.value}' expected '{correct_keyword}'"
                 
                 # Check if CURRENT token (the one we're looking at) is an invalid keyword
-                if token_type == 'id' and token_value in common_keyword_mistakes:
+                if error_msg is None and token_type == 'id' and token_value in common_keyword_mistakes:
                     correct_keyword = common_keyword_mistakes[token_value]
-                    errors.append(f"SYNTAX error line {line} col {tok.col} '{token_value}' expected '{correct_keyword}'")
-                    return False, errors
+                    error_msg = f"SYNTAX error line {line} col {tok.col} '{token_value}' expected '{correct_keyword}'"
                 
                 # Check for chained increment/decrement operators (e.g., a++++)
-                if token_type in {'++', '--'} and index > 0:
+                if error_msg is None and token_type in {'++', '--'} and index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
                         prev_index -= 1
@@ -1002,12 +1160,11 @@ class LL1Parser:
                     if prev_index >= 0:
                         prev_tok = toks[prev_index]
                         if prev_tok.type in {'++', '--'}:
-                            errors.append(f"SYNTAX error line {line} col {tok.col} Unexpected '{token_value}' after '{prev_tok.value}'. Increment/decrement operators cannot be chained")
-                            return False, errors
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected '{token_value}' after '{prev_tok.value}'. Increment/decrement operators cannot be chained"
                 
                 # Check for binary operator after increment/decrement (e.g., a--+2)
                 binary_operators = {'+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||'}
-                if token_type in binary_operators and index > 0:
+                if error_msg is None and token_type in binary_operators and index > 0:
                     prev_index = index - 1
                     while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
                         prev_index -= 1
@@ -1015,40 +1172,50 @@ class LL1Parser:
                     if prev_index >= 0:
                         prev_tok = toks[prev_index]
                         if prev_tok.type in {'++', '--'}:
-                            errors.append(f"SYNTAX error line {line} col {tok.col} Unexpected binary operator '{token_value}' after unary operator '{prev_tok.value}'. Increment/decrement must be standalone statements")
-                            return False, errors
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected binary operator '{token_value}' after unary operator '{prev_tok.value}'. Increment/decrement must be standalone statements"
                 
                 # Otherwise, it's a missing semicolon - report on the line where it should be added
-                if index > 0:
-                    prev_index = index - 1
-                    while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
-                        prev_index -= 1
-                    
-                    if prev_index >= 0:
-                        prev_tok = toks[prev_index]
-                        # Report error on the line of the previous token (where semicolon should be)
-                        errors.append(f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} expected ';'")
+                if error_msg is None:
+                    if index > 0:
+                        prev_index = index - 1
+                        while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
+                            prev_index -= 1
+                        
+                        if prev_index >= 0:
+                            prev_tok = toks[prev_index]
+                            # Report error on the line of the previous token (where semicolon should be)
+                            error_msg = f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} expected ';'"
+                            line = prev_tok.line  # Use prev_tok line for deduplication
+                        else:
+                            error_msg = f"SYNTAX error line {line} col {tok.col} expected ';'"
                     else:
-                        errors.append(f"SYNTAX error line {line} col {tok.col} expected ';'")
-                else:
-                    errors.append(f"SYNTAX error line {line} col {tok.col} expected ';'")
-                return False, errors
+                        error_msg = f"SYNTAX error line {line} col {tok.col} expected ';'"
+                
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
             else:
                 # Use the helper method for better error messages
                 error_msg = self._generate_helpful_error(
                     top, token_type, token_value, line, tok.col, expected, index, toks
                 )
-                errors.append(error_msg)
-                return False, errors
+                if not record_error_and_recover(error_msg, line):
+                    return False, errors
+                continue
 
         # Consume trailing skippables then require EOF
         while index < len(toks) and toks[index].type in self.skip_token_types:
             index += 1
         if index < len(toks) and toks[index].type != self.end_marker:
             tok = toks[index]
-            return False, [
+            errors.append(
                 f"SYNTAX error line {tok.line} col {tok.col} Unexpected token '{tok.value}' after program end. All code must be inside functions or global declarations"
-            ]
+            )
+            return False, errors
+        
+        # Return success only if no errors were found
+        if errors:
+            return False, errors
         return True, []
 
 
