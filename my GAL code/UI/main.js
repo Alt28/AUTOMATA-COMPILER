@@ -865,10 +865,47 @@
       };
       
       window.toggleRunDropdown = function(event) {
-        event.stopPropagation();
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         const menu = document.getElementById('run-dropdown-menu');
-        menu.classList.toggle('hidden');
+        if (menu) {
+          menu.classList.toggle('hidden');
+          
+          // Position dropdown correctly on mobile
+          if (!menu.classList.contains('hidden') && window.innerWidth <= 768) {
+            const btn = document.querySelector('.btn-dropdown-toggle');
+            if (btn) {
+              const rect = btn.getBoundingClientRect();
+              menu.style.position = 'fixed';
+              menu.style.top = (rect.bottom + 4) + 'px';
+              menu.style.right = (window.innerWidth - rect.right) + 'px';
+              menu.style.left = 'auto';
+            }
+          }
+        }
       };
+      
+      // Add touch support for dropdown toggle
+      const dropdownToggleBtn = document.querySelector('.btn-dropdown-toggle');
+      if (dropdownToggleBtn) {
+        dropdownToggleBtn.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          window.toggleRunDropdown(e);
+        }, { passive: false });
+      }
+      
+      // Add touch support for dropdown items
+      document.querySelectorAll('.run-dropdown-item').forEach(function(item) {
+        item.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          const mode = this.getAttribute('data-mode');
+          if (mode) {
+            window.selectRunMode(mode);
+          }
+        }, { passive: false });
+      });
         });
 
   });
@@ -894,12 +931,12 @@
     
 
     
-    // Hide dropdown if clicked outside
-    document.addEventListener("click", function (e) {
+    // Hide dropdown if clicked outside (handles both click and touch)
+    function hideDropdownsOnOutsideClick(e) {
       const dropdown = document.querySelector(".dropdown");
       const menu = document.getElementById("dropdown-menu");
     
-      if (!dropdown.contains(e.target)) {
+      if (dropdown && menu && !dropdown.contains(e.target)) {
         menu.classList.add("hidden");
       }
       
@@ -910,7 +947,10 @@
       if (runDropdown && runMenu && !runDropdown.contains(e.target)) {
         runMenu.classList.add("hidden");
       }
-    });
+    }
+    
+    document.addEventListener("click", hideDropdownsOnOutsideClick);
+    document.addEventListener("touchstart", hideDropdownsOnOutsideClick, { passive: true });
 
     // Auto-lex on typing (debounced) to keep sidebar tokens in sync with GALalexer rules
     function debounce(fn, wait){
