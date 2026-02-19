@@ -332,6 +332,7 @@ class Lexer:
         tokens = []  # List to store all tokens found
         line = 1     # Current line number (for token tracking)
         errors = []  # List to store all lexical errors found
+        pos = self.pos.copy()  # Initialize pos for EOF handling (avoids crash on empty source)
         
         # Main loop: process each character until end of file
         while self.current_char != None:
@@ -935,23 +936,30 @@ class Lexer:
 
                 # Check if identifier exceeds max length
                 if len(ident_str) > maxIdentifierLength:
-                    # Process in chunks of 16: each 16-char chunk is an error
-                    # Only the final chunk (≤15 chars) is valid and added to tokens
+                    # Process in chunks of 15: each 15-char chunk is an error
+                    # Only the final remaining chunk (≤14 chars) is valid and added to tokens
                     i = 0
+                    remaining = None
                     while i < len(ident_str):
-                        # Check if there are at least 16 characters remaining
-                        if i + 16 <= len(ident_str):
-                            # 16-char chunk: generate error, don't add token
+                        # Check if there are at least 15 characters remaining
+                        if i + 15 <= len(ident_str):
+                            # 15-char chunk: generate error, don't add token
                             errors.append(LexicalError(pos, f"Identifier exceeds maximum length of {maxIdentifierLength} characters"))
-                            i += 16
+                            i += 15
                         else:
-                            # Final chunk with 15 or fewer characters: valid token
+                            # Final chunk with 14 or fewer characters: valid token
                             remaining = ident_str[i:]
                             if self.current_char is None or self.current_char in idf_delim:
                                 tokens.append(Token(TT_IDENTIFIER, remaining, line, pos.col))
                             elif self.current_char is not None and self.current_char not in idf_delim:
                                 errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after identifier"))
                             break
+                    if remaining is None:
+                        # Length was exact multiple of 15 — all chars consumed as errors
+                        # Still create a token with the last chunk
+                        last_chunk = ident_str[i - 15:] if i >= 15 else ident_str
+                        if self.current_char is None or self.current_char in idf_delim:
+                            tokens.append(Token(TT_IDENTIFIER, last_chunk, line, pos.col))
                     continue
                 else:
                     # Identifier is within max length
@@ -1057,7 +1065,6 @@ class Lexer:
                     # Check for consecutive comparison operators
                     if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"Consecutive operators '{tokens[-1].value} {ident_str}' are not allowed"))
-                        self.advance()
                         continue
                     tokens.append(Token(TT_NOTEQ, ident_str, line, pos.col))
                     continue
@@ -1252,7 +1259,6 @@ class Lexer:
                     # Prevent consecutive comparison operators (e.g., "< ==" or "> ==")
                     if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
-                        self.advance()
                         continue
                     
                     # Valid '==' (equality comparison operator)
@@ -1273,14 +1279,12 @@ class Lexer:
                     # Check for consecutive comparison operators
                     if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                         errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
-                        self.advance()
                         continue
                     tokens.append(Token(TT_GTEQ, ident_str, line, pos.col))
                     continue
                 # Check for consecutive comparison operators
                 if len(tokens) > 0 and tokens[-1].type in [TT_GT, TT_LT, TT_EQTO, TT_NOTEQ, TT_GTEQ, TT_LTEQ]:
                     errors.append(LexicalError(pos, f"invalid delimiters '{tokens[-1].value} {ident_str}' are not allowed"))
-                    self.advance()
                     continue
                 tokens.append(Token(TT_GT, ident_str, line, pos.col))
                 continue
@@ -1334,6 +1338,7 @@ class Lexer:
                 elif self.current_char == "*":  # Multi-line comment: /* comment text */
                     ident_str += self.current_char
                     self.advance()
+                    found_close = False
                     # Consume all characters until closing */
                     while self.current_char is not None:
                         # Check for closing */ sequence
@@ -1341,6 +1346,7 @@ class Lexer:
                             ident_str += "*/"
                             self.advance()  # Skip *
                             self.advance()  # Skip /
+                            found_close = True
                             break
                         else:
                             ident_str += self.current_char
@@ -1350,7 +1356,7 @@ class Lexer:
                     # Comments are NOT added to tokens (they are skipped)
                     
                     # Error if comment was never closed
-                    if self.current_char is None:
+                    if not found_close:
                         errors.append(LexicalError(pos, f"Missing closing '*/' after '{ident_str}'"))
                         continue
                     continue    
@@ -1378,13 +1384,21 @@ class Lexer:
 
                 elif self.current_char is not None and self.current_char in ZERODIGIT:
                     fractional_part = ""
+                    overflow = False
                     while self.current_char is not None and self.current_char in ZERODIGIT:
                         if len(fractional_part + self.current_char) > 8: 
                             errors.append(LexicalError(pos, f"'{ident_str}' exceeds maximum number of decimal places"))
+                            overflow = True
+                            # Consume remaining digits to avoid cascading errors
+                            while self.current_char is not None and self.current_char in ZERODIGIT:
+                                self.advance()
                             break
 
                         fractional_part += self.current_char
                         self.advance()
+                    
+                    if overflow:
+                        continue
                         
                     ident_str = f"0.{fractional_part}"
                     tokens.append(Token(TT_DOUBLELIT, ident_str, line, pos.col))
@@ -1425,27 +1439,22 @@ class Lexer:
                 if self.current_char == ".":
                     # For decimals, check if integer part exceeds 15 digits
                     if integer_digit_count > 15:
-                        # Process integer part in chunks of 16: each 16-digit chunk is an error
-                        # Only the final chunk (≤15 digits) continues to decimal processing
+                        # Process integer part in chunks of 15: each 15-digit chunk is an error
+                        # Only the final remaining chunk (≤14 digits) continues to decimal processing
                         integer_part = ident_str
                         i = 0
-                        error_count = 0
                         while i < len(integer_part):
-                            if i + 16 <= len(integer_part):
-                                # 16-digit chunk: generate error
+                            if i + 15 <= len(integer_part):
+                                # 15-digit chunk: generate error
                                 errors.append(LexicalError(pos, f"Integer part of decimal exceeds maximum of 15 digits"))
-                                i += 16
-                                error_count += 1
+                                i += 15
                             else:
-                                # Final chunk with 15 or fewer digits
+                                # Final chunk with 14 or fewer digits
                                 ident_str = integer_part[i:]
                                 break
-                        # Continue to process decimal point if we had errors
-                        if error_count == 0:
-                            # Consume the rest of the invalid number
-                            while self.current_char is not None and self.current_char in ZERODIGIT + ".":
-                                self.advance()
-                            continue
+                        else:
+                            # Length was exact multiple of 15 — all digits consumed as errors, no valid remainder
+                            ident_str = "0"
                     dot_count = 1  # Mark that we found a decimal point
                     ident_str += self.current_char
                     self.advance()
@@ -1464,17 +1473,17 @@ class Lexer:
                     
                     # Check if fractional part exceeds 8 digits
                     if fractional_digit_count > 8:
-                        # Process in chunks of 9: each 9-digit chunk is an error
-                        # Only the final chunk (≤8 digits) is added to the number
+                        # Process in chunks of 8: each 8-digit chunk is an error
+                        # Only the final remaining chunk (≤7 digits) is added to the number
                         i = 0
                         final_fractional = ""
                         while i < len(fractional_part):
-                            if i + 9 <= len(fractional_part):
-                                # 9-digit chunk: generate error
+                            if i + 8 <= len(fractional_part):
+                                # 8-digit chunk: generate error
                                 errors.append(LexicalError(pos, f"Fractional part exceeds maximum of 8 digits"))
-                                i += 9
+                                i += 8
                             else:
-                                # Final chunk with 8 or fewer digits
+                                # Final chunk with 7 or fewer digits
                                 final_fractional = fractional_part[i:]
                                 break
                         ident_str += final_fractional
@@ -1486,23 +1495,30 @@ class Lexer:
                 # Only the final chunk (≤8 digits) is valid and added to tokens
                 if dot_count == 0 and integer_digit_count > 8:
                     i = 0
+                    remaining = None
                     while i < len(ident_str):
-                        # Check if there are at least 9 characters remaining
-                        if i + 9 <= len(ident_str):
-                            # 9-digit chunk: generate error, don't add token
+                        # Check if there are at least 8 characters remaining
+                        if i + 8 <= len(ident_str):
+                            # 8-digit chunk: generate error, don't add token
                             errors.append(LexicalError(pos, f"Integer exceeds maximum of 8 digits"))
-                            i += 9
+                            i += 8
                         else:
-                            # Final chunk with 8 or fewer digits: valid token
+                            # Final chunk with 7 or fewer digits: valid token
                             remaining = ident_str[i:]
                             # Strip leading zeros for the remaining valid portion
                             remaining = remaining.lstrip("0") or "0"
                             tokens.append(Token(TT_INTEGERLIT, remaining, line, pos.col))
                             break
+                    if remaining is None:
+                        # Length was exact multiple of 8 — all digits consumed as errors
+                        # Still create a token with "0" as the valid remainder
+                        tokens.append(Token(TT_INTEGERLIT, "0", line, pos.col))
                     continue
                 
                 if fractional_digit_count > 8:
-                    continue
+                    # Error already reported and fractional part already truncated above.
+                    # Fall through to create a token with the truncated valid portion.
+                    pass
 
                 # Step 3: Check for scientific notation (e.g., 1.5e10, 2.3e-5)
                 # Only valid for doubles (must have decimal point)
@@ -1529,9 +1545,9 @@ class Lexer:
                 if dot_count == 0 and not has_e:
                     # Check if this is after a type declaration for tree (tree only accepts doubles, not integers)
                     type_token = None
-                    if len(tokens) >= 3 and tokens[-2].type == 'idf' and tokens[-1].type == '=':
+                    if len(tokens) >= 3 and tokens[-2].type == 'id' and tokens[-1].type == '=':
                         type_token = tokens[-3].type
-                    elif len(tokens) >= 4 and tokens[-3].type == ':' and tokens[-2].type == 'idf' and tokens[-1].type == '=':
+                    elif len(tokens) >= 4 and tokens[-3].type == ':' and tokens[-2].type == 'id' and tokens[-1].type == '=':
                         type_token = tokens[-4].type
                     elif len(tokens) >= 2 and tokens[-1].type == '=' and tokens[-2].type in ['tree', 'seed', 'branch']:
                         type_token = tokens[-2].type
@@ -1642,14 +1658,21 @@ class Lexer:
                     'n': '\n',   # Newline
                     't': '\t',   # Tab
                     '{': '\\{',  # Literal left brace
-                    '}': '\\}'   # Literal right brace
+                    '}': '\\}',  # Literal right brace
+                    '"': '"',    # Escaped double quote
+                    '\\': '\\',  # Escaped backslash
                 }
 
+                has_string_error = False
                 # Read until closing quote (or end of file)
                 while self.current_char is not None and (self.current_char != '"' or escape_character):
                     if escape_character:
                         # Process escape sequence (e.g., \n becomes newline)
-                        string += escape_characters.get(self.current_char, self.current_char)
+                        if self.current_char in escape_characters:
+                            string += escape_characters[self.current_char]
+                        else:
+                            errors.append(LexicalError(pos, f"Invalid escape sequence '\\{self.current_char}' in string literal"))
+                            has_string_error = True
                         escape_character = False
                     else:
                         if self.current_char == '\\':
@@ -1659,6 +1682,14 @@ class Lexer:
                         else:
                             string += self.current_char
                     self.advance()
+
+                if has_string_error:
+                    # Consume rest of string to avoid cascading errors
+                    while self.current_char is not None and self.current_char != '"':
+                        self.advance()
+                    if self.current_char == '"':
+                        self.advance()
+                    continue
 
                 if self.current_char == '"':
                     string += self.current_char
