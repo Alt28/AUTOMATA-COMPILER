@@ -657,6 +657,11 @@ class LL1Parser:
                                             conditional_keywords = {'spring', 'bud', 'wither', 'grow', 'cultivate', 'tend', 'harvest'}
                                             if kw.type in conditional_keywords:
                                                 return False, [f"SYNTAX error line {line} col {tok.col} Empty block after '{kw.value}' statement - at least one statement required"]
+                                
+                                # Check for wither/tend directly before '{' (no parentheses)
+                                elif before_brace >= 0 and toks[before_brace].type in {'wither', 'tend'}:
+                                    kw = toks[before_brace]
+                                    return False, [f"SYNTAX error line {line} col {tok.col} Empty block after '{kw.value}' statement - at least one statement required"]
                     
                     stack.pop()
 
@@ -724,11 +729,15 @@ class LL1Parser:
                     
                     # Validate character literal length for leaf (char) type
                     if token_type == 'chrlit' and expecting_value_for_type == 'leaf':
-                        # Extract the actual character content (remove single quotes)
-                        char_content = token_value.strip("'")
+                        # Extract the actual character content (remove surrounding quotes)
+                        # Use slicing instead of strip to handle edge cases like '''
+                        char_content = token_value[1:-1] if len(token_value) >= 2 else token_value
                         if len(char_content) == 0:
                             error_msg = f"SYNTAX error line {line} col {tok.col} Character literal cannot be empty. Expected a single character for leaf (character) variable"
                             return False, [error_msg]
+                        elif char_content.startswith('\\') and len(char_content) == 2:
+                            # Valid escape sequence like \n, \t, \\, \'
+                            pass
                         elif len(char_content) > 1:
                             error_msg = f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf (character) variables can only hold a single character"
                             return False, [error_msg]
