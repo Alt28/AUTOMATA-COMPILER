@@ -139,8 +139,14 @@ TT_DOT = '.'                    # Dot operator (struct access)
 # ============================================================================
 # TOKEN TYPE DESCRIPTIONS - Maps token types to human-readable descriptions
 # ============================================================================
-def get_token_description(token_type: str) -> str:
+def get_token_description(token_type: str, value: str = '') -> str:
     """Returns a descriptive name for each token type"""
+    # Handle negative literals: value starts with ~ but token type is intlit/dbllit
+    if token_type == 'intlit' and isinstance(value, str) and value.startswith('~'):
+        return 'negative integer'
+    if token_type == 'dbllit' and isinstance(value, str) and value.startswith('~'):
+        return 'negative float'
+
     descriptions = {
         # Reserved Words - I/O
         'water': 'Input Function',
@@ -985,8 +991,55 @@ class Lexer:
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
-                # ~ should be followed by numbers, identifiers, or whitespace (for negation)
-                if self.current_char is None or self.current_char in ALPHANUM + ' \t\n':
+
+                # If ~ is directly followed by a digit, consume the number as a negative literal
+                if self.current_char is not None and self.current_char in ZERODIGIT:
+                    # Read integer digits
+                    num_str = ""
+                    integer_digit_count = 0
+                    while self.current_char is not None and self.current_char in ZERODIGIT:
+                        integer_digit_count += 1
+                        num_str += self.current_char
+                        self.advance()
+
+                    # Check for decimal point (negative double)
+                    if self.current_char == ".":
+                        num_str += self.current_char
+                        self.advance()
+                        if self.current_char is None or self.current_char not in ZERODIGIT:
+                            errors.append(LexicalError(pos, f"Invalid number '~{num_str}': decimal point must be followed by digits"))
+                            continue
+                        fractional_digit_count = 0
+                        while self.current_char is not None and self.current_char in ZERODIGIT:
+                            fractional_digit_count += 1
+                            num_str += self.current_char
+                            self.advance()
+                        if fractional_digit_count > 8:
+                            errors.append(LexicalError(pos, f"Fractional part exceeds maximum of 8 digits"))
+                            continue
+                        # Format the double
+                        parts = num_str.split(".")
+                        integer_part = parts[0].lstrip("0") or "0"
+                        fractional_part = (parts[1] if len(parts) > 1 else "").rstrip("0") or "0"
+                        if fractional_part == "0":
+                            num_str = f"{integer_part}.0"
+                        else:
+                            num_str = f"{integer_part}.{fractional_part}"
+                        ident_str = "~" + num_str
+                        tokens.append(Token(TT_DOUBLELIT, ident_str, line, pos.col))
+                        continue
+                    else:
+                        # Negative integer
+                        if integer_digit_count > 8:
+                            errors.append(LexicalError(pos, f"Integer exceeds maximum of 8 digits"))
+                            continue
+                        num_str = num_str.lstrip("0") or "0"
+                        ident_str = "~" + num_str
+                        tokens.append(Token(TT_INTEGERLIT, ident_str, line, pos.col))
+                        continue
+
+                # ~ not followed by a digit: emit as negate operator
+                elif self.current_char is None or self.current_char in ALPHANUM + ' \t\n':
                     tokens.append(Token(TT_NEGATIVE, ident_str, line, pos.col))
                     continue
                 else:
@@ -1100,11 +1153,6 @@ class Lexer:
             elif self.current_char == ";":
                 ident_str = self.current_char
                 pos = self.pos.copy()
-                # Check if previous token is = (empty assignment like "seed =;")
-                if len(tokens) > 0 and tokens[-1].type == '=':
-                    errors.append(LexicalError(pos, f"Missing value after '=' operator"))
-                    self.advance()
-                    continue
                 self.advance()
                 tokens.append(Token(TT_SEMICOLON, ident_str, line, pos.col))
                 continue
@@ -1616,8 +1664,9 @@ class Lexer:
                     string += self.current_char
                     self.advance()
                 else:
-                    # Missing closing quote - create token anyway for parser to detect
-                    pass
+                    # Missing closing quote - report error and skip (don't create token)
+                    errors.append(LexicalError(pos, f"Missing closing '\"' for string literal"))
+                    continue
 
                 if self.current_char is not None and self.current_char not in delim23 and self.current_char not in space_delim:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after string literal '{string}'"))
@@ -1688,15 +1737,27 @@ class Lexer:
                     string += self.current_char
                     self.advance()
                 else:
-                    # Missing closing quote - create token anyway for parser to detect
-                    pass
-
-                # Character length and empty checks removed - let parser handle these
-                # This allows parser to give better error messages for missing quotes
+                    # Missing closing quote - report error and skip (don't create token)
+                    errors.append(LexicalError(pos, f"Missing closing quote for character literal"))
+                    continue
 
                 if self.current_char is not None and self.current_char not in delim23 and self.current_char not in space_delim:
                     errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{string}'"))
                     self.advance()
+                    continue
+
+                # Character literal must contain exactly one character (or one escape sequence)
+                # Strip quotes to get inner content
+                inner = char.strip()
+                if len(inner) == 0:
+                    # Empty char literal '' defaults to a space character
+                    string = "' '"
+                    inner = ' '
+                elif inner.startswith('\\') and len(inner) == 2:
+                    # Valid escape sequence like \n, \t
+                    pass
+                elif len(inner) > 1:
+                    errors.append(LexicalError(pos, f"Character literal must contain exactly one character, found '{inner}'"))
                     continue
 
                 tokens.append(Token(TT_CHARLIT, string, line, pos.col))
