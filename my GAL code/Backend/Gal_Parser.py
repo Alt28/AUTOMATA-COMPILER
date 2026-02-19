@@ -691,8 +691,9 @@ class LL1Parser:
                     expecting_value_for_type = current_var_type
                 
                 # Check value type matches declared variable type
-                elif expecting_value_for_type is not None and token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'sunshine', 'frost'}:
+                elif expecting_value_for_type is not None and token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'sunshine', 'frost', 'id'}:
                     # Type checking mapping
+                    # tree and branch reject identifiers; seed, leaf, vine allow them
                     type_value_map = {
                         'seed': {'intlit'},              # seed = integer only
                         'tree': {'dblit'},               # tree = double (decimals only)
@@ -700,6 +701,13 @@ class LL1Parser:
                         'branch': {'sunshine', 'frost'}, # branch = boolean (sunshine=true, frost=false only)
                         'vine': {'stringlit'}            # vine = string only
                     }
+                    
+                    # Only tree and branch should error on identifier values
+                    if token_type == 'id' and expecting_value_for_type not in {'tree', 'branch'}:
+                        expecting_value_for_type = None
+                        stack.pop()
+                        index += 1
+                        continue
                     
                     expected_value_types = type_value_map.get(expecting_value_for_type, set())
                     
@@ -718,13 +726,18 @@ class LL1Parser:
                             'stringlit': 'string',
                             'chrlit': 'character',
                             'sunshine': 'boolean',
-                            'frost': 'boolean'
+                            'frost': 'boolean',
+                            'id': 'identifier'
                         }
                         
                         declared_type = type_names.get(expecting_value_for_type, expecting_value_for_type)
                         actual_type = value_type_names.get(token_type, token_type)
                         
-                        error_msg = f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
+                        # Identifier mismatch (tree/branch) = LEXICAL error; literal mismatch = SYNTAX error
+                        if token_type == 'id':
+                            error_msg = f"LEXICAL error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
+                        else:
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
                         return False, [error_msg]
                     
                     # Validate character literal length for leaf (char) type
