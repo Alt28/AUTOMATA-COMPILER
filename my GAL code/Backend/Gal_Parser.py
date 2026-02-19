@@ -733,11 +733,7 @@ class LL1Parser:
                         declared_type = type_names.get(expecting_value_for_type, expecting_value_for_type)
                         actual_type = value_type_names.get(token_type, token_type)
                         
-                        # Identifier mismatch (tree/branch) = LEXICAL error; literal mismatch = SYNTAX error
-                        if token_type == 'id':
-                            error_msg = f"LEXICAL error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
-                        else:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Type mismatch: cannot assign {actual_type} value '{token_value}' to {declared_type} variable"
                         return False, [error_msg]
                     
                     # Validate character literal length for leaf (char) type
