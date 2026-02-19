@@ -348,6 +348,10 @@
 
                     // Special case for branch -> t/f
                     if (tok.type === 'branch') return 't/f';
+
+                    // Boolean literals: sunshine and frost show their keyword as token
+                    if (tok.type === 'sunshine') return 'sunshine';
+                    if (tok.type === 'frost') return 'frost';
                     
                     // Reserved words are their type directly
                     const kwSet = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','vine']);
@@ -394,6 +398,8 @@
                     if (t === 'dbllit' || t === 'TT_DOUBLELIT' || t === 'treelit') return 'double';
                     if (t === 'stringlit' || t === 'strlit' || t === 'strnglit' || t === 'TT_STRINGLIT') return 'string';
                     if (t === 'chrlit' || t === 'TT_CHARLIT') return 'character';
+                    // Boolean literals
+                    if (t === 'sunshine' || t === 'frost') return 'false';
                     // Operators are labeled 'operator'
                     const OPS = new Set(['+','-','*','/','%','=','==','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','||','!','++','--','~','`']);
                     const lex = (tok.value == null ? '' : String(tok.value));
@@ -471,6 +477,9 @@
               term.write('\r\n');
             }
             
+            // Run lexer first to populate the token table
+            await runLexer({ silent: true });
+            
             try {
               const response = await fetch(`${API_BASE}/api/parse`, {
                 method: 'POST',
@@ -482,91 +491,6 @@
               
               const data = await response.json();
               console.log("Parser response:", data);
-              
-              // Update token table (same as lexer)
-              const tokensTableBody = document.getElementById('tokenBody');
-              tokensTableBody.innerHTML = '';
-              const tokensTableBodySide = document.getElementById('tokenBodySide');
-              if (tokensTableBodySide) tokensTableBodySide.innerHTML = '';
-              const tokensTableBodyMobile = document.getElementById('tokenBodyMobile');
-              if (tokensTableBodyMobile) tokensTableBodyMobile.innerHTML = '';
-
-              // Display Type function (reuse from lexer)
-              const displayType = (tok) => {
-                if (tok.type === 'idf' || tok.type === 'id' || tok.type === 'TT_IDENTIFIER') {
-                  return 'id';
-                }
-                if (tok.type === 'intlit' || tok.type === 'TT_INTEGERLIT' || tok.type === 'seedlit') return 'intlit';
-                if (tok.type === 'dbllit' || tok.type === 'TT_DOUBLELIT' || tok.type === 'treelit') return 'dbllit';
-                if (tok.type === 'stringlit' || tok.type === 'strlit' || tok.type === 'strnglit' || tok.type === 'TT_STRINGLIT') return 'stringlit';
-                if (tok.type === 'chrlit' || tok.type === 'TT_CHARLIT' || tok.type === 'leaflit') return 'chrlit';
-                // Special case for branch -> t/f
-                if (tok.type === 'branch') return 't/f';
-                const kwSet = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','vine']);
-                if (kwSet.has(tok.type)) return tok.type;
-                const SYMBOLS = new Set(['+','-','*','/','%','=','==','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','||','!','++','--','~','`','(',')','{','}','[',']',',',';',';',':','.']);
-                if (tok && typeof tok.value === 'string' && SYMBOLS.has(tok.value)) return tok.value;
-                if (tok && typeof tok.type === 'string' && SYMBOLS.has(tok.type)) return tok.type;
-                if (tok.type && tok.type.startsWith('TT_')) {
-                  if (typeof tok.value === 'string' && SYMBOLS.has(tok.value)) return tok.value;
-                  return tok.type.substring(3).toLowerCase();
-                }
-                return tok.type || '';
-              };
-
-              // Classify Type function (reuse from lexer)
-              const RESERVED = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','vine']);
-              const SYMBOLS = new Set(['+','-','*','/','%','=','==','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','||','!','++','--','~','`','(',')','{','}','[',']',',',';',';',':','.']);
-              const symbolTypeName = (sym) => {
-                if (sym === '{') return 'R_Curly';
-                if (sym === '}') return 'L_Curly';
-                if (sym === '(') return 'L_Paren';
-                if (sym === ')') return 'R_Paren';
-                if (sym === '[') return 'L_Brkt';
-                if (sym === ']') return 'R_Brkt';
-                if (sym === ',') return 'Comma';
-                if (sym === ';') return 'Semi_c';
-                if (sym === ':') return 'Colon';
-                if (sym === '.') return 'Dot';
-                return '';
-              };
-              const classifyType = (tok) => {
-                const t = tok.type || '';
-                if (RESERVED.has(t)) return 'RW';
-                if (t === 'idf' || t === 'id' || t === 'TT_IDENTIFIER') return 'ID';
-                if (t === 'intlit' || t === 'TT_INTEGERLIT') return 'integer';
-                if (t === 'dbllit' || t === 'TT_DOUBLELIT' || t === 'treelit') return 'double';
-                if (t === 'stringlit' || t === 'strlit' || t === 'strnglit' || t === 'TT_STRINGLIT') return 'string';
-                if (t === 'chrlit' || t === 'TT_CHARLIT') return 'character';
-                const OPS = new Set(['+','-','*','/','%','=','==','===','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','&','||','|','!','++','--','~','`']);
-                const lex = (tok.value == null ? '' : String(tok.value));
-                if (OPS.has(lex) || OPS.has(t)) return 'operator';
-                if (SYMBOLS.has(lex)) return symbolTypeName(lex);
-                if (SYMBOLS.has(t)) return symbolTypeName(t);
-                return '';
-              };
-
-              // Populate tables with tokens (LEXEME, TOKEN, TYPE columns)
-              // Operator tokens should show description in TYPE column
-              const operatorTokens = new Set(['+', '-', '*', '/', '%', '**', '~', '++', '--', 
-                '=', '+=', '-=', '*=', '/=', '%=', '==', '===', '!=', '<', '>', '<=', '>=', 
-                '&&', '&', '||', '|', '!', '`']);
-              
-              if (data.tokens && data.tokens.length > 0) {
-                data.tokens.forEach(tok => {
-                  // Skip EOF token
-                  if (tok.type === 'EOF' || tok.type === 'TT_EOF') return;
-                  
-                  const vDisp = tok.value != null ? tok.value : ''; // Lexeme
-                  const tDisp = displayType(tok); // Token
-                  // TYPE column: use description for operators, classifyType for others
-                  const cDisp = operatorTokens.has(tok.type) ? (tok.description || classifyType(tok)) : classifyType(tok);
-                  const row = `<tr><td>${vDisp}</td><td>${tDisp}</td><td>${cDisp}</td></tr>`;
-                  tokensTableBody.innerHTML += row;
-                  if (tokensTableBodySide) tokensTableBodySide.innerHTML += row;
-                  if (tokensTableBodyMobile) tokensTableBodyMobile.innerHTML += row;
-                });
-              }
 
               // Update status chips
               const sl = document.getElementById('status-lex');
@@ -613,6 +537,9 @@
             const sourceCode = editor.getValue();
             console.log("Running semantic analysis with source code:", sourceCode);
             
+            // Run lexer first to populate the token table
+            await runLexer({ silent: true });
+            
             try {
               const response = await fetch(`${API_BASE}/api/semantic`, {
                 method: 'POST',
@@ -622,84 +549,6 @@
               
               const data = await response.json();
               console.log("Semantic response:", data);
-              
-              // Update token table (same as lexer)
-              if (data.tokens) {
-                const tokensTableBody = document.getElementById('tokenBody');
-                const tokensTableBodySide = document.getElementById('tokenBodySide');
-                const tokensTableBodyMobile = document.getElementById('tokenBodyMobile');
-                if (tokensTableBody) tokensTableBody.innerHTML = '';
-                if (tokensTableBodySide) tokensTableBodySide.innerHTML = '';
-                if (tokensTableBodyMobile) tokensTableBodyMobile.innerHTML = '';
-                
-                // Define helper functions (same as lexer mode)
-                const RESERVED = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','vine']);
-                const SYMBOLS = new Set(['+','-','*','/','%','=','==','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','||','!','++','--','~','`','(',')','{','}','[',']',',',';',':','.']);
-                
-                const displayType = (tok) => {
-                  if (tok.type === 'idf' || tok.type === 'id' || tok.type === 'TT_IDENTIFIER') {
-                    return 'id';
-                  }
-                  if (tok.type === 'intlit' || tok.type === 'TT_INTEGERLIT' || tok.type === 'seedlit') return 'intlit';
-                  if (tok.type === 'dbllit' || tok.type === 'TT_DOUBLELIT' || tok.type === 'treelit') return 'dbllit';
-                  if (tok.type === 'stringlit' || tok.type === 'strlit' || tok.type === 'strnglit' || tok.type === 'TT_STRINGLIT') return 'stringlit';
-                  if (tok.type === 'chrlit' || tok.type === 'TT_CHARLIT' || tok.type === 'leaflit') return 'chrlit';
-                  // Special case for branch -> t/f
-                  if (tok.type === 'branch') return 't/f';
-                  const kwSet = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','vine']);
-                  if (kwSet.has(tok.type)) return tok.type;
-                  if (tok && typeof tok.value === 'string' && SYMBOLS.has(tok.value)) return tok.value;
-                  if (tok && typeof tok.type === 'string' && SYMBOLS.has(tok.type)) return tok.type;
-                  if (tok.type && tok.type.startsWith('TT_')) {
-                    if (typeof tok.value === 'string' && SYMBOLS.has(tok.value)) return tok.value;
-                    return tok.type.substring(3).toLowerCase();
-                  }
-                  return tok.type || '';
-                };
-                
-                const symbolTypeName = (sym) => {
-                  if (sym === '{') return 'R_Curly';
-                  if (sym === '}') return 'L_Curly';
-                  if (sym === '(') return 'L_Paren';
-                  if (sym === ')') return 'R_Paren';
-                  if (sym === '[') return 'L_Brkt';
-                  if (sym === ']') return 'R_Brkt';
-                  if (sym === ',') return 'Comma';
-                  if (sym === ';') return 'Semi_c';
-                  if (sym === ':') return 'Colon';
-                  if (sym === '.') return 'Dot';
-                  return '';
-                };
-                
-                const classifyType = (tok) => {
-                  const t = tok.type || '';
-                  if (RESERVED.has(t)) return 'RW';
-                  if (t === 'idf' || t === 'id' || t === 'TT_IDENTIFIER') return 'ID';
-                  if (t === 'intlit' || t === 'TT_INTEGERLIT') return 'integer';
-                  if (t === 'dbllit' || t === 'TT_DOUBLELIT' || t === 'treelit') return 'double';
-                  if (t === 'stringlit' || t === 'strlit' || t === 'strnglit' || t === 'TT_STRINGLIT') return 'string';
-                  if (t === 'chrlit' || t === 'TT_CHARLIT') return 'character';
-                  const OPS = new Set(['+','-','*','/','%','=','==','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','||','!','++','--','~','`']);
-                  const lex = (tok.value == null ? '' : String(tok.value));
-                  if (OPS.has(lex) || OPS.has(t)) return 'operator';
-                  if (SYMBOLS.has(lex)) return symbolTypeName(lex);
-                  if (SYMBOLS.has(t)) return symbolTypeName(t);
-                  return '';
-                };
-                
-                data.tokens.forEach(token => {
-                  // Skip EOF token
-                  if (token.type === 'EOF' || token.type === 'TT_EOF') return;
-                  
-                  const vDisp = token.value == null ? '' : String(token.value);
-                  const tDisp = displayType(token);
-                  const cDisp = classifyType(token);
-                  const row = `<tr><td>${vDisp}</td><td>${tDisp}</td><td>${cDisp}</td></tr>`;
-                  if (tokensTableBody) tokensTableBody.innerHTML += row;
-                  if (tokensTableBodySide) tokensTableBodySide.innerHTML += row;
-                  if (tokensTableBodyMobile) tokensTableBodyMobile.innerHTML += row;
-                });
-              }
               
               // Clear terminal and display analysis results
               term.clear();
