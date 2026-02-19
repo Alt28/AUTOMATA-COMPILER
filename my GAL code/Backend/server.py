@@ -62,7 +62,7 @@ def lexer_endpoint():
                 'value': token.value if token.value is not None else '',
                 'line': token.line,
                 'col': getattr(token, 'col', 0),
-                'description': get_token_description(token.type)
+                'description': get_token_description(token.type, token.value)
             })
         
         return jsonify({
@@ -103,28 +103,33 @@ def parser_endpoint():
                 'value': token.value if token.value is not None else '',
                 'line': token.line,
                 'col': getattr(token, 'col', 0),
-                'description': get_token_description(token.type)
+                'description': get_token_description(token.type, token.value)
             })
         
-        # Run the parser on the tokens (even if there are lexical errors)
+        # Only run the parser if there are no lexical errors
+        if lex_errors:
+            return jsonify({
+                'success': False,
+                'tokens': token_list,
+                'errors': lex_errors,
+                'stage': ['lexical'],
+                'lexical_errors': True,
+                'syntax_errors': False
+            })
+
         parse_success, parse_errors = parser.parse(tokens)
-        
-        # Combine lexical and syntax errors
-        all_errors = lex_errors + parse_errors
         
         # Determine which stages have errors
         stages = []
-        if lex_errors:
-            stages.append('lexical')
         if parse_errors:
             stages.append('syntax')
         
         return jsonify({
-            'success': parse_success and not lex_errors,
+            'success': parse_success,
             'tokens': token_list,
-            'errors': all_errors,
+            'errors': parse_errors,
             'stage': stages if stages else ['success'],
-            'lexical_errors': len(lex_errors) > 0,
+            'lexical_errors': False,
             'syntax_errors': len(parse_errors) > 0
         })
     
@@ -169,7 +174,7 @@ def semantic_endpoint():
                 'value': token.value if token.value is not None else '',
                 'line': token.line,
                 'col': getattr(token, 'col', 0),
-                'description': get_token_description(token.type)
+                'description': get_token_description(token.type, token.value)
             })
         
         # If there are lexical errors, return them without semantic analysis
