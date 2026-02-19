@@ -1543,18 +1543,7 @@ class Lexer:
                         self.advance()
 
                 if dot_count == 0 and not has_e:
-                    # Check if this is after a type declaration for tree (tree only accepts doubles, not integers)
-                    type_token = None
-                    if len(tokens) >= 3 and tokens[-2].type == 'id' and tokens[-1].type == '=':
-                        type_token = tokens[-3].type
-                    elif len(tokens) >= 4 and tokens[-3].type == ':' and tokens[-2].type == 'id' and tokens[-1].type == '=':
-                        type_token = tokens[-4].type
-                    elif len(tokens) >= 2 and tokens[-1].type == '=' and tokens[-2].type in ['tree', 'seed', 'branch']:
-                        type_token = tokens[-2].type
-                    
-                    if type_token == 'tree':
-                        errors.append(LexicalError(pos, f"Tree variables cannot be assigned integer literals. Use double values (e.g., {ident_str}.0)"))
-                        continue
+                    # Integer literal - type checking is done by the parser (SYNTAX error)
                     
                     # Check for valid delimiter after integer
                     if self.current_char is not None and self.current_char not in whlnum_delim:
