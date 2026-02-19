@@ -344,6 +344,10 @@
                     const literalTypes = new Set(['intlit','dbllit','strnglit','chrlit','TT_INTEGERLIT','TT_DOUBLELIT','TT_STRINGLIT','TT_CHARLIT','seedlit','treelit','leaflit']);
                     if (literalTypes.has(tok.type)) return tok.value != null ? String(tok.value) : '';
 
+                    // Boolean literals: sunshine and frost show their keyword as token
+                    if (tok.type === 'sunshine') return 'sunshine';
+                    if (tok.type === 'frost') return 'frost';
+
                     // Reserved words are their type directly
                     const kwSet = new Set(['water','plant','seed','leaf','branch','tree','spring','wither','bud','harvest','grow','cultivate','tend','empty','prune','skip','reclaim','root','pollinate','variety','fertile','soil','bundle','string']);
                     if (kwSet.has(tok.type)) return tok.type;
@@ -389,6 +393,8 @@
                     if (t === 'dbllit' || t === 'TT_DOUBLELIT' || t === 'treelit') return 'double';
                     if (t === 'strnglit' || t === 'TT_STRINGLIT') return 'string';
                     if (t === 'chrlit' || t === 'TT_CHARLIT') return 'character';
+                    // Boolean literals
+                    if (t === 'sunshine' || t === 'frost') return 'false';
                     // Operators are labeled 'operator'
                     const OPS = new Set(['+','-','*','/','%','=','==','===','+=','-=','*=','/=','%=','<','>','<=','>=','!=','&&','&','||','|','!','++','--','~','`']);
                     const lex = (tok.value == null ? '' : String(tok.value));
