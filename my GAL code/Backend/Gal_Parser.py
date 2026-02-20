@@ -532,6 +532,9 @@ class LL1Parser:
         
         # Check for missing closing parenthesis
         if ')' in expected and token_type not in {')'}:
+            # Check if '~' or '!' (unary operators) appear where a binary operator is expected
+            if token_type in {'~', '!'}:
+                return f"SYNTAX error line {line} col {col} Unexpected '{token_value}' — expected binary operator (+, -, *, /, %, etc.) or ';'"
             return f"SYNTAX error line {line} col {col} expected ')' before '{token_value}'. Missing closing parenthesis"
         
         # Check for literal/identifier after identifier in expression context (missing operator)
