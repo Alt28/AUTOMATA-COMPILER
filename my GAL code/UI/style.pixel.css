@@ -1671,7 +1671,8 @@ img, canvas{ image-rendering: pixelated; }
   .ide-titlebar {
     height: 36px;
     min-height: 36px;
-    padding: 0 8px;
+    padding: 0 6px;
+    gap: 6px;
   }
   
   .ide-logo {
@@ -1683,25 +1684,28 @@ img, canvas{ image-rendering: pixelated; }
   }
   
   .ide-menu-btn {
-    padding: 6px 8px;
+    padding: 4px 6px;
     font-size: 9px;
+    flex-shrink: 0;
   }
   
   /* Center lexeme toggle */
   .mobile-lexeme-nav-toggle {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     display: flex;
     justify-content: center;
     min-width: 0;
-    max-width: 120px;
+    overflow: hidden;
   }
   
   .btn-toggle-lexemes {
-    padding: 6px 10px;
+    padding: 4px 8px;
     font-size: 8px;
-    min-height: 32px;
+    min-height: 28px;
     white-space: nowrap;
     gap: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   #lexeme-toggle-icon {
