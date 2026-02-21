@@ -1,4 +1,4 @@
-/* Pixel Garden Theme - clean stylesheet */
+
 :root{
   --bg: #0d1b0f;           /* deep garden night */
   --panel: #18361d;        /* foliage panel */
@@ -456,6 +456,9 @@ img, canvas{ image-rendering: pixelated; }
 .editor-body{ height: calc(100% - 36px); }
 .widthResizer{ width:4px; background:linear-gradient(135deg, #35543b, #2a4530); cursor:ew-resize; position:relative; height:10%; top:45%; border-radius:2px; transition: background .2s ease; }
 .widthResizer:hover{ background:linear-gradient(135deg, #4a6d4f, #35543b); }
+.heightResizer{ width:100%; height:6px; background:linear-gradient(180deg, #35543b, #2a4530); cursor:ns-resize; border-radius:2px; flex-shrink:0; transition: background .2s ease; position:relative; z-index:5; }
+.heightResizer:hover, .heightResizer.active{ background:linear-gradient(180deg, #7cd26f, #49a25c); }
+.heightResizer::after{ content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:30px; height:2px; background:rgba(124,210,111,.5); border-radius:1px; }
 .outputCont{ flex:1; display:flex; flex-direction:column; overflow-y:auto; border-radius:6px; overflow-x:hidden; }
 
 /* Mobile tokens section - visible by default, hidden on desktop */
