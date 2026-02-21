@@ -279,24 +279,7 @@
           // Toolbar buttons
           const btnRun = document.getElementById('btn-run');
           const btnLex = document.getElementById('btn-lex');
-          const btnClear = document.getElementById('btn-clear');
-          const btnSave = document.getElementById('btn-save');
-          const btnOpen = document.getElementById('btn-open');
-
-          // Save/Open .gal handlers are in index.html inline script
-
-          // Removed Run/Lexical toolbar bindings per UI update
-          btnClear && btnClear.addEventListener('click', () => {
-            term.clear();
-            const tbody = document.getElementById('tokenBody');
-            if (tbody) tbody.innerHTML = '';
-            const tbodySide = document.getElementById('tokenBodySide');
-            if (tbodySide) tbodySide.innerHTML = '';
-            ['status-lex','status-syn','status-sem','status-exe'].forEach(id => {
-              const el = document.getElementById(id);
-              if (el){ el.classList.remove('ok','err'); el.textContent = el.textContent.replace(/:.*/, ': —'); }
-            });
-          });
+          // File menu (New/Open/Save/Clear) is handled in index.html inline script
 
           // Terminal header actions
           let autoScroll = true;
@@ -333,16 +316,6 @@
             clearBtn.addEventListener('click', () => term.clear());
           }
 
-          // ── Timestamp toggle ──
-          let showTimestamps = false;
-          const timestampBtn = document.getElementById('term-timestamp');
-          if (timestampBtn) {
-            timestampBtn.addEventListener('click', () => {
-              showTimestamps = !showTimestamps;
-              timestampBtn.setAttribute('aria-pressed', String(showTimestamps));
-            });
-          }
-
           // ── Font size +/- ──
           const FONT_MIN = 8, FONT_MAX = 24;
           let termFontSize = 14;
@@ -373,16 +346,6 @@
           }
 
           // Terminal download button removed
-
-          // ── Patch term.write to optionally prepend timestamps ──
-          const _origWrite = term.write.bind(term);
-          term.write = function(data) {
-            if (showTimestamps && typeof data === 'string' && data.trim().length > 0) {
-              const ts = new Date().toLocaleTimeString('en-US', {hour12:true, hour:'numeric', minute:'2-digit', second:'2-digit'});
-              _origWrite(`\x1b[90m[${ts}]\x1b[0m `);
-            }
-            _origWrite(data);
-          };
 
           // Mobile lexeme table toggle (navbar button)
           if (toggleMobileLexBtn) {
@@ -420,6 +383,46 @@
               backdrop.addEventListener('click', closeLexemeTable);
             }
           }
+
+          // Mobile status popup toggle
+          (function() {
+            const fab = document.getElementById('mobile-status-fab');
+            const popup = document.getElementById('mobile-status-popup');
+            const backdrop = document.getElementById('mobile-status-backdrop');
+            const closeBtn = document.getElementById('mobile-status-close');
+
+            if (!fab || !popup) return;
+
+            const syncChips = () => {
+              let hasError = false;
+              popup.querySelectorAll('.mobile-status-chip[data-mirror]').forEach(chip => {
+                const src = document.getElementById(chip.dataset.mirror);
+                if (src) {
+                  chip.textContent = src.textContent;
+                  chip.className = 'mobile-status-chip';
+                  if (src.classList.contains('ok')) chip.classList.add('ok');
+                  if (src.classList.contains('err')) { chip.classList.add('err'); hasError = true; }
+                }
+              });
+              // Update FAB indicator color
+              const fabIcon = fab.querySelector('.mobile-status-fab-icon');
+              if (fabIcon) fabIcon.style.color = hasError ? '#ff8a5b' : '#7cd26f';
+            };
+
+            const closePopup = () => {
+              popup.classList.remove('show');
+              if (backdrop) backdrop.classList.remove('show');
+            };
+
+            fab.addEventListener('click', () => {
+              syncChips();
+              const isShowing = popup.classList.toggle('show');
+              if (backdrop) backdrop.classList.toggle('show', isShowing);
+            });
+
+            if (closeBtn) closeBtn.addEventListener('click', closePopup);
+            if (backdrop) backdrop.addEventListener('click', closePopup);
+          })();
 
 
   window.runLexer = async function (options = {}) {
