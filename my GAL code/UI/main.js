@@ -131,7 +131,7 @@
       });
 
       window.editor = monaco.editor.create(document.getElementById('editor'), {
-        value: `root(){\n\t// your code here\n\t\n\treclaim;\n}`,
+        value: `root(){\n\tplant("hello world");\n\t\n\treclaim;\n}`,
               language: 'gal',
               theme: 'galTheme',
               minimap: { enabled: false },
@@ -1018,4 +1018,5 @@
         debouncedLex();
       });
     }
+
 
