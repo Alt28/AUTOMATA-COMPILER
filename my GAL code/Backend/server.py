@@ -367,7 +367,7 @@ def run_endpoint():
             return jsonify({
                 'success': False,
                 'stage': 'lexical',
-                'output': ['Lexical Error: ' + e for e in lex_errors],
+                'output': [],
                 'errors': lex_errors
             })
 
@@ -377,7 +377,7 @@ def run_endpoint():
             return jsonify({
                 'success': False,
                 'stage': 'syntax',
-                'output': [str(e) for e in parse_errors],
+                'output': [],
                 'errors': [str(e) for e in parse_errors]
             })
 
@@ -387,7 +387,7 @@ def run_endpoint():
             return jsonify({
                 'success': False,
                 'stage': 'semantic',
-                'output': [str(e) for e in semantic_result['errors']],
+                'output': [],
                 'errors': [str(e) for e in semantic_result['errors']]
             })
 
