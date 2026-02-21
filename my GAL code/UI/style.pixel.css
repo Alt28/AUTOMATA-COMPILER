@@ -1804,11 +1804,36 @@ img, canvas{ image-rendering: pixelated; }
   
   /* ===== IDE STATUSBAR MOBILE ===== */
   .ide-statusbar {
-    display: none !important;
+    height: 22px;
+    min-height: 22px;
+    padding: 0 6px;
+    flex-shrink: 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+  }
+
+  .ide-statusbar .status-chip {
+    font-size: 7px;
+    padding: 2px 5px;
+  }
+
+  .ide-status-lang {
+    font-size: 7px;
   }
 
   .mobile-status-fab {
-    display: flex !important;
+    display: none !important;
+  }
+
+  .mobile-status-popup {
+    display: none !important;
+  }
+
+  .mobile-status-backdrop {
+    display: none !important;
   }
 
   /* ===== FILE MENU MOBILE ===== */
@@ -1897,11 +1922,9 @@ img, canvas{ image-rendering: pixelated; }
     font-size: 10px;
   }
   
-  .mobile-status-fab {
-    width: 42px;
-    height: 42px;
-    bottom: 12px;
-    right: 12px;
+  .ide-statusbar .status-chip {
+    font-size: 6px;
+    padding: 2px 4px;
   }
 
   .textFieldCont {
