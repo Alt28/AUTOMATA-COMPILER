@@ -205,6 +205,7 @@
       
           term.open(document.getElementById('terminal'));
           window._galTerm = term;  // Expose globally for inline scripts
+          window.fitAddon = fitAddon;  // Expose for height resizer
           
           setTimeout(() => term.focus(), 100);
           term.write('Terminal Ready\r\n');
@@ -900,6 +901,83 @@
   function widthResize(e) {
       let newWidth = e.clientX - document.querySelector(".textFieldCont").getBoundingClientRect().left;
       document.querySelector(".textFieldCont").style.width = `${newWidth}px`;
+  }
+
+  /* ── Height resizer for terminal ── */
+  const heightResizer = document.querySelector('.heightResizer');
+  if (heightResizer) {
+    const workspaceMain = document.querySelector('.workspace-main');
+    const mainCont = document.querySelector('.mainCont');
+    const termCont = document.querySelector('.terminalCont');
+
+    heightResizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      heightResizer.classList.add('active');
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMouseMove(ev) {
+        const parentRect = workspaceMain.getBoundingClientRect();
+        const resizerH = heightResizer.offsetHeight;
+        // y position relative to workspace-main
+        const y = ev.clientY - parentRect.top;
+        const minEditor = 100;
+        const minTerminal = 100;
+        const available = parentRect.height - resizerH;
+        let editorH = Math.max(minEditor, Math.min(y, available - minTerminal));
+        let termH = available - editorH;
+
+        mainCont.style.height = editorH + 'px';
+        termCont.style.height = termH + 'px';
+
+        // Re-fit xterm
+        if (window.fitAddon) window.fitAddon.fit();
+      }
+
+      function onMouseUp() {
+        heightResizer.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (window.fitAddon) window.fitAddon.fit();
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Touch support for mobile
+    heightResizer.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      heightResizer.classList.add('active');
+
+      function onTouchMove(ev) {
+        const touch = ev.touches[0];
+        const parentRect = workspaceMain.getBoundingClientRect();
+        const resizerH = heightResizer.offsetHeight;
+        const y = touch.clientY - parentRect.top;
+        const minEditor = 100;
+        const minTerminal = 100;
+        const available = parentRect.height - resizerH;
+        let editorH = Math.max(minEditor, Math.min(y, available - minTerminal));
+        let termH = available - editorH;
+
+        mainCont.style.height = editorH + 'px';
+        termCont.style.height = termH + 'px';
+        if (window.fitAddon) window.fitAddon.fit();
+      }
+
+      function onTouchEnd() {
+        heightResizer.classList.remove('active');
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        if (window.fitAddon) window.fitAddon.fit();
+      }
+
+      document.addEventListener('touchmove', onTouchMove);
+      document.addEventListener('touchend', onTouchEnd);
+    }, { passive: false });
   }
 
   function toggleDropdown() {
