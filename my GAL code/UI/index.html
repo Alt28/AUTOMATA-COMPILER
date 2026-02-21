@@ -115,7 +115,6 @@
                                 <button class="term-btn" id="term-font-dec" title="Decrease font size">-</button>
                                 <button class="term-btn" id="term-font-inc" title="Increase font size">+</button>
                                 <button class="term-btn" id="term-copy" title="Copy output">Copy</button>
-                                <button class="term-btn" id="term-download" title="Download output log">Save</button>
                                 <button class="term-btn danger" id="term-clear" title="Clear output">Clear</button>
                             </div>
                         </div>
@@ -165,7 +164,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/loader.js"></script> <!-- Monaco editor -->
 
         <!-- Include your main JavaScript file -->
-        <script src="main.js?v=20260220a"></script>
+        <script src="main.js?v=20260221b"></script>
 
         <!-- Inline Run override v3 — fully self-contained with interactive water() support -->
         <script>
@@ -354,6 +353,96 @@
               sock.emit('run_code', { source_code: code });
             }
           }
+        })();
+        </script>
+
+        <!-- Save/Open .gal file handlers -->
+        <script>
+        (function() {
+          function wireButtons() {
+            var btnSave = document.getElementById('btn-save');
+            var btnOpen = document.getElementById('btn-open');
+            console.log('[GAL] Save/Open wire:', btnSave, btnOpen);
+
+            if (btnSave && !btnSave._galWired) {
+              btnSave._galWired = true;
+              btnSave.onclick = async function() {
+                console.log('[GAL] Save clicked');
+                var code = '';
+                if (window.editor && window.editor.getValue) {
+                  code = window.editor.getValue();
+                }
+                if (!code) { alert('Editor is empty.'); return; }
+
+                // Use native Save As dialog if available (Chrome/Edge)
+                if (window.showSaveFilePicker) {
+                  try {
+                    var handle = await window.showSaveFilePicker({
+                      suggestedName: 'untitled.gal',
+                      types: [{
+                        description: 'GAL Source File',
+                        accept: { 'text/plain': ['.gal'] }
+                      }]
+                    });
+                    var writable = await handle.createWritable();
+                    await writable.write(code);
+                    await writable.close();
+                    console.log('[GAL] File saved via picker');
+                    return;
+                  } catch (e) {
+                    if (e.name === 'AbortError') return; // user cancelled
+                    console.warn('[GAL] Picker failed, using fallback:', e);
+                  }
+                }
+
+                // Fallback for Firefox/Safari
+                var name = prompt('Save file as:', 'untitled.gal');
+                if (!name) return;
+                if (!name.endsWith('.gal')) name += '.gal';
+                var blob = new Blob([code], { type: 'text/plain' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              };
+              console.log('[GAL] Save handler wired');
+            }
+
+            if (btnOpen && !btnOpen._galWired) {
+              btnOpen._galWired = true;
+              btnOpen.onclick = function() {
+                console.log('[GAL] Open clicked');
+                var input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.gal';
+                input.onchange = function() {
+                  var file = input.files[0];
+                  if (!file) return;
+                  var reader = new FileReader();
+                  reader.onload = function() {
+                    if (window.editor && window.editor.setValue) {
+                      window.editor.setValue(reader.result);
+                    }
+                  };
+                  reader.readAsText(file);
+                };
+                input.click();
+              };
+              console.log('[GAL] Open handler wired');
+            }
+          }
+
+          // Try immediately
+          wireButtons();
+          // Retry on DOMContentLoaded
+          document.addEventListener('DOMContentLoaded', wireButtons);
+          // Retry after short delay as fallback
+          setTimeout(wireButtons, 1000);
+          setTimeout(wireButtons, 3000);
         })();
         </script>
 
