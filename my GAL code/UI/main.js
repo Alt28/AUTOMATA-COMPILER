@@ -280,6 +280,11 @@
           const btnRun = document.getElementById('btn-run');
           const btnLex = document.getElementById('btn-lex');
           const btnClear = document.getElementById('btn-clear');
+          const btnSave = document.getElementById('btn-save');
+          const btnOpen = document.getElementById('btn-open');
+
+          // Save/Open .gal handlers are in index.html inline script
+
           // Removed Run/Lexical toolbar bindings per UI update
           btnClear && btnClear.addEventListener('click', () => {
             term.clear();
@@ -367,31 +372,7 @@
             });
           }
 
-          // ── Download output log ──
-          const downloadBtn = document.getElementById('term-download');
-          if (downloadBtn) {
-            downloadBtn.addEventListener('click', () => {
-              try {
-                const buffer = term.buffer.active;
-                let text = '';
-                for (let i = 0; i < buffer.length; i++) {
-                  const line = buffer.getLine(i);
-                  if (line) text += line.translateToString() + '\n';
-                }
-                const blob = new Blob([text], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `gal-output-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              } catch (e) {
-                console.warn('Download failed:', e);
-              }
-            });
-          }
+          // Terminal download button removed
 
           // ── Patch term.write to optionally prepend timestamps ──
           const _origWrite = term.write.bind(term);
