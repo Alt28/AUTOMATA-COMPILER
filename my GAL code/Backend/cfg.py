@@ -616,26 +616,27 @@ cfg = {
             "variety",             # case keyword
             "<expression>",        # case value (no parentheses)
             ":",
-            "<case_statements>",   # zero or more simple statements
-            "prune",               # REQUIRED break statement
-            ";",
+            "<case_statements>",   # zero or more statements (including prune)
             "<case_list>",         # More cases
         ],
         [EPSILON],  # No more cases
     ],
     
-    # Statements inside a case - recursive list of basic statements
+    # Statements inside a case - recursive list of statements
     "<case_statements>": [
         ["<case_statement>", "<case_statements>"],  # One statement, then more
         [EPSILON],                                  # No more statements (stops at variety/soil/})
     ],
     
-    # Individual statement types allowed in a case body
+    # Any statement type is allowed in a case body
     "<case_statement>": [
-        ["id", "<id_stmt>"],                          # Assignment/increment/function call
-        ["water", "(", "<arguments>", ")", ";"],      # I/O: water()
-        ["plant", "(", "<arguments>", ")", ";"],      # I/O: plant()
-        ["skip", ";"],                                # Control: skip (continue)
+        ["id", "<id_stmt>"],              # Assignment/increment/function call
+        ["<io_stmt>"],                    # water() or plant()
+        ["<conditional_stmt>"],           # spring (if), bud (else-if), wither (else)
+        ["<loop_stmt>"],                  # grow (while), cultivate (for), tend (do-while)
+        ["<switch_stmt>"],                # harvest (nested switch)
+        ["prune", ";"],                   # prune (break)
+        ["skip", ";"],                    # skip (continue)
     ],
 
     "<default_opt>": [
