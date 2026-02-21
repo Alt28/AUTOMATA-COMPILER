@@ -78,6 +78,8 @@
                     </div>
                 </aside>
 
+                <div class="sidebarResizer" title="Drag to resize lexeme panel"></div>
+
                 <div class="workspace-main">
                     <div class="mainCont">
                         <div class="textFieldCont">
@@ -109,7 +111,11 @@
                             </div>
                             <div class="term-actions">
                                 <button class="term-btn" id="term-autoscroll" aria-pressed="true" title="Toggle auto-scroll">Auto</button>
+                                <button class="term-btn" id="term-timestamp" aria-pressed="false" title="Toggle timestamps">Time</button>
+                                <button class="term-btn" id="term-font-dec" title="Decrease font size">-</button>
+                                <button class="term-btn" id="term-font-inc" title="Increase font size">+</button>
                                 <button class="term-btn" id="term-copy" title="Copy output">Copy</button>
+                                <button class="term-btn" id="term-download" title="Download output log">Save</button>
                                 <button class="term-btn danger" id="term-clear" title="Clear output">Clear</button>
                             </div>
                         </div>
@@ -238,22 +244,25 @@
 
             // Lexer / Syntax / Semantic modes — call global functions directly
             if (modeText.indexOf('Lexer') !== -1) {
-              if (term && term.clear) term.clear();
+              if (term) { term.reset(); term.clear(); }
               resetChips();
+              if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runLexer) return window.runLexer({ silent: false });
               console.warn('[GAL] runLexer not ready yet');
               return;
             }
             if (modeText.indexOf('Syntax') !== -1) {
-              if (term && term.clear) term.clear();
+              if (term) { term.reset(); term.clear(); }
               resetChips();
+              if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runSyntax) return window.runSyntax({ silent: false });
               console.warn('[GAL] runSyntax not ready yet');
               return;
             }
             if (modeText.indexOf('Semantic') !== -1) {
-              if (term && term.clear) term.clear();
+              if (term) { term.reset(); term.clear(); }
               resetChips();
+              if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runSemantic) return window.runSemantic({ silent: false });
               console.warn('[GAL] runSemantic not ready yet');
               return;
@@ -263,8 +272,13 @@
             try { code = monaco.editor.getModels()[0].getValue(); }
             catch(e) { tw('Error: Editor not ready.\r\n'); return; }
 
-            if (term && term.clear) term.clear();
+            if (term) { term.reset(); term.clear(); }
             resetChips();
+            // Clear previous error highlights immediately
+            if (window._clearErrorHighlights) window._clearErrorHighlights();
+            // Remove stale socket listeners
+            var sock0 = window._galSocket;
+            if (sock0) sock0.removeAllListeners('execution_complete');
 
             // Always populate the lexeme table in the background
             if (window.runLexer) await window.runLexer({ silent: true });
@@ -285,6 +299,9 @@
                 }
                 if (result.errors && result.errors.length > 0) {
                   result.errors.forEach(function(err) { tw('\x1b[31m' + String(err) + '\x1b[0m\r\n'); });
+                  if (window._highlightErrors) window._highlightErrors(result.errors);
+                } else {
+                  if (window._clearErrorHighlights) window._clearErrorHighlights();
                 }
                 applyChips(result.stage, result.success);
                 if (result.stage === 'execution') {
@@ -299,6 +316,12 @@
               var sock = getSock();
               if (!sock) { tw('\x1b[31mError: Socket not available.\x1b[0m\r\n'); return; }
 
+              // Bump run generation and clear stale output
+              window._runGeneration = (window._runGeneration || 0) + 1;
+              if (window._socketOutputLog) window._socketOutputLog.length = 0;
+              // Remove any lingering execution_complete listeners from previous runs
+              sock.removeAllListeners('execution_complete');
+
               // Ensure connected
               if (!sock.connected) {
                 sock.connect();
@@ -310,11 +333,20 @@
               }
               if (!sock.connected) { tw('\x1b[31mError: Could not connect.\x1b[0m\r\n'); return; }
 
+              // Clear collected socket output before run
+              if (window._socketOutputLog) window._socketOutputLog.length = 0;
+
               // One-time completion
               sock.once('execution_complete', function(data) {
                 applyChips(data.stage, data.success);
                 if (data.stage === 'execution') {
                   tw(data.success ? '\r\n\x1b[32mCode execution successful.\x1b[0m\r\n' : '\r\n\x1b[31mCode execution failed.\x1b[0m\r\n');
+                }
+                // Highlight errors from collected socket output
+                if (!data.success && window._socketOutputLog && window._socketOutputLog.length > 0) {
+                  if (window._highlightErrors) window._highlightErrors(window._socketOutputLog);
+                } else {
+                  if (window._clearErrorHighlights) window._clearErrorHighlights();
                 }
               });
 
