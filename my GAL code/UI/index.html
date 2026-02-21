@@ -398,9 +398,7 @@
               if (window.editor && window.editor.getValue && window.editor.getValue().trim()) {
                 if (!confirm('Clear current code and start new?')) return;
               }
-              if (window.editor) window.editor.setValue('');
-              window._galFileHandle = null;
-              setFileName('untitled.gal');
+              window.location.reload();
             };
 
             // ── Open ──
