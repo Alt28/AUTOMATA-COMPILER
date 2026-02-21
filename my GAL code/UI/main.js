@@ -969,7 +969,7 @@
         });
 
           // Global variable to track selected run mode
-          let currentRunMode = 'lexer';
+          let currentRunMode = 'run';
           
       window.runCode = async function () {
         // Clear terminal and error highlights at the start of each run
@@ -994,7 +994,7 @@
       window.selectRunMode = function(mode) {
         currentRunMode = mode;
         const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
-        document.getElementById('run-mode-text').textContent = `Run - ${modeText}`;
+        document.getElementById('run-mode-text').textContent = modeText;
         document.getElementById('run-dropdown-menu').classList.add('hidden');
       };
       
