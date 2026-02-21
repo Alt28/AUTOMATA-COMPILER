@@ -52,11 +52,20 @@
         </nav>
             <!-- Toolbar -->
             <div class="toolbar garden-wood">
-                <div class="toolbar-left"></div>
+                <div class="toolbar-left">
+                    <span class="current-file-name" id="current-file-name" title="Current file">untitled.gal</span>
+                </div>
                 <div class="toolbar-right">
-                    <button class="tb-btn" id="btn-open">Open</button>
-                    <button class="tb-btn" id="btn-save">Save</button>
-                    <button class="tb-btn" id="btn-clear">Clear</button>
+                    <div class="file-menu-wrap" id="file-menu-wrap">
+                        <button class="tb-btn" id="btn-file">File &#9662;</button>
+                        <div class="file-popup hidden" id="file-popup">
+                            <button class="file-popup-item" id="fp-new">&#128196; New</button>
+                            <button class="file-popup-item" id="fp-open">&#128194; Open</button>
+                            <button class="file-popup-item" id="fp-save">&#128190; Save</button>
+                            <div class="file-popup-divider"></div>
+                            <button class="file-popup-item danger" id="fp-clear">&#128465; Clear</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -111,7 +120,6 @@
                             </div>
                             <div class="term-actions">
                                 <button class="term-btn" id="term-autoscroll" aria-pressed="true" title="Toggle auto-scroll">Auto</button>
-                                <button class="term-btn" id="term-timestamp" aria-pressed="false" title="Toggle timestamps">Time</button>
                                 <button class="term-btn" id="term-font-dec" title="Decrease font size">-</button>
                                 <button class="term-btn" id="term-font-inc" title="Increase font size">+</button>
                                 <button class="term-btn" id="term-copy" title="Copy output">Copy</button>
@@ -356,93 +364,159 @@
         })();
         </script>
 
-        <!-- Save/Open .gal file handlers -->
+        <!-- File menu popup handlers -->
         <script>
         (function() {
-          function wireButtons() {
-            var btnSave = document.getElementById('btn-save');
-            var btnOpen = document.getElementById('btn-open');
-            console.log('[GAL] Save/Open wire:', btnSave, btnOpen);
+          function wireFileMenu() {
+            var btnFile = document.getElementById('btn-file');
+            var popup = document.getElementById('file-popup');
+            var fpNew = document.getElementById('fp-new');
+            var fpOpen = document.getElementById('fp-open');
+            var fpSave = document.getElementById('fp-save');
+            var fpClear = document.getElementById('fp-clear');
+            if (!btnFile || !popup || btnFile._galWired) return;
+            btnFile._galWired = true;
 
-            if (btnSave && !btnSave._galWired) {
-              btnSave._galWired = true;
-              btnSave.onclick = async function() {
-                console.log('[GAL] Save clicked');
-                var code = '';
-                if (window.editor && window.editor.getValue) {
-                  code = window.editor.getValue();
-                }
-                if (!code) { alert('Editor is empty.'); return; }
+            function closePopup() { popup.classList.add('hidden'); }
+            function togglePopup(e) { e.stopPropagation(); popup.classList.toggle('hidden'); }
 
-                // Use native Save As dialog if available (Chrome/Edge)
-                if (window.showSaveFilePicker) {
-                  try {
-                    var handle = await window.showSaveFilePicker({
-                      suggestedName: 'untitled.gal',
-                      types: [{
-                        description: 'GAL Source File',
-                        accept: { 'text/plain': ['.gal'] }
-                      }]
-                    });
-                    var writable = await handle.createWritable();
-                    await writable.write(code);
-                    await writable.close();
-                    console.log('[GAL] File saved via picker');
-                    return;
-                  } catch (e) {
-                    if (e.name === 'AbortError') return; // user cancelled
-                    console.warn('[GAL] Picker failed, using fallback:', e);
-                  }
-                }
+            btnFile.onclick = togglePopup;
+            document.addEventListener('click', function(e) {
+              if (!popup.contains(e.target) && e.target !== btnFile) closePopup();
+            });
 
-                // Fallback for Firefox/Safari
-                var name = prompt('Save file as:', 'untitled.gal');
-                if (!name) return;
-                if (!name.endsWith('.gal')) name += '.gal';
-                var blob = new Blob([code], { type: 'text/plain' });
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              };
-              console.log('[GAL] Save handler wired');
+            var fileLabel = document.getElementById('current-file-name');
+            window._galFileHandle = null; // stored file handle for direct save
+            function setFileName(name) {
+              window._currentGalFile = name;
+              if (fileLabel) { fileLabel.textContent = name; fileLabel.title = name; }
             }
 
-            if (btnOpen && !btnOpen._galWired) {
-              btnOpen._galWired = true;
-              btnOpen.onclick = function() {
-                console.log('[GAL] Open clicked');
-                var input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.gal';
-                input.onchange = function() {
-                  var file = input.files[0];
-                  if (!file) return;
-                  var reader = new FileReader();
-                  reader.onload = function() {
-                    if (window.editor && window.editor.setValue) {
-                      window.editor.setValue(reader.result);
-                    }
-                  };
-                  reader.readAsText(file);
+            // ── New ──
+            fpNew.onclick = function() {
+              closePopup();
+              if (window.editor && window.editor.getValue && window.editor.getValue().trim()) {
+                if (!confirm('Clear current code and start new?')) return;
+              }
+              if (window.editor) window.editor.setValue('');
+              window._galFileHandle = null;
+              setFileName('untitled.gal');
+            };
+
+            // ── Open ──
+            fpOpen.onclick = async function() {
+              closePopup();
+              // Use native file picker if available (Chrome/Edge) to get a reusable handle
+              if (window.showOpenFilePicker) {
+                try {
+                  var handles = await window.showOpenFilePicker({
+                    types: [{ description: 'GAL Source File', accept: { 'text/plain': ['.gal'] } }],
+                    multiple: false
+                  });
+                  var handle = handles[0];
+                  var file = await handle.getFile();
+                  var text = await file.text();
+                  window._galFileHandle = handle;
+                  setFileName(file.name);
+                  if (window.editor) window.editor.setValue(text);
+                  return;
+                } catch (e) {
+                  if (e.name === 'AbortError') return;
+                  console.warn('[GAL] Open picker failed, using fallback:', e);
+                }
+              }
+              // Fallback
+              var input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.gal';
+              input.onchange = function() {
+                var file = input.files[0];
+                if (!file) return;
+                window._galFileHandle = null;
+                setFileName(file.name);
+                var reader = new FileReader();
+                reader.onload = function() {
+                  if (window.editor) window.editor.setValue(reader.result);
                 };
-                input.click();
+                reader.readAsText(file);
               };
-              console.log('[GAL] Open handler wired');
-            }
+              input.click();
+            };
+
+            // ── Save ──
+            fpSave.onclick = async function() {
+              closePopup();
+              var code = '';
+              if (window.editor && window.editor.getValue) code = window.editor.getValue();
+              if (!code) { alert('Editor is empty.'); return; }
+
+              // If we have an existing file handle, save directly to it
+              if (window._galFileHandle) {
+                try {
+                  var writable = await window._galFileHandle.createWritable();
+                  await writable.write(code);
+                  await writable.close();
+                  console.log('[GAL] Saved to', window._currentGalFile);
+                  return;
+                } catch (e) {
+                  if (e.name === 'AbortError') return;
+                  console.warn('[GAL] Direct save failed, falling through to Save As:', e);
+                }
+              }
+
+              // No handle — use Save As
+              if (window.showSaveFilePicker) {
+                try {
+                  var handle = await window.showSaveFilePicker({
+                    suggestedName: window._currentGalFile || 'untitled.gal',
+                    types: [{ description: 'GAL Source File', accept: { 'text/plain': ['.gal'] } }]
+                  });
+                  window._galFileHandle = handle;
+                  setFileName(handle.name);
+                  var writable = await handle.createWritable();
+                  await writable.write(code);
+                  await writable.close();
+                  return;
+                } catch (e) {
+                  if (e.name === 'AbortError') return;
+                }
+              }
+              var name = prompt('Save file as:', 'untitled.gal');
+              if (!name) return;
+              if (!name.endsWith('.gal')) name += '.gal';
+              var blob = new Blob([code], { type: 'text/plain' });
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url; a.download = name;
+              document.body.appendChild(a); a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            };
+
+            // ── Clear ──
+            fpClear.onclick = function() {
+              closePopup();
+              if (window.editor) window.editor.setValue('');
+              if (window._clearErrorHighlights) window._clearErrorHighlights();
+              var t = window._galTerm;
+              if (t) { t.reset(); t.clear(); }
+              var tbody = document.getElementById('tokenBody');
+              if (tbody) tbody.innerHTML = '';
+              var tbodySide = document.getElementById('tokenBodySide');
+              if (tbodySide) tbodySide.innerHTML = '';
+              ['status-lex','status-syn','status-sem','status-exe'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) { el.classList.remove('ok','err'); el.textContent = el.textContent.replace(/:.*/, ': \u2014'); }
+              });
+            };
+
+            console.log('[GAL] File menu wired');
           }
 
-          // Try immediately
-          wireButtons();
-          // Retry on DOMContentLoaded
-          document.addEventListener('DOMContentLoaded', wireButtons);
-          // Retry after short delay as fallback
-          setTimeout(wireButtons, 1000);
-          setTimeout(wireButtons, 3000);
+          wireFileMenu();
+          document.addEventListener('DOMContentLoaded', wireFileMenu);
+          setTimeout(wireFileMenu, 1000);
+          setTimeout(wireFileMenu, 3000);
         })();
         </script>
 
