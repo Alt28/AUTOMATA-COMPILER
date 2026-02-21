@@ -4,6 +4,8 @@ A web-based compiler for the GAL (Grow A Language) programming language with lex
 
 ![The compiler](./my%20GAL%20code/Compiler/compiler.png)
 
+https://automata-compiler-3.onrender.com/
+
 ## Features
 
 - **Lexical Analysis** - Tokenizes GAL source code
