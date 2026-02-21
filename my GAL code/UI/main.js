@@ -160,7 +160,7 @@
               renderLineHighlight: 'line',
               occurrencesHighlight: false,
               selectionHighlight: false,
-              renderValidationDecorations: 'off',
+              renderValidationDecorations: 'on',
           });
 
           // Add line highlighting on click
@@ -181,6 +181,64 @@
           });
 
           // (reverted) no status bar cursor updates
+
+          // ── Error line highlighting ──
+          let errorDecorations = [];
+
+          // Parse error string for line/col: supports "LEXICAL/SYNTAX error line X col Y" and "Ln X Semantic Error"
+          function parseErrorLocations(errors) {
+            const locs = [];
+            const re1 = /(?:LEXICAL|SYNTAX)\s+error\s+line\s+(\d+)\s+col\s+(\d+)/i;
+            const re2 = /^Ln\s+(\d+)\s/i;
+            (errors || []).forEach(err => {
+              const s = String(err);
+              let m = re1.exec(s);
+              if (m) { locs.push({ line: parseInt(m[1],10), col: parseInt(m[2],10), msg: s }); return; }
+              m = re2.exec(s);
+              if (m) { locs.push({ line: parseInt(m[1],10), col: 1, msg: s }); }
+            });
+            return locs;
+          }
+
+          window._highlightErrors = function(errors) {
+            const locs = parseErrorLocations(errors);
+            if (!locs.length) {
+              errorDecorations = window.editor.deltaDecorations(errorDecorations, []);
+              monaco.editor.setModelMarkers(window.editor.getModel(), 'gal-errors', []);
+              return;
+            }
+            // Decoration overlays (red tinted line)
+            const decorations = locs.map(loc => ({
+              range: new monaco.Range(loc.line, 1, loc.line, 1),
+              options: {
+                isWholeLine: true,
+                className: 'error-line-highlight',
+                glyphMarginClassName: 'error-line-glyph',
+                overviewRuler: { color: '#ff3322', position: monaco.editor.OverviewRulerLane.Full },
+                hoverMessage: { value: loc.msg }
+              }
+            }));
+            errorDecorations = window.editor.deltaDecorations(errorDecorations, decorations);
+            // Also set model markers (squiggly red underlines)
+            const markers = locs.map(loc => ({
+              severity: monaco.MarkerSeverity.Error,
+              startLineNumber: loc.line,
+              startColumn: loc.col,
+              endLineNumber: loc.line,
+              endColumn: loc.col + 20,
+              message: loc.msg
+            }));
+            monaco.editor.setModelMarkers(window.editor.getModel(), 'gal-errors', markers);
+            // Auto-scroll to first error
+            const first = locs[0];
+            window.editor.revealLineInCenter(first.line);
+            window.editor.setPosition({ lineNumber: first.line, column: first.col });
+          };
+
+          window._clearErrorHighlights = function() {
+            errorDecorations = window.editor.deltaDecorations(errorDecorations, []);
+            monaco.editor.setModelMarkers(window.editor.getModel(), 'gal-errors', []);
+          };
       });
       
   require(['vs/editor/editor.main', 'xterm/xterm', 'xterm-addon-fit'], function (_, Xterm, FitAddon) {
@@ -269,6 +327,81 @@
           if (clearBtn) {
             clearBtn.addEventListener('click', () => term.clear());
           }
+
+          // ── Timestamp toggle ──
+          let showTimestamps = false;
+          const timestampBtn = document.getElementById('term-timestamp');
+          if (timestampBtn) {
+            timestampBtn.addEventListener('click', () => {
+              showTimestamps = !showTimestamps;
+              timestampBtn.setAttribute('aria-pressed', String(showTimestamps));
+            });
+          }
+
+          // ── Font size +/- ──
+          const FONT_MIN = 8, FONT_MAX = 24;
+          let termFontSize = 14;
+          const fontDecBtn = document.getElementById('term-font-dec');
+          const fontIncBtn = document.getElementById('term-font-inc');
+          function updateFontBtnStates() {
+            if (fontDecBtn) fontDecBtn.disabled = termFontSize <= FONT_MIN;
+            if (fontIncBtn) fontIncBtn.disabled = termFontSize >= FONT_MAX;
+          }
+          updateFontBtnStates();
+          if (fontDecBtn) {
+            fontDecBtn.addEventListener('click', () => {
+              if (termFontSize <= FONT_MIN) return;
+              termFontSize--;
+              term.options.fontSize = termFontSize;
+              fitAddon.fit();
+              updateFontBtnStates();
+            });
+          }
+          if (fontIncBtn) {
+            fontIncBtn.addEventListener('click', () => {
+              if (termFontSize >= FONT_MAX) return;
+              termFontSize++;
+              term.options.fontSize = termFontSize;
+              fitAddon.fit();
+              updateFontBtnStates();
+            });
+          }
+
+          // ── Download output log ──
+          const downloadBtn = document.getElementById('term-download');
+          if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+              try {
+                const buffer = term.buffer.active;
+                let text = '';
+                for (let i = 0; i < buffer.length; i++) {
+                  const line = buffer.getLine(i);
+                  if (line) text += line.translateToString() + '\n';
+                }
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `gal-output-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                console.warn('Download failed:', e);
+              }
+            });
+          }
+
+          // ── Patch term.write to optionally prepend timestamps ──
+          const _origWrite = term.write.bind(term);
+          term.write = function(data) {
+            if (showTimestamps && typeof data === 'string' && data.trim().length > 0) {
+              const ts = new Date().toLocaleTimeString('en-US', {hour12:true, hour:'numeric', minute:'2-digit', second:'2-digit'});
+              _origWrite(`\x1b[90m[${ts}]\x1b[0m `);
+            }
+            _origWrite(data);
+          };
 
           // Mobile lexeme table toggle (navbar button)
           if (toggleMobileLexBtn) {
@@ -456,9 +589,11 @@
               term.write(`${err}\r\n`);
             });
             }
+            if (!silent && window._highlightErrors) window._highlightErrors(data.errors);
             const sl = document.getElementById('status-lex');
             if (sl){ sl.classList.remove('ok'); sl.classList.add('err'); sl.textContent = 'Lexical: Error'; }
       } else {
+            if (!silent && window._clearErrorHighlights) window._clearErrorHighlights();
             if (!silent) term.write('Lexical analysis successful!\r\n');
             const sl = document.getElementById('status-lex');
             if (sl){ sl.classList.remove('err'); sl.classList.add('ok'); sl.textContent = 'Lexical: OK'; }
@@ -508,6 +643,9 @@
                 if (!silent) {
                   data.errors.forEach(err => term.write(`${err}\r\n`));
                 }
+                if (window._highlightErrors) window._highlightErrors(data.errors);
+              } else {
+                if (window._clearErrorHighlights) window._clearErrorHighlights();
               }
               
               if (hasLexicalErrors) {
@@ -568,6 +706,7 @@
                 if (sl) { sl.classList.remove('ok'); sl.classList.add('err'); sl.textContent = 'Lexical: Error'; }
                 if (ss) { ss.classList.remove('ok', 'err'); ss.textContent = 'Syntax: —'; }
                 if (ssem) { ssem.classList.remove('ok', 'err'); ssem.textContent = 'Semantic: —'; }
+                if (window._highlightErrors) window._highlightErrors(data.errors);
               } else if (data.stage === 'syntax' && data.errors.length > 0) {
                 // Syntax errors
                 if (!silent) {
@@ -578,6 +717,7 @@
                 if (sl) { sl.classList.remove('err'); sl.classList.add('ok'); sl.textContent = 'Lexical: OK'; }
                 if (ss) { ss.classList.remove('ok'); ss.classList.add('err'); ss.textContent = 'Syntax: Error'; }
                 if (ssem) { ssem.classList.remove('ok', 'err'); ssem.textContent = 'Semantic: —'; }
+                if (window._highlightErrors) window._highlightErrors(data.errors);
               } else if (data.stage === 'semantic') {
                 // Semantic analysis results
                 if (!silent) {
@@ -623,8 +763,10 @@
                 if (ssem) {
                   if (data.errors.length > 0) {
                     ssem.classList.remove('ok'); ssem.classList.add('err'); ssem.textContent = 'Semantic: Error';
+                    if (window._highlightErrors) window._highlightErrors(data.errors);
                   } else {
                     ssem.classList.remove('err'); ssem.classList.add('ok'); ssem.textContent = 'Semantic: OK';
+                    if (window._clearErrorHighlights) window._clearErrorHighlights();
                   }
                 }
               }
@@ -699,6 +841,11 @@
 
           // Run via Socket.IO (interactive programs with water())
           function runViaSocket(sourceCode, silent) {
+            // Bump generation and clear collected output
+            window._runGeneration = (window._runGeneration || 0) + 1;
+            window._socketOutputLog = [];
+            // Remove any lingering execution_complete listeners
+            socket.removeAllListeners('execution_complete');
             // Ensure socket is connected
             if (!socket.connected) {
               socket.connect();
@@ -706,9 +853,12 @@
 
             // Wait until connected, then emit
             function doEmit() {
+              const myGen = window._runGeneration;
+              // Remove any stale completion listeners before adding a fresh one
+              socket.removeAllListeners('execution_complete');
               // One-time listener for execution_complete
-              const onComplete = (data) => {
-                socket.off('execution_complete', onComplete);
+              socket.once('execution_complete', function onComplete(data) {
+                if (myGen !== window._runGeneration) return; // stale
                 updateStatusChips(data.stage, data.success);
                 if (data.stage === 'execution') {
                   if (data.success) {
@@ -717,8 +867,13 @@
                     if (!silent) term.write('Code execution failed.\r\n');
                   }
                 }
-              };
-              socket.on('execution_complete', onComplete);
+                // Highlight errors from collected socket output
+                if (!data.success && window._socketOutputLog && window._socketOutputLog.length > 0) {
+                  if (window._highlightErrors) window._highlightErrors(window._socketOutputLog);
+                } else {
+                  if (window._clearErrorHighlights) window._clearErrorHighlights();
+                }
+              });
               socket.emit('run_code', { source_code: sourceCode });
             }
 
@@ -741,12 +896,18 @@
             const silent = options.silent || false;
             const sourceCode = editor.getValue();
 
-            // Populate the token table in the background
-            await runLexer({ silent: true });
-
+            // Clear terminal FIRST, before anything else
             if (!silent) {
+              term.reset();
               term.clear();
             }
+            // Clear previous error highlights
+            if (window._clearErrorHighlights) window._clearErrorHighlights();
+            // Remove stale socket listeners
+            socket.removeAllListeners('execution_complete');
+
+            // Populate the token table in the background (silent — no terminal writes)
+            await runLexer({ silent: true });
 
             // Reset status chips
             const sl  = document.getElementById('status-lex');
@@ -769,8 +930,14 @@
           };
 
           
+        // Run generation counter — ignore output from stale/previous runs
+        window._runGeneration = 0;
+        window._socketOutputLog = [];
         socket.on('output', function (data) {
+            // Ignore output from a previous run
+            if (data._gen !== undefined && data._gen !== window._runGeneration) return;
             const text = data.output;
+            window._socketOutputLog.push(text);
             const lines = text.split('\n');
             lines.forEach((line, index) => {
               term.write(line);
@@ -821,8 +988,12 @@
           let currentRunMode = 'lexer';
           
       window.runCode = async function () {
-        // Clear terminal at the start of each run
+        // Clear terminal and error highlights at the start of each run
+        term.reset();
         term.clear();
+        if (window._clearErrorHighlights) window._clearErrorHighlights();
+        // Remove any stale socket listeners from previous runs
+        socket.removeAllListeners('execution_complete');
         
         // Use the current run mode
         if (currentRunMode === 'run') {
@@ -980,6 +1151,65 @@
     }, { passive: false });
   }
 
+  /* ── Sidebar resizer (drag to resize lexeme panel) ── */
+  const sidebarResizer = document.querySelector('.sidebarResizer');
+  if (sidebarResizer) {
+    const sidebar = document.querySelector('.sidebar');
+
+    sidebarResizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      sidebarResizer.classList.add('active');
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMouseMove(ev) {
+        const workspaceRect = document.querySelector('.workspace').getBoundingClientRect();
+        const newWidth = ev.clientX - workspaceRect.left - 12; // 12 = workspace padding
+        const clamped = Math.max(200, Math.min(newWidth, workspaceRect.width * 0.7));
+        sidebar.style.width = clamped + 'px';
+        // Trigger Monaco editor relayout
+        if (window.editor && window.editor.layout) window.editor.layout();
+      }
+
+      function onMouseUp() {
+        sidebarResizer.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (window.editor && window.editor.layout) window.editor.layout();
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Touch support
+    sidebarResizer.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      sidebarResizer.classList.add('active');
+
+      function onTouchMove(ev) {
+        const touch = ev.touches[0];
+        const workspaceRect = document.querySelector('.workspace').getBoundingClientRect();
+        const newWidth = touch.clientX - workspaceRect.left - 12;
+        const clamped = Math.max(200, Math.min(newWidth, workspaceRect.width * 0.7));
+        sidebar.style.width = clamped + 'px';
+        if (window.editor && window.editor.layout) window.editor.layout();
+      }
+
+      function onTouchEnd() {
+        sidebarResizer.classList.remove('active');
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        if (window.editor && window.editor.layout) window.editor.layout();
+      }
+
+      document.addEventListener('touchmove', onTouchMove);
+      document.addEventListener('touchend', onTouchEnd);
+    }, { passive: false });
+  }
+
   function toggleDropdown() {
       const menu = document.getElementById("dropdown-menu");
       menu.classList.toggle("hidden");
@@ -1018,6 +1248,4 @@
         debouncedLex();
       });
     }
-
-
 
