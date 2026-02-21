@@ -404,6 +404,21 @@
             // ── Open ──
             fpOpen.onclick = async function() {
               closePopup();
+
+              function clearOnOpen() {
+                var t = window._galTerm;
+                if (t) { t.reset(); t.clear(); }
+                if (window._clearErrorHighlights) window._clearErrorHighlights();
+                var tbody = document.getElementById('tokenBody');
+                if (tbody) tbody.innerHTML = '';
+                var tbodySide = document.getElementById('tokenBodySide');
+                if (tbodySide) tbodySide.innerHTML = '';
+                ['status-lex','status-syn','status-sem','status-exe'].forEach(function(id) {
+                  var el = document.getElementById(id);
+                  if (el) { el.classList.remove('ok','err'); el.textContent = el.textContent.replace(/:.*/, ': \u2014'); }
+                });
+              }
+
               // Use native file picker if available (Chrome/Edge) to get a reusable handle
               if (window.showOpenFilePicker) {
                 try {
@@ -417,6 +432,7 @@
                   window._galFileHandle = handle;
                   setFileName(file.name);
                   if (window.editor) window.editor.setValue(text);
+                  clearOnOpen();
                   return;
                 } catch (e) {
                   if (e.name === 'AbortError') return;
@@ -435,6 +451,7 @@
                 var reader = new FileReader();
                 reader.onload = function() {
                   if (window.editor) window.editor.setValue(reader.result);
+                  clearOnOpen();
                 };
                 reader.readAsText(file);
               };
