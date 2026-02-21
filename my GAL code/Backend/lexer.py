@@ -311,7 +311,7 @@ class Lexer:
     It scans character by character and groups them into tokens.
     """
     def __init__(self, source_code): 
-        self.source_code = source_code     # Input source code string
+        self.source_code = source_code.replace('\r', '')  # Strip carriage returns (Windows \r\n → \n)
         self.pos = Position(-1, 1, -1)     # Current position (starts before first char)
         self.current_char = None           # Current character being examined
         self.advance()                     # Move to first character
