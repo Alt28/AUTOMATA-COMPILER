@@ -199,6 +199,22 @@ class ListAccessNode(ASTNode):
         self.add_child(index_expr)
 
 
+class MemberAccessNode(ASTNode):
+    """Represents bundle member access: p.age"""
+    def __init__(self, object_name, member_name, line=None):
+        super().__init__("MemberAccess", line=line)
+        self.add_child(ASTNode("Object", object_name, line=line))
+        self.add_child(ASTNode("Member", member_name, line=line))
+
+
+class BundleDefinitionNode(ASTNode):
+    """Represents a bundle (struct) type definition."""
+    def __init__(self, bundle_name, members, line=None):
+        super().__init__("BundleDefinition", line=line)
+        self.bundle_name = bundle_name
+        self.members = members  # dict: {member_name: member_type}
+
+
 ###### SYMBOL TABLE ######
 
 class SymbolTable:
@@ -209,6 +225,7 @@ class SymbolTable:
         self.scopes = [{}]   # Stack of scopes (for local/global tracking)
         self.current_func_name = None
         self.function_variables = {}
+        self.bundle_types = {}  # Stores bundle (struct) type definitions
 
     ###### VARIABLE ######
     def declare_variable(self, name, type_, value=None, is_list=False, is_fertile=False):
@@ -320,6 +337,7 @@ def build_ast(tokens):
     symbol_table.functions = {}  # Stores function definitions
     symbol_table.scopes = [{}] 
     symbol_table.function_variables = {}
+    symbol_table.bundle_types = {}  # Reset bundle type definitions
     context_stack = []
     index = 0
     symbol_table.current_func_name = None
@@ -391,6 +409,54 @@ def build_ast(tokens):
             if node:
                 root.add_child(node)
 
+        elif token.value == "bundle":
+            bundle_name = tokens[index + 1].value
+            index += 2  # skip 'bundle' and bundle name
+
+            if tokens[index].type == "{":
+                # Bundle definition: bundle Person { seed age; vine name; }
+                index += 1  # skip '{'
+                members = {}
+                while tokens[index].type != "}":
+                    if tokens[index].value in {"seed", "tree", "vine", "leaf", "branch"}:
+                        member_type = tokens[index].value
+                        member_name = tokens[index + 1].value
+                        if member_name in members:
+                            raise SemanticError(f"Semantic Error: Duplicate member '{member_name}' in bundle '{bundle_name}'.", tokens[index].line)
+                        members[member_name] = member_type
+                        index += 2  # skip type and name
+                        if tokens[index].type == ";":
+                            index += 1  # skip ';'
+                    else:
+                        raise SemanticError(f"Semantic Error: Invalid member type '{tokens[index].value}' in bundle definition.", tokens[index].line)
+                index += 1  # skip '}'
+
+                if bundle_name in symbol_table.bundle_types:
+                    raise SemanticError(f"Semantic Error: Bundle type '{bundle_name}' already defined.", token.line)
+
+                symbol_table.bundle_types[bundle_name] = members
+                node = BundleDefinitionNode(bundle_name, members, line=token.line)
+                root.add_child(node)
+
+            else:
+                # Global bundle variable: bundle Person p;
+                var_name = tokens[index].value
+                index += 1
+
+                if bundle_name not in symbol_table.bundle_types:
+                    raise SemanticError(f"Semantic Error: Bundle type '{bundle_name}' is not defined.", token.line)
+
+                members = symbol_table.bundle_types[bundle_name]
+                _defaults = {"seed": 0, "tree": 0.0, "leaf": '', "vine": "", "branch": False}
+                bundle_value = {name: _defaults.get(typ, None) for name, typ in members.items()}
+
+                error = symbol_table.declare_variable(var_name, bundle_name, value=bundle_value)
+                if isinstance(error, str):
+                    raise SemanticError(error, token.line)
+
+                node = VariableDeclarationNode(bundle_name, var_name, line=token.line)
+                root.add_child(node)
+
         else:
             if token.type not in {"EOF"}:
                 raise SemanticError(f"Semantic Error: Invalid token '{token.value}' used in global statement.", token.line)
@@ -420,6 +486,16 @@ def parse_functionOrVariable(tokens, index):
         return node, index
     
     return None, index
+
+def _contains_return(node):
+    """Recursively check if an AST node or any of its children contains a ReturnNode."""
+    if isinstance(node, ReturnNode):
+        return True
+    if hasattr(node, 'children'):
+        for child in node.children:
+            if _contains_return(child):
+                return True
+    return False
 
 def parse_function(tokens, index, func_name, func_type):
     line = tokens[index].line
@@ -501,7 +577,7 @@ def parse_function(tokens, index, func_name, func_type):
             stmt, index = parse_statement(tokens, index, func_type)
             if stmt:
                 block_node.add_child(stmt)
-                if isinstance(stmt, ReturnNode):
+                if _contains_return(stmt):
                     return_found = True
         
         if (func_type != "empty" and not return_found) and func_name not in {"root"}:
@@ -638,6 +714,25 @@ def parse_statement(tokens, index, func_type = None):
         node, index = parse_fertile(tokens, index)
         return node, index
 
+    elif token.value == "bundle":
+        # Local bundle variable declaration: bundle Person p;
+        bundle_type_name = tokens[index + 1].value
+        if bundle_type_name not in symbol_table.bundle_types:
+            raise SemanticError(f"Semantic Error: Bundle type '{bundle_type_name}' is not defined.", token.line)
+        var_name = tokens[index + 2].value
+        index += 3  # skip 'bundle', type name, var name
+
+        members = symbol_table.bundle_types[bundle_type_name]
+        _defaults = {"seed": 0, "tree": 0.0, "leaf": '', "vine": "", "branch": False}
+        bundle_value = {name: _defaults.get(typ, None) for name, typ in members.items()}
+
+        error = symbol_table.declare_variable(var_name, bundle_type_name, value=bundle_value)
+        if isinstance(error, str):
+            raise SemanticError(error, token.line)
+
+        node = VariableDeclarationNode(bundle_type_name, var_name, line=token.line)
+        return node, index
+
     elif token.type == "id" and tokens[index + 1].type == "(":
         if tokens[index + 1].type == "(":
             func_name = token.value
@@ -694,6 +789,37 @@ def parse_statement(tokens, index, func_type = None):
                             assignments_node.add_child(unary_node)
                             
                         
+                elif tokens[index + 1].type == ".":
+                    # Bundle member assignment: p.age = 19;
+                    obj_name = tokens[index].value
+                    member_name = tokens[index + 2].value
+                    # Validate bundle type and member
+                    if var_type not in symbol_table.bundle_types:
+                        raise SemanticError(f"Semantic Error: Variable '{obj_name}' is not a bundle type.", line)
+                    bundle_members = symbol_table.bundle_types[var_type]
+                    if member_name not in bundle_members:
+                        raise SemanticError(f"Semantic Error: Bundle type '{var_type}' has no member '{member_name}'.", line)
+                    index += 3  # skip id, '.', member
+                    if tokens[index].type == "=":
+                        index += 1  # skip '='
+                        value_node, index = parse_expression(tokens, index)
+                        target = MemberAccessNode(obj_name, member_name, line=line)
+                        assign_node = AssignmentNode(target, value_node, line=line)
+                        assignments_node.add_child(assign_node)
+                    elif tokens[index].type in {"+=", "-=", "*=", "/=", "%="}:
+                        # Compound assignment on bundle member: p.age += 1
+                        compound_op = tokens[index].value
+                        base_op = compound_op[0]
+                        index += 1  # skip compound op
+                        rhs_node, index = parse_expression(tokens, index)
+                        lhs_node = MemberAccessNode(obj_name, member_name, line=line)
+                        value_node = BinaryOpNode(lhs_node, base_op, rhs_node, line=line)
+                        target = MemberAccessNode(obj_name, member_name, line=line)
+                        assign_node = AssignmentNode(target, value_node, line=line)
+                        assignments_node.add_child(assign_node)
+                    else:
+                        raise SemanticError(f"Semantic Error: Expected '=' after '{obj_name}.{member_name}'.", line)
+
                 elif tokens[index + 1].type == "=":
                     var_name = token.value
                     error = symbol_table.lookup_variable(var_name)
@@ -717,6 +843,25 @@ def parse_statement(tokens, index, func_type = None):
                     index += 2
                     assignments_node.add_child(UnaryOpNode(operator, operand, "post", line=line))
 
+                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%="}:
+                    # Compound assignment: x += 5  =>  x = x + 5
+                    compound_op = tokens[index + 1].value  # e.g. '+='
+                    base_op = compound_op[0]  # e.g. '+'
+                    cur_var_name = tokens[index].value
+                    cur_var_info = symbol_table.lookup_variable(cur_var_name)
+                    if isinstance(cur_var_info, str):
+                        raise SemanticError(cur_var_info, line)
+                    if cur_var_info.get("is_fertile", False):
+                        raise SemanticError(f"Semantic Error: Variable '{cur_var_name}' is declared as fertile and cannot be re-assigned a value.", line)
+                    cur_var_type = cur_var_info["type"]
+                    if cur_var_type not in {"seed", "tree"}:
+                        raise SemanticError(f"Semantic Error: Cannot use compound assignment on '{cur_var_name}' of type '{cur_var_type}'.", line)
+                    index += 2  # skip id and compound op
+                    rhs_node, index = parse_expression(tokens, index)
+                    lhs_node = ASTNode("Identifier", cur_var_name, line=line)
+                    value_node = BinaryOpNode(lhs_node, base_op, rhs_node, line=line)
+                    assign_node = AssignmentNode(cur_var_name, value_node, line=line)
+                    assignments_node.add_child(assign_node)
 
                 
                 else:
@@ -802,6 +947,17 @@ def parse_statement(tokens, index, func_type = None):
         node = ContinueNode(line)
         index += 1
         return node, index
+
+    elif token.type == "{":
+        # Bare block: { ... }
+        index += 1  # skip '{'
+        block_node = ASTNode("Block", line=line)
+        while tokens[index].type != "}":
+            stmt, index = parse_statement(tokens, index, func_type)
+            if stmt:
+                block_node.add_child(stmt)
+        index += 1  # skip '}'
+        return block_node, index
 
     else:
         raise SemanticError(f"Syntax Error: Unexpected token '{token.value}' in statement.", line)
@@ -1145,7 +1301,7 @@ def parse_term(tokens, index):
 
 def parse_unary(tokens, index):
 
-    if tokens[index].type in {"++", "--", "-"}:
+    if tokens[index].type in {"++", "--", "-", "~"}:
         op = tokens[index].value
         index += 1
         operand, index = parse_unary(tokens, index)
@@ -1229,6 +1385,30 @@ def parse_factor(tokens, index):
 
         ts_node, index = TSNode(identifier, line=token.line), index
         return ts_node, index
+
+    elif (
+        tokens[index].type == "id" and
+        tokens[index + 1].type == "."
+    ):
+        # Bundle member access in expression: p.age, p.name
+        obj_name = tokens[index].value
+        member_name = tokens[index + 2].value
+
+        var_info = symbol_table.lookup_variable(obj_name)
+        if isinstance(var_info, str):
+            raise SemanticError(f"Semantic Error: Variable '{obj_name}' used before declaration.", token.line)
+
+        var_type = var_info["type"]
+        if var_type not in symbol_table.bundle_types:
+            raise SemanticError(f"Semantic Error: Variable '{obj_name}' is not a bundle type.", token.line)
+
+        bundle_members = symbol_table.bundle_types[var_type]
+        if member_name not in bundle_members:
+            raise SemanticError(f"Semantic Error: Bundle type '{var_type}' has no member '{member_name}'.", token.line)
+
+        index += 3  # skip id, '.', member
+        node = MemberAccessNode(obj_name, member_name, line=token.line)
+        return node, index
 
 
     elif token.type == "id" and tokens[index + 1].type == "[":
@@ -1390,7 +1570,11 @@ def parse_operand(tokens, index):
         
         elif tokens[index + 1].type == "id":
             var_name = tokens[index +1].value
-            var_type = var_name["type"]
+            var_info = symbol_table.lookup_variable(var_name)
+            if isinstance(var_info, str):
+                var_type = None
+            else:
+                var_type = var_info["type"]
 
 
             is_lwk, index = check_lwk(tokens, index)
@@ -1480,6 +1664,17 @@ def parse_operand(tokens, index):
     if token.type in {"sunshine", "frost"}:
         return ASTNode("Value", token.value, line=line), index + 1, "branch"
 
+    # Bundle member access in operand context: p.age > 18
+    if token.type == "id" and tokens[index + 1].type == ".":
+        var_info = symbol_table.lookup_variable(token.value)
+        if not isinstance(var_info, str) and var_info["type"] in symbol_table.bundle_types:
+            member_name = tokens[index + 2].value
+            bundle_members = symbol_table.bundle_types[var_info["type"]]
+            if member_name in bundle_members:
+                member_type = bundle_members[member_name]
+                expr_node, index = parse_expression(tokens, index)
+                return expr_node, index, member_type
+
     # Identifiers (Variables)
     if token.type == "id":
         var_info = symbol_table.lookup_variable(token.value)
@@ -1504,6 +1699,11 @@ def parse_operand(tokens, index):
 
         elif var_type in {"vine", "branch"}:
             return ASTNode("Value", token.value, line=line), index + 1, var_type
+
+        elif var_type in symbol_table.bundle_types:
+            # Bundle variable used directly — dispatch through expression parser
+            expr_node, index = parse_expression(tokens, index)
+            return expr_node, index, var_type
 
         else:
             raise SemanticError(f"Semantic Error: Unsupported type '{var_type}'.", line)
@@ -1740,7 +1940,12 @@ def parse_print(tokens, index):
             if isinstance(arg_info, str):
                 raise SemanticError(f"Semantic Error: Variable '{identif_name}' used before declaration.", line)
             
-            if arg_info["type"] in {"leaf"} and tokens[index + 1].type == "+":
+            if tokens[index + 1].type == "." and arg_info["type"] in symbol_table.bundle_types:
+                # Bundle member access in plant: plant(p.name)
+                expr_node, index = parse_expression(tokens, index)
+                args.append(expr_node)
+
+            elif arg_info["type"] in {"leaf"} and tokens[index + 1].type == "+":
                 expr_node, index = parse_string_concatenation(tokens, index)
                 args.append(expr_node)
             
@@ -1848,7 +2053,12 @@ def parse_print(tokens, index):
                 if tokens[index + 1].type != "[":
                     raise SemanticError(f"Semantic Error: List '{arg_name}' must be indexed with '[]' in expressions.", line)
                 
-            if arg_info["type"] in {"seed", "tree"}:
+            if tokens[index + 1].type == "." and arg_info["type"] in symbol_table.bundle_types:
+                # Bundle member access in plant args: plant("{}", p.name)
+                arg_node, index = parse_expression(tokens, index)
+                actual_args.append(arg_node)
+
+            elif arg_info["type"] in {"seed", "tree"}:
                 arg_node, index = parse_expression_branch(tokens, index)
                 actual_args.append(arg_node)
                 
@@ -2265,6 +2475,26 @@ def parse_update(tokens, index):
                     index += 2
                     node, index = parse_assignment(tokens, index, var_name, error['type'])
                     assignments_node.add_child(node)
+
+                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%="}:
+                    # Compound assignment in for-loop update: i += 2
+                    compound_op = tokens[index + 1].value
+                    base_op = compound_op[0]
+                    cur_var_name = tokens[index].value
+                    cur_var_info = symbol_table.lookup_variable(cur_var_name)
+                    if isinstance(cur_var_info, str):
+                        raise SemanticError(cur_var_info, line)
+                    if cur_var_info.get("is_fertile", False):
+                        raise SemanticError(f"Semantic Error: Variable '{cur_var_name}' is declared as fertile and cannot be re-assigned a value.", line)
+                    cur_var_type = cur_var_info["type"]
+                    if cur_var_type not in {"seed", "tree"}:
+                        raise SemanticError(f"Semantic Error: Cannot use compound assignment on '{cur_var_name}' of type '{cur_var_type}'.", line)
+                    index += 2  # skip id and compound op
+                    rhs_node, index = parse_expression(tokens, index)
+                    lhs_node = ASTNode("Identifier", cur_var_name, line=line)
+                    value_node = BinaryOpNode(lhs_node, base_op, rhs_node, line=line)
+                    assign_node = AssignmentNode(cur_var_name, value_node, line=line)
+                    assignments_node.add_child(assign_node)
                     
                 
                 else:
