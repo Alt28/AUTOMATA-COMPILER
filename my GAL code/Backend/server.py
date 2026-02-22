@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -481,10 +484,19 @@ def handle_run_code(data):
     ast = semantic_result['ast']
 
     # 4. Interpretation — run in background task for input support
+    # Cancel any previously-running interpreter for this session
+    old_interp = interpreters.get(sid)
+    if old_interp and hasattr(old_interp, '_cancelled'):
+        old_interp._cancelled = True
+        # Unblock any pending wait_for_input so the old thread can exit
+        for evt in list(old_interp.input_events.values()):
+            evt.set()
+
     def run_interpreter():
         try:
             session_emitter = SessionEmitter(socketio, sid)
             interp = Interpreter(socketio=session_emitter)
+            interp._cancelled = False
             interpreters[sid] = interp
             interp.interpret(ast)
             socketio.emit('execution_complete', {'success': True, 'stage': 'execution'}, to=sid)
@@ -495,7 +507,9 @@ def handle_run_code(data):
             socketio.emit('output', {'output': f'Internal Error: {e}'}, to=sid)
             socketio.emit('execution_complete', {'success': False, 'stage': 'execution'}, to=sid)
         finally:
-            interpreters.pop(sid, None)
+            # Only remove ourselves — don't remove a newer interpreter
+            if interpreters.get(sid) is interp:
+                interpreters.pop(sid, None)
 
     socketio.start_background_task(run_interpreter)
 
