@@ -825,6 +825,9 @@
 
           // Run via Socket.IO (interactive programs with water())
           function runViaSocket(sourceCode, silent) {
+            // Reset input state from any previous run
+            waitingForInput = false;
+            userInput = '';
             // Bump generation and clear collected output
             window._runGeneration = (window._runGeneration || 0) + 1;
             window._socketOutputLog = [];
