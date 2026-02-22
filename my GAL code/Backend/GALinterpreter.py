@@ -1,7 +1,8 @@
 from GALsemantic import (ProgramNode, VariableDeclarationNode, AssignmentNode, BinaryOpNode, FunctionDeclarationNode, 
                           FunctionCallNode, IfStatementNode, ForLoopNode, WhileLoopNode, PrintNode, UnaryOpNode, 
                           FertileDeclarationNode, ReturnNode,  SwitchNode, ContinueNode, BreakNode, ListNode, TaperNode, 
-                          TSNode, AppendNode, InsertNode, RemoveNode, CastNode, ListAccessNode, DoWhileLoopNode)
+                          TSNode, AppendNode, InsertNode, RemoveNode, CastNode, ListAccessNode, DoWhileLoopNode,
+                          MemberAccessNode, BundleDefinitionNode)
 
 import threading
 
@@ -61,6 +62,7 @@ class Interpreter:
         self.scopes = [{}]
         self.current_func_name = None
         self.function_variables = {}
+        self.bundle_types = {}  # Stores bundle (struct) type definitions
 
 
     ###### VARIABLE ######
@@ -143,6 +145,10 @@ class Interpreter:
     def interpret(self, node):
         if isinstance(node, ProgramNode):
             return self.eval_program(node)
+        elif isinstance(node, BundleDefinitionNode):
+            return self.eval_bundle_definition(node)
+        elif isinstance(node, MemberAccessNode):
+            return self.eval_member_access(node)
         elif isinstance(node, VariableDeclarationNode):
             return self.eval_variable_declaration(node)
         elif isinstance(node, AssignmentNode):
@@ -200,6 +206,11 @@ class Interpreter:
         elif node.node_type == "Value":
             value = self._parse_literal(node.value)
             return value
+        elif node.node_type == "Identifier":
+            var_info = self.lookup_variable(node.value)
+            if isinstance(var_info, str):
+                raise InterpreterError(var_info, node.line)
+            return var_info["value"]
         elif node.node_type == "FormattedString":
             return self.eval_formatted_string(node)
         elif node.node_type == "VariableDeclarationList":
@@ -211,6 +222,8 @@ class Interpreter:
                     self.eval_assignment(child)
                 elif isinstance(child, UnaryOpNode):
                     self.eval_unaryop(child)
+        elif node.node_type == "Block":
+            self.eval_block(node)
         else:
             raise Exception(f"Unknown AST node type: {node.node_type}")
 
@@ -285,10 +298,34 @@ class Interpreter:
                             value = True
         else:
             # Uninitialized variable — use default value for the type
-            value = default_values.get(var_type, None)
+            if var_type in self.bundle_types:
+                # Bundle variable: initialize with dict of default member values
+                _member_defaults = {"seed": 0, "tree": 0.0, "leaf": '', "vine": "", "branch": False}
+                members = self.bundle_types[var_type]
+                value = {name: _member_defaults.get(typ, None) for name, typ in members.items()}
+            else:
+                value = default_values.get(var_type, None)
                     
         #print(f"\nDeclaring variable '{var_name}' of type '{var_type}' with initial value: {value}")
         self.declare_variable(var_name, var_type, value, is_list=is_list)
+
+    def eval_bundle_definition(self, node):
+        """Store bundle type definition for later use."""
+        self.bundle_types[node.bundle_name] = node.members
+
+    def eval_member_access(self, node):
+        """Read a bundle member value: p.age"""
+        obj_name = node.children[0].value
+        member_name = node.children[1].value
+        var_info = self.lookup_variable(obj_name)
+        if isinstance(var_info, str):
+            raise InterpreterError(var_info, node.line)
+        bundle_value = var_info["value"]
+        if not isinstance(bundle_value, dict):
+            raise InterpreterError(f"Runtime Error: Variable '{obj_name}' is not a bundle.", node.line)
+        if member_name not in bundle_value:
+            raise InterpreterError(f"Runtime Error: Bundle '{obj_name}' has no member '{member_name}'.", node.line)
+        return bundle_value[member_name]
 
     def eval_sturdy_declaration(self, node):
         var_type = node.children[0].value
@@ -332,6 +369,34 @@ class Interpreter:
 
             #print(f"\nUpdating list '{list_name}' at index {index} with value: {value}")
             list_value[index] = value
+
+        elif target_node.node_type == "MemberAccess":
+            # Bundle member assignment: p.age = 19
+            obj_name = target_node.children[0].value
+            member_name = target_node.children[1].value
+
+            var_info = self.lookup_variable(obj_name)
+            if isinstance(var_info, str):
+                raise InterpreterError(var_info, node.line)
+
+            bundle_value = var_info["value"]
+            if not isinstance(bundle_value, dict):
+                raise InterpreterError(f"Runtime Error: Variable '{obj_name}' is not a bundle.", node.line)
+            if member_name not in bundle_value:
+                raise InterpreterError(f"Runtime Error: Bundle '{obj_name}' has no member '{member_name}'.", node.line)
+
+            # Type-check the assignment against the member's declared type
+            var_type = var_info["type"]
+            if var_type in self.bundle_types:
+                member_type = self.bundle_types[var_type].get(member_name)
+                if member_type == "seed" and isinstance(value, float):
+                    value = int(value)
+                elif member_type == "tree" and isinstance(value, int):
+                    value = float(value)
+                elif member_type == "branch" and isinstance(value, int):
+                    value = True if value != 0 else False
+
+            bundle_value[member_name] = value
 
         else:
             var_name = target_node.value
@@ -533,15 +598,20 @@ class Interpreter:
         if value.startswith("'") and value.endswith("'"):
             return value[1:-1]
 
-        if value == 'true':
+        if value in ('true', 'sunshine'):
             return True
-        if value == 'false':
+        if value in ('false', 'frost'):
             return False
 
+        # Handle GAL negative literals: ~20 → -20, ~3.14 → -3.14
+        parse_value = value
+        if parse_value.startswith('~'):
+            parse_value = '-' + parse_value[1:]
+
         try:
-            if '.' in value:
-                return float(value)
-            return int(value)
+            if '.' in parse_value:
+                return float(parse_value)
+            return int(parse_value)
         except ValueError:
             return value 
     
@@ -785,6 +855,10 @@ class Interpreter:
                     return original
             
             elif node.value == "-":
+                value = self.interpret(operand_node)
+                return -value
+
+            elif node.value == "~":
                 value = self.interpret(operand_node)
                 return -value
             
