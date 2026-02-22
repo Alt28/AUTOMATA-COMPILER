@@ -5,6 +5,14 @@ from GALsemantic import (ProgramNode, VariableDeclarationNode, AssignmentNode, B
 
 import threading
 
+# Prefer eventlet's cooperative Event so wait_for_input yields to the
+# eventlet hub instead of blocking the entire event loop.
+try:
+    import eventlet.event as _ev
+    _USE_EVENTLET = True
+except ImportError:
+    _USE_EVENTLET = False
+
 class SemanticError(Exception):
     def __init__(self, message,  line):
         super().__init__(message)
@@ -251,7 +259,7 @@ class Interpreter:
                     value = int(value)
 
                 if var_type in {"tree", "seed"}:
-                    if not isinstance(value, int or float):
+                    if not isinstance(value, (int, float)):
                         raise InterpreterError(f"Semantic Error: Type Mismatch! Invalid value for {var_name}", node.line)
                     
                     if isinstance(value, bool):
@@ -604,6 +612,19 @@ class Interpreter:
                 raise Exception(f"Format error in plant(): '{evaluated_first}' with {values}: {e}")
 
             self.plant(output_str)
+            return
+
+        # No {} placeholders — print all arguments separated by spaces (C-style)
+        if len(node.children) > 1:
+            parts = [str(evaluated_first)]
+            for arg in node.children[1:]:
+                value = self.interpret(arg)
+                if isinstance(value, float):
+                    whole, dot, dec = str(value).partition('.')
+                    dec = dec[:5]
+                    value = float(f"{whole}.{dec}")
+                parts.append(str(value))
+            self.plant(" ".join(parts))
             return
 
         self.plant(str(evaluated_first))
@@ -997,7 +1018,6 @@ class Interpreter:
                     break
         finally:
             self.exit_loop()
-            self.enter_scope
 
     
     def eval_break(self, node):
@@ -1084,18 +1104,33 @@ class Interpreter:
 
     # Method to capture input from the client
     def provide_input(self, var_name, input_value):
-        self.input_values[var_name] = input_value  # Store the input value for the variable
-        if var_name in self.input_events:
-            self.input_events[var_name].set()  # Notify the waiting thread that input has been provided
+        evt = self.input_events.get(var_name)
+        if evt is None:
+            # No waiter yet — stash the value for later
+            self.input_values[var_name] = input_value
+            return
+        if _USE_EVENTLET:
+            # eventlet.event.Event.send() unblocks the waiting greenlet
+            evt.send(input_value)
+        else:
+            self.input_values[var_name] = input_value
+            evt.set()
 
     # Method to wait for input asynchronously
     def wait_for_input(self, var_name):
-        event = threading.Event()
-        self.input_events[var_name] = event  # Create an event to wait for this input
-        event.wait()  # Block until input is received
-        value = self.input_values.pop(var_name, None)  # Retrieve the input
-        self.input_events.pop(var_name, None)  # Clean up the event
-        return value
+        if _USE_EVENTLET:
+            evt = _ev.Event()
+            self.input_events[var_name] = evt
+            value = evt.wait()          # cooperative yield
+            self.input_events.pop(var_name, None)
+            return value
+        else:
+            event = threading.Event()
+            self.input_events[var_name] = event
+            event.wait()
+            value = self.input_values.pop(var_name, None)
+            self.input_events.pop(var_name, None)
+            return value
 
     # Modify the eval_input method to use the new input handling
     def eval_input(self, node):
