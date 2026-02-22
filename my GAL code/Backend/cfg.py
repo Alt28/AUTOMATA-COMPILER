@@ -196,9 +196,7 @@ cfg = {
             ")",
             "{",
             "<declaration>",          # Local declarations in root
-            "<statement>",            # Statements/code in root
-            "reclaim",                # Return statement (required in root)
-            ";",
+            "<statement>",            # Statements/code in root (must end with reclaim;)
             "}",
         ]
     ],
@@ -214,8 +212,8 @@ cfg = {
 
     # Distinguish between bundle definition and bundle variable after seeing "bundle id"
     "<bundle_or_var>": [
-        ["{", "<bundle_members>", "}"],           # Bundle definition: bundle Person { ... }
-        ["<bundle_mem_dec>", ";"],                # Bundle variable: bundle Person p;
+        ["{", "<bundle_members>", "}", ";"],           # Bundle definition: bundle Person { ... };
+        ["<bundle_mem_dec>", ";"],                      # Bundle variable: bundle Person p;
     ],
 
     # ===== LOCAL DECLARATIONS =====
@@ -345,8 +343,7 @@ cfg = {
             ")",
             "{",
             "<declaration>",       # Local variable declarations
-            "<statement>",         # Function body statements
-            "<reclaim_opt>",       # Return statement (optional for void/empty)
+            "<statement>",         # Function body statements (reclaim handled as statement)
             "}",
             "<function_definition>",  # Multiple functions (recursive definition)
         ],
@@ -399,11 +396,13 @@ cfg = {
     # ===== TYPES OF STATEMENTS =====
     "<simple_stmt>": [
         ["id", "<id_stmt>"],      # Starts with id: assignment, unary, or function call
+        ["<inc_dec_op>", "id", ";"],  # Prefix increment/decrement: ++x; --x;
         ["<io_stmt>"],            # water() or plant()
         ["<conditional_stmt>"],   # spring (if), wither (else), bud (else-if)
         ["<loop_stmt>"],          # grow (while), cultivate (for), tend (do-while)
         ["<switch_stmt>"],        # harvest (switch)
         ["<control_stmt>"],       # prune (break), skip (continue)
+        ["reclaim", "<reclaim_value>"],  # Early return: reclaim x; or reclaim;
     ],
 
     # After seeing id, determine what kind of statement it is
@@ -631,12 +630,16 @@ cfg = {
     # Any statement type is allowed in a case body
     "<case_statement>": [
         ["id", "<id_stmt>"],              # Assignment/increment/function call
+        ["<inc_dec_op>", "id", ";"],      # Prefix increment/decrement: ++x; --x;
+        ["<var_dec>", ";"],               # Variable declarations inside case
         ["<io_stmt>"],                    # water() or plant()
         ["<conditional_stmt>"],           # spring (if), bud (else-if), wither (else)
         ["<loop_stmt>"],                  # grow (while), cultivate (for), tend (do-while)
         ["<switch_stmt>"],                # harvest (nested switch)
+        ["{", "<case_statements>", "}"],  # Block: { ... }
         ["prune", ";"],                   # prune (break)
         ["skip", ";"],                    # skip (continue)
+        ["reclaim", "<reclaim_value>"],   # Early return: reclaim x; or reclaim;
     ],
 
     "<default_opt>": [
