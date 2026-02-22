@@ -847,14 +847,23 @@ class LL1Parser:
                         prev_tok = toks[prev_idx]
                         non_branch_literals = {'intlit', 'dblit', 'stringlit', 'chrlit'}
                         if prev_tok.type in non_branch_literals:
-                            type_names = {
-                                'intlit': 'integer literal',
-                                'dblit': 'double literal',
-                                'stringlit': 'string literal',
-                                'chrlit': 'character literal',
-                            }
-                            op_name = 'AND' if token_type == '&&' else 'OR'
-                            return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{token_type}' ({op_name}) requires branch (boolean) operands, not {type_names[prev_tok.type]} '{prev_tok.value}'"]
+                            # Check if this literal is the RHS of a comparison operator
+                            # e.g. age < 1 || ... -> '1' is part of 'age < 1' (boolean)
+                            cmp_idx = prev_idx - 1
+                            while cmp_idx >= 0 and toks[cmp_idx].type in self.skip_token_types:
+                                cmp_idx -= 1
+                            comparison_ops = {'<', '>', '<=', '>=', '==', '!='}
+                            if cmp_idx >= 0 and toks[cmp_idx].type in comparison_ops:
+                                pass  # literal is part of a comparison expression (boolean)
+                            else:
+                                type_names = {
+                                    'intlit': 'integer literal',
+                                    'dblit': 'double literal',
+                                    'stringlit': 'string literal',
+                                    'chrlit': 'character literal',
+                                }
+                                op_name = 'AND' if token_type == '&&' else 'OR'
+                                return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{token_type}' ({op_name}) requires branch (boolean) operands, not {type_names[prev_tok.type]} '{prev_tok.value}'"]
                 
                 # Check for non-branch literal after logical operators
                 if token_type in {'intlit', 'dblit', 'stringlit', 'chrlit'}:
@@ -862,14 +871,24 @@ class LL1Parser:
                     while prev_idx >= 0 and toks[prev_idx].type in self.skip_token_types:
                         prev_idx -= 1
                     if prev_idx >= 0 and toks[prev_idx].type in {'&&', '||'}:
-                        type_names = {
-                            'intlit': 'integer literal',
-                            'dblit': 'double literal',
-                            'stringlit': 'string literal',
-                            'chrlit': 'character literal',
-                        }
-                        op_name = 'AND' if toks[prev_idx].type == '&&' else 'OR'
-                        return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{toks[prev_idx].type}' ({op_name}) requires branch (boolean) operands, not {type_names[token_type]} '{token_value}'"]
+                        # Check if next token after this literal is a comparison operator
+                        # e.g. ... || age > 120 -> 'age' after || is id not literal, but also
+                        # check if this literal is the LHS of a comparison (unlikely but safe)
+                        next_check = index + 1
+                        while next_check < len(toks) and toks[next_check].type in self.skip_token_types:
+                            next_check += 1
+                        comparison_ops = {'<', '>', '<=', '>=', '==', '!='}
+                        if next_check < len(toks) and toks[next_check].type in comparison_ops:
+                            pass  # literal is part of a comparison expression (boolean)
+                        else:
+                            type_names = {
+                                'intlit': 'integer literal',
+                                'dblit': 'double literal',
+                                'stringlit': 'string literal',
+                                'chrlit': 'character literal',
+                            }
+                            op_name = 'AND' if toks[prev_idx].type == '&&' else 'OR'
+                            return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{toks[prev_idx].type}' ({op_name}) requires branch (boolean) operands, not {type_names[token_type]} '{token_value}'"]
 
                 stack.pop()
                 index += 1
