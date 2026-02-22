@@ -1866,7 +1866,8 @@ def parse_print(tokens, index):
     if placeholder_count > 15:
         raise SemanticError(f"Semantic Error: Exceeded maximum amount of 15 arguments in plant statement.", line)
 
-    if placeholder_count != len(actual_args):
+    # Only enforce placeholder matching when the format string contains {}
+    if placeholder_count > 0 and placeholder_count != len(actual_args):
         raise SemanticError(f"Semantic Error: Found {len(actual_args)} argument(s). Expected {placeholder_count} argument(s).", line)
     
     args.extend(actual_args)
