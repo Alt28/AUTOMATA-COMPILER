@@ -1782,6 +1782,18 @@ class Lexer:
                 tokens.append(Token(TT_CHARLIT, string, line, pos.col))
                 continue
 
+            elif self.current_char == '`':
+                pos = self.pos.copy()
+                ident_str = self.current_char
+                self.advance()
+                # Check for valid delimiter after `
+                if self.current_char is not None and self.current_char not in set(ALPHANUM + '(~!"\' ' + '\t' + '\n'):
+                    errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
+                    self.advance()
+                    continue
+                tokens.append(Token(TT_CONCAT, ident_str, line, pos.col))
+                continue
+
             else:
                 pos = self.pos.copy()
                 char = self.current_char
