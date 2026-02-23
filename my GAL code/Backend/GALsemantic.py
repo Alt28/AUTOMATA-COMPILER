@@ -2070,6 +2070,22 @@ def parse_print(tokens, index):
             arg_node, index = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
+        elif tokens[index].type == "stringlit":
+            arg_node, index, _ = parse_string_concatenation(tokens, index)
+            actual_args.append(arg_node)
+
+        elif tokens[index].type in {"chrlit"}:
+            arg_node, index = parse_expression_branch(tokens, index)
+            actual_args.append(arg_node)
+
+        elif tokens[index].type in {"sunshine", "frost", "!"}:
+            arg_node, index = parse_expression_branch(tokens, index)
+            actual_args.append(arg_node)
+
+        elif tokens[index].type in {"++", "--"}:
+            arg_node, index = parse_expression(tokens, index)
+            actual_args.append(arg_node)
+
         else:
             raise SemanticError(f"Semantic Error: Expected valid argument after ',' in plant statement.", line)
 
