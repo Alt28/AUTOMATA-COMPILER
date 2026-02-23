@@ -725,6 +725,7 @@ cfg = {
     "<arithmetic_next>": [
         ["+", "<term>", "<arithmetic_next>"],  # Addition
         ["-", "<term>", "<arithmetic_next>"],  # Subtraction
+        ["`", "<term>", "<arithmetic_next>"],  # String concatenation
         [EPSILON],                              # End
     ],
 
