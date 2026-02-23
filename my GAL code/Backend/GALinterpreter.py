@@ -423,6 +423,12 @@ class Interpreter:
         right = self.interpret(node.children[1])
         operator = node.value
 
+        # Handle string concatenation with ` before _parse_literal
+        # to preserve whitespace-only vine values like " "
+        if operator == '`':
+            result = str(left) + str(right)
+            return result
+
         left = self._parse_literal(left)
         right = self._parse_literal(right)
 
@@ -582,7 +588,7 @@ class Interpreter:
     def _parse_literal(self, value):
 
         if isinstance(value, str) and not isinstance(self.lookup_variable(value), str):
-            value = self.lookup_variable(value)["value"]
+            return self.lookup_variable(value)["value"]
 
         if isinstance(value, (int, float, bool)):
             return value
