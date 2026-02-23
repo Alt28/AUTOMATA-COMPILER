@@ -1268,10 +1268,10 @@ def parse_expression_leaf(tokens, index):
 
 
 def parse_expression(tokens, index):
-    """Parses an expression with right-to-left associativity for + and -."""
+    """Parses an expression with right-to-left associativity for +, -, and ` (string concat)."""
     left_node, index = parse_term(tokens, index)
 
-    while tokens[index].type in {"+", "-"}:
+    while tokens[index].type in {"+", "-", "`"}:
         op = tokens[index].value
         index += 1
         right_node, index = parse_term(tokens, index)
@@ -1697,7 +1697,11 @@ def parse_operand(tokens, index):
             expr_node, index = parse_expression_leaf(tokens, index)
             return expr_node, index, var_type
 
-        elif var_type in {"vine", "branch"}:
+        elif var_type == "vine":
+            expr_node, index = parse_expression(tokens, index)
+            return expr_node, index, "vine"
+
+        elif var_type == "branch":
             return ASTNode("Value", token.value, line=line), index + 1, var_type
 
         elif var_type in symbol_table.bundle_types:
@@ -2125,7 +2129,8 @@ def parse_string_concatenation(tokens, index):
     left_node = ASTNode("FormattedString", tokens[index].value, line=line)
     index += 1
 
-    while index < len(tokens) and tokens[index].type == "+":
+    while index < len(tokens) and tokens[index].type in {"+", "`"}:
+        concat_op = tokens[index].value
         index += 1
         if tokens[index].type not in {"stringlit", "id"}:
             raise SemanticError(f"Semantic Error: Only values of type vine can be concatenated in plant().", line)
@@ -2151,7 +2156,7 @@ def parse_string_concatenation(tokens, index):
         right_node = ASTNode("FormattedString", tokens[index].value, line=line)
         index += 1
 
-        left_node = BinaryOpNode(left_node, "+", right_node, line=line)
+        left_node = BinaryOpNode(left_node, concat_op, right_node, line=line)
 
     return left_node, index, placeholder_count
 
