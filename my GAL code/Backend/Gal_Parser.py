@@ -137,7 +137,7 @@ class LL1Parser:
         """
         symbols = {'(', ')', '{', '}', ';', ',', '=', '+', '-', '*', '/', '%',
                    '++', '--', '==', '!=', '<', '>', '<=', '>=', '&&', '||',
-                   '!', '~', '+=', '-=', '*=', '/=', '%=', '.', '[', ']', ':'}
+                   '!', '~', '+=', '-=', '*=', '/=', '%=', '.', '[', ']', ':', '`'}
         parts: List[str] = []
         for t in sorted(expected):
             if t in self._TERMINAL_DISPLAY:
@@ -433,7 +433,7 @@ class LL1Parser:
                             return f"SYNTAX error line {line} col {col} Unary '+' operator not supported. Use parentheses for expressions like '(0 + value)'. {self._format_expected(expected, non_terminal)}"
         
         # Check for binary operator after opening parenthesis (prefix notation attempt)
-        if token_type in {'*', '/', '%', '+', '-', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
+        if token_type in {'*', '/', '%', '+', '-', '`', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
             if index > 0:
                 prev_index = index - 1
                 while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
@@ -454,9 +454,9 @@ class LL1Parser:
                 if prev_index >= 0:
                     prev_tok = toks[prev_index]
                     # If an operator precedes the current token, user likely forgot an operand
-                    if prev_tok.type in {'+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
+                    if prev_tok.type in {'+', '-', '*', '/', '%', '`', '=', '+=', '-=', '*=', '/=', '%=', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
                         # Check if current token is a binary operator
-                        if token_type in {'*', '/', '%', '+', '-', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
+                        if token_type in {'*', '/', '%', '+', '-', '`', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
                             return f"SYNTAX error line {line} col {col} Unexpected '{token_value}' operator - binary operators cannot start an expression. {self._format_expected(expected, non_terminal)}"
                         return f"SYNTAX error line {line} col {col} Missing value after '{prev_tok.value}' operator. {self._format_expected(expected, non_terminal)}"
             
