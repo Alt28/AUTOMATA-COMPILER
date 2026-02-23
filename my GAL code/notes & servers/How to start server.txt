@@ -1,0 +1,11 @@
+Start server
+python .\Backend\server.py
+
+
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+python -m pip install -r requirements.txt
+
+python .\server.pypython .\Backend\server.py
+

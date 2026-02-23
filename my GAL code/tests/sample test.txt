@@ -1,0 +1,237 @@
+1. basic input output:
+
+seed a, b, total;
+
+root() {
+    a = 5;
+    b = 7;
+    total = a + b;
+
+    plant(total);
+
+    reclaim;
+}
+
+2.  Scalar data types test
+
+seed count;
+tree average;
+leaf grade;
+branch passed;
+seed limit;
+
+root() {
+    count = 10;
+    average = 92.5;
+    grade = 'A';
+    passed = sunshine;      // boolean literal
+    limit = 100;
+
+    plant(count);
+    plant(average);
+    plant(grade);
+    plant(passed);
+    plant(limit);
+
+    reclaim;
+}
+
+
+3.  Conditional check (even or odd)
+
+seed n, rem;
+branch isEven;
+
+root() {
+    n = 13;
+    rem = n % 2;
+
+    isEven = frost;
+
+    if (rem == 0) {
+        isEven = sunshine;
+        plant("Number is even");
+    } else {
+        plant("Number is odd");
+    }
+
+    plant(isEven);
+
+    reclaim;
+}
+
+
+4.  Array and loop (sum of elements)
+
+seed nums[5];
+seed i, total;
+
+root() {
+    nums[0] = 1;
+    nums[1] = 2;
+    nums[2] = 3;
+    nums[3] = 4;
+    nums[4] = 5;
+
+    total = 0;
+    i = 0;
+
+    grow (i = 0; i < 5; i = i + 1) {
+        total = total + nums[i];
+    }
+
+    plant(total);   // expected 15
+
+    reclaim;
+}
+
+
+5.  2D-style array
+
+seed quiz[2][3];
+seed s, q;
+seed total0, total1;
+
+root() {
+    // student 0
+    quiz[0][0] = 10;
+    quiz[0][1] = 9;
+    quiz[0][2] = 8;
+
+    // student 1
+    quiz[1][0] = 7;
+    quiz[1][1] = 10;
+    quiz[1][2] = 9;
+
+    total0 = 0;
+    total1 = 0;
+
+    grow (q = 0; q < 3; q = q + 1) {
+        total0 = total0 + quiz[0][q];
+        total1 = total1 + quiz[1][q];
+    }
+
+    plant(total0);
+    plant(total1);
+
+    reclaim;
+}
+
+
+6.  Fibonacci sequence using array
+
+seed n;
+seed fib[10];
+seed i;
+
+root() {
+    n = 10;
+
+    fib[0] = 0;
+    fib[1] = 1;
+
+    grow (i = 2; i < n; i = i + 1) {
+        fib[i] = fib[i - 1] + fib[i - 2];
+    }
+
+    cultivate (i = 0; i < n; i = i + 1) {
+        plant(fib[i]);
+    }
+
+    reclaim;
+}
+
+
+7.  Nested loops
+
+seed row, col, maxRow;
+
+root() {
+    maxRow = 4;
+
+    grow (row = 1; row <= maxRow; row = row + 1) {
+        cultivate (col = 1; col <= row; col = col + 1) {
+            plant(col);
+        }
+
+        tend (col = 0; col < 1; col = col + 1) {
+            plant("\n");    // just to represent a new line
+        }
+    }
+
+    reclaim;
+}
+
+
+8.  variety (switch-like behavior)
+
+seed choice;
+
+root() {
+    choice = 2;
+
+    variety (choice) {
+        case 1: {
+            plant("Option 1 selected");
+        }
+        case 2: {
+            plant("Option 2 selected");
+        }
+        case 3: {
+            plant("Option 3 selected");
+        }
+        default: {
+            plant("Invalid option");
+        }
+    }
+
+    reclaim;
+}
+
+
+9. Pass or Fail
+
+seed score;
+branch passed;
+
+root() {
+    score = 78;
+    passed = frost;      // assume fail
+
+    if (score >= 75) {
+        passed = sunshine;
+        plant("Status: PASSED");
+    } else {
+        plant("Status: FAILED");
+    }
+
+    plant(passed);       // print the boolean value
+
+    reclaim;
+}
+
+
+10.  Fibonacci using for-loop (grow)
+
+seed n;
+seed a, b, next;
+seed i;
+
+root() {
+    n = 10;     // number of terms to print
+
+    a = 0;      // first term
+    b = 1;      // second term
+
+    // for (i = 0; i < n; i = i + 1)
+    grow (i = 0; i < n; i = i + 1) {
+        plant(a);          // print current term
+
+        next = a + b;      // compute next term
+        a = b;             // shift values
+        b = next;
+    }
+
+    reclaim;
+}
+
