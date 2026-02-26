@@ -570,7 +570,7 @@
   if (data.errors.length > 0) {
             if (!silent) {
             data.errors.forEach(err => {
-              term.write(`${err}\r\n`);
+              term.write(`\x1b[1;31m${err}\x1b[0m\r\n`);
             });
             }
             if (!silent && window._highlightErrors) window._highlightErrors(data.errors);
@@ -625,7 +625,7 @@
               
               if (data.errors && data.errors.length > 0) {
                 if (!silent) {
-                  data.errors.forEach(err => term.write(`${err}\r\n`));
+                  data.errors.forEach(err => term.write(`\x1b[1;31m${err}\x1b[0m\r\n`));
                 }
                 if (window._highlightErrors) window._highlightErrors(data.errors);
               } else {
@@ -684,8 +684,8 @@
               if (data.stage === 'lexical' && data.errors.length > 0) {
                 // Lexical errors
                 if (!silent) {
-                  term.write('\\x1b[1;31mLexical Errors:\\x1b[0m\\r\\n');
-                  data.errors.forEach(err => term.write(`  ${err}\\r\\n`));
+                  term.write('Lexical Errors:\r\n');
+                  data.errors.forEach(err => term.write(`  ${err}\r\n`));
                 }
                 if (sl) { sl.classList.remove('ok'); sl.classList.add('err'); sl.textContent = 'Lexical: Error'; }
                 if (ss) { ss.classList.remove('ok', 'err'); ss.textContent = 'Syntax: —'; }
@@ -694,9 +694,8 @@
               } else if (data.stage === 'syntax' && data.errors.length > 0) {
                 // Syntax errors
                 if (!silent) {
-                  term.write('\\x1b[1;32mLexical analysis passed!\\x1b[0m\\r\\n');
-                  term.write('\\x1b[1;31mSyntax Errors:\\x1b[0m\\r\\n');
-                  data.errors.forEach(err => term.write(`  ${err}\\r\\n`));
+                  term.write('Syntax Errors:\r\n');
+                  data.errors.forEach(err => term.write(`  ${err}\r\n`));
                 }
                 if (sl) { sl.classList.remove('err'); sl.classList.add('ok'); sl.textContent = 'Lexical: OK'; }
                 if (ss) { ss.classList.remove('ok'); ss.classList.add('err'); ss.textContent = 'Syntax: Error'; }
@@ -705,40 +704,11 @@
               } else if (data.stage === 'semantic') {
                 // Semantic analysis results
                 if (!silent) {
-                  term.write('\\x1b[1;32mLexical analysis passed!\\x1b[0m\\r\\n');
-                  term.write('\\x1b[1;32mSyntax analysis passed!\\x1b[0m\\r\\n');
-                  
                   if (data.errors.length > 0) {
-                    term.write('\\x1b[1;31mSemantic Errors:\\x1b[0m\\r\\n');
-                    data.errors.forEach(err => term.write(`  ${err}\\r\\n`));
+                    term.write('Semantic analysis error!\r\n');
+                    data.errors.forEach(err => term.write(`  ${err}\r\n`));
                   } else {
-                    term.write('\\x1b[1;32mSemantic analysis passed!\\x1b[0m\\r\\n');
-                  }
-                  
-                  if (data.warnings && data.warnings.length > 0) {
-                    term.write('\\x1b[1;33m\\r\\nWarnings:\\x1b[0m\\r\\n');
-                    data.warnings.forEach(warn => term.write(`  ${warn}\\r\\n`));
-                  }
-                  
-                  // Display symbol table
-                  if (data.symbol_table && data.symbol_table.variables) {
-                    term.write('\\r\\n\\x1b[1;36mSymbol Table:\\x1b[0m\\r\\n');
-                    term.write('  Variables:\\r\\n');
-                    data.symbol_table.variables.forEach(v => {
-                      const constStr = v.is_constant ? ' (constant)' : '';
-                      term.write(`    ${v.name}: ${v.type} [${v.scope}]${constStr}\\r\\n`);
-                    });
-                  }
-                  
-                  if (data.symbol_table && data.symbol_table.functions) {
-                    const funcs = Object.keys(data.symbol_table.functions);
-                    if (funcs.length > 0) {
-                      term.write('  Functions:\\r\\n');
-                      funcs.forEach(fname => {
-                        const func = data.symbol_table.functions[fname];
-                        term.write(`    ${fname}(): ${func.return_type}\\r\\n`);
-                      });
-                    }
+                    term.write('Semantic analysis passed!\r\n');
                   }
                 }
                 
@@ -804,7 +774,12 @@
 
               if (result.output && result.output.length > 0) {
                 result.output.forEach(line => {
-                  term.write(line + '\r\n');
+                  const isError = /error|Error/.test(line);
+                  if (isError) {
+                    term.write(`\x1b[1;31m${line}\x1b[0m\r\n`);
+                  } else {
+                    term.write(line + '\r\n');
+                  }
                 });
               }
 
@@ -925,9 +900,14 @@
             if (data._gen !== undefined && data._gen !== window._runGeneration) return;
             const text = data.output;
             window._socketOutputLog.push(text);
+            const isError = /error|Error/.test(text);
             const lines = text.split('\n');
             lines.forEach((line, index) => {
-              term.write(line);
+              if (isError) {
+                term.write(`\x1b[1;31m${line}\x1b[0m`);
+              } else {
+                term.write(line);
+              }
               if (index < lines.length - 1) {
                 term.write('\r\n');
               }
