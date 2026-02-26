@@ -150,7 +150,7 @@ class LL1Parser:
                 parts.append(f"'{t}'")
         if not parts:
             return 'nothing'
-        return f"Expected: {{ {', '.join(parts)} }}"
+        return f"Expected: {', '.join(parts)}"
 
     def _generate_helpful_error(
         self,
@@ -164,6 +164,15 @@ class LL1Parser:
         toks: List[_TokView]
     ) -> str:
         """Generate contextual error messages for common syntax mistakes."""
+        
+        # Parameter type keywords (used in multiple checks below)
+        param_type_tokens = {'seed', 'tree', 'leaf', 'vine', 'branch'}
+        
+        # PRIORITY CHECK: Unexpected end of file (missing closing brace)
+        if token_type == self.end_marker or token_value == '':
+            if '}' in expected:
+                return f"SYNTAX error line {line} col {col} Unexpected end of file. Missing closing '}}'. {self._format_expected(expected, non_terminal)}"
+            return f"SYNTAX error line {line} col {col} Unexpected end of file. {self._format_expected(expected, non_terminal)}"
         
         # PRIORITY CHECK: Detect === operator (tokenized as == followed by =)
         if token_type == '=' and index > 0:
@@ -203,6 +212,10 @@ class LL1Parser:
         if token_type == 'stringlit' and token_value and not token_value.endswith('"'):
             return f"SYNTAX error line {line} col {col} Missing closing double quote in string literal. {self._format_expected(expected, non_terminal)}"
         
+        # PRIORITY CHECK: Missing semicolon after 'reclaim'
+        if non_terminal == '<reclaim_value>' and token_type == '}':
+            return f"SYNTAX error line {line} col {col} Missing ';' after 'reclaim'. {self._format_expected(expected, non_terminal)}"
+        
         # Check for unmatched closing parenthesis
         if token_type == ')' and ')' not in expected:
             # Check if previous token was a binary operator - if so, it's a missing operand issue
@@ -215,10 +228,14 @@ class LL1Parser:
                     prev_tok = toks[prev_index]
                     binary_operators = {'+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||'}
                     if prev_tok.type in binary_operators:
-                        return f"SYNTAX error line {line} col {col} Unexpected ')' after binary operator '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
+                        return f"SYNTAX error line {line} col {col} Unexpected token ')' after binary operator '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
+                    
+                    # Check for trailing comma in parameter list
+                    if prev_tok.type == ',' and param_type_tokens & expected:
+                        return f"SYNTAX error line {line} col {col}: Unexpected token ')'. Expected parameter type (seed, tree, leaf, vine, branch) after ','"
             
             # Otherwise, it's an unmatched closing parenthesis
-            return f"SYNTAX error line {line} col {col} Unexpected ')' token - no matching '(' found in expression. {self._format_expected(expected, non_terminal)}"
+            return f"SYNTAX error line {line} col {col} Unexpected token ')' - no matching '(' found in expression. {self._format_expected(expected, non_terminal)}"
         
         # Check for assignment operators in expression context
         assignment_operators = {'+=', '-=', '*=', '/=', '%='}
@@ -247,7 +264,7 @@ class LL1Parser:
                         if prev_prev_index >= 0 and toks[prev_prev_index].type == 'id':
                             id_tok = toks[prev_prev_index]
                             compound_op = f"{prev_tok.value}="
-                            return f"SYNTAX error line {line} col {col} Unexpected '=' after operator '{prev_tok.value}'. Did you mean '{id_tok.value} {compound_op}' (compound assignment with no space)? {self._format_expected(expected, non_terminal)}"
+                            return f"SYNTAX error line {line} col {col} Unexpected token '=' after operator '{prev_tok.value}'. Did you mean '{id_tok.value} {compound_op}' (compound assignment with no space)? {self._format_expected(expected, non_terminal)}"
         
         # Check for '{' at start of program - likely caused by lexical error preventing 'root' token
         if token_type == '{' and non_terminal in {'<program>', '<global_declaration>'}:
@@ -286,7 +303,7 @@ class LL1Parser:
                     
                     if found_bundle:
                         expected_str = self._format_expected(expected, non_terminal)
-                        return f"SYNTAX error line {line} col {col} Unexpected ';' after bundle definition closing '}}'. ';' is not in {expected_str}. Remove the trailing ';'"
+                        return f"SYNTAX error line {line} col {col} Unexpected token ';' after bundle definition closing '}}'. ';' is not in {expected_str}. Remove the trailing ';'"
         
         # Check for common invalid keywords from other languages (check early)
         common_keyword_mistakes = {
@@ -335,6 +352,33 @@ class LL1Parser:
             'branch', 'tree', 'vine', 'bundle', 'fertile', 'pollinate', 'root', 'id'
         }
         
+        # Check for missing ':' after variety/soil expression (priority over ';' check)
+        if ':' in expected and token_type in statement_starters:
+            # Walk back to find 'variety' or 'soil'
+            context_keyword = None
+            if index > 0:
+                scan = index - 1
+                while scan >= 0:
+                    if toks[scan].type in self.skip_token_types:
+                        scan -= 1
+                        continue
+                    if toks[scan].type == 'variety':
+                        context_keyword = 'variety'
+                        break
+                    if toks[scan].type == 'soil':
+                        context_keyword = 'soil'
+                        break
+                    # Skip expression tokens between variety and here
+                    if toks[scan].type in {'id', 'intlit', 'floatlit', 'stringlit', 'chrlit',
+                                           'sunshine', 'frost', '+', '-', '*', '/', '%',
+                                           '==', '!=', '<', '>', '<=', '>=', '&&', '||',
+                                           '(', ')', '`', '~'}:
+                        scan -= 1
+                        continue
+                    break
+            if context_keyword:
+                return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}' after '{context_keyword}'. Expected ':' after '{context_keyword}'. {self._format_expected({':'})}"
+        
         if ';' in expected:
             if token_type in statement_starters or token_type == 'id':
                 # Look back at previous token to show what was incomplete
@@ -369,9 +413,9 @@ class LL1Parser:
                         prev_col = prev_tok.col + len(str(prev_tok.value))
                         expected_str = self._format_expected(expected, non_terminal)
                         if prev_line != line:  # Previous token on different line
-                            return (f"SYNTAX error line {prev_line} col {prev_col} Unexpected '{token_value}' after '{prev_tok.value}'. {expected_str}")
+                            return (f"SYNTAX error line {prev_line} col {prev_col} Unexpected token '{token_value}' after '{prev_tok.value}'. {expected_str}")
                         else:
-                            return f"SYNTAX error line {line} col {col} Unexpected '{token_value}'. {expected_str}"
+                            return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {expected_str}"
             elif token_type == '}':
                 # Missing semicolon before closing brace
                 if index > 0:
@@ -381,6 +425,10 @@ class LL1Parser:
                     
                     if prev_index >= 0:
                         prev_tok = toks[prev_index]
+                        
+                        # Check for missing ';' after 'reclaim'
+                        if prev_tok.type == 'reclaim':
+                            return f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len('reclaim')} Missing ';' after 'reclaim'. {self._format_expected(expected, non_terminal)}"
                         
                         # Check if previous token is a malformed character literal (missing closing quote)
                         if prev_tok.type == 'chrlit' and prev_tok.value and not prev_tok.value.endswith("'"):
@@ -398,9 +446,9 @@ class LL1Parser:
                         prev_col = prev_tok.col + len(str(prev_tok.value))
                         expected_str = self._format_expected(expected, non_terminal)
                         if prev_line != line:
-                            return f"SYNTAX error line {prev_line} col {prev_col} Unexpected '}}' after '{prev_tok.value}'. {expected_str}"
+                            return f"SYNTAX error line {prev_line} col {prev_col} Unexpected token '}}' after '{prev_tok.value}'. {expected_str}"
                         else:
-                            return f"SYNTAX error line {line} col {col} Unexpected '}}'. {expected_str}"
+                            return f"SYNTAX error line {line} col {col} Unexpected token '}}'. {expected_str}"
         
         # Check for missing reclaim statement
         if 'reclaim' in expected and token_type == '}':
@@ -457,7 +505,7 @@ class LL1Parser:
                     if prev_tok.type in {'+', '-', '*', '/', '%', '`', '=', '+=', '-=', '*=', '/=', '%=', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
                         # Check if current token is a binary operator
                         if token_type in {'*', '/', '%', '+', '-', '`', '&&', '||', '==', '!=', '<', '>', '<=', '>='}:
-                            return f"SYNTAX error line {line} col {col} Unexpected '{token_value}' operator - binary operators cannot start an expression. {self._format_expected(expected, non_terminal)}"
+                            return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}' operator - binary operators cannot start an expression. {self._format_expected(expected, non_terminal)}"
                         return f"SYNTAX error line {line} col {col} Missing value after '{prev_tok.value}' operator. {self._format_expected(expected, non_terminal)}"
             
             # Don't report misleading "missing parenthesis" for assignment operators
@@ -557,12 +605,12 @@ class LL1Parser:
                                     next_tok = toks[next_index]
                                     if (token_type == '++' and next_tok.type == '+') or (token_type == '--' and next_tok.type == '-'):
                                         operator_seq = token_type + ('+' if token_type == '++' else '-')
-                                        return f"SYNTAX error line {line} col {col} Unexpected '{operator_seq}' operator sequence. {self._format_expected(expected, non_terminal)}"
+                                        return f"SYNTAX error line {line} col {col} Unexpected token '{operator_seq}' operator sequence. {self._format_expected(expected, non_terminal)}"
                                 
                                 return f"SYNTAX error line {line} col {col} Unexpected {token_type} operator. {self._format_expected(expected, non_terminal)}"
                             # Look ahead to see what the current token is
                             if token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'id'}:
-                                return f"SYNTAX error line {line} col {col} Unexpected '{token_type}' token after identifier '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
+                                return f"SYNTAX error line {line} col {col} Unexpected token '{token_type}' after identifier '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
                             else:
                                 return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}' after identifier '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
                         else:
@@ -588,11 +636,18 @@ class LL1Parser:
             op_name = "increment" if token_value == "++" else "decrement"
             return f"SYNTAX error line {line} col {col} Postfix {op_name} operator '{token_value}' not allowed in expression context. {self._format_expected(expected, non_terminal)}"
         
+        # Check for missing parameter type in function declaration
+        if param_type_tokens & expected and ')' in expected and token_type == 'id':
+            return f"SYNTAX error line {line} col {col}: Unexpected token '{token_value}'. Expected parameter type (seed, tree, leaf, vine, branch) or ')'"
+        
         # Check for missing closing parenthesis
         if ')' in expected and token_type not in {')'}:
+            # Check for missing comma between function call arguments
+            if ',' in expected and token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'id', 'sunshine', 'frost', '~', '!'}:
+                return f"SYNTAX error line {line} col {col}: Unexpected token '{token_value}'. Expected ',' between arguments or ')' to close function call"
             # Check if '~' or '!' (unary operators) appear where a binary operator is expected
             if token_type in {'~', '!'}:
-                return f"SYNTAX error line {line} col {col} Unexpected '{token_value}'. {self._format_expected(expected, non_terminal)}"
+                return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
             return f"SYNTAX error line {line} col {col} expected ')' before '{token_value}'. Missing closing parenthesis. {self._format_expected(expected, non_terminal)}"
         
         # Check for literal/identifier after identifier in expression context (missing operator)
@@ -812,6 +867,24 @@ class LL1Parser:
                             error_msg = f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf (character) variables can only hold a single character"
                             return False, [error_msg]
                     
+                    # Enforce single-value rule for tree and branch
+                    # tree only allows <1value> (a single double literal), no expressions
+                    # branch only allows <1value> (sunshine or frost), no expressions
+                    if expecting_value_for_type in {'tree', 'branch'}:
+                        next_idx = index + 1
+                        while next_idx < len(toks) and toks[next_idx].type in self.skip_token_types:
+                            next_idx += 1
+                        if next_idx < len(toks):
+                            next_tok = toks[next_idx]
+                            expression_operators = {'+', '-', '*', '/', '%', '`', '==', '!=', '<', '>', '<=', '>=', '&&', '||'}
+                            if next_tok.type in expression_operators:
+                                type_names = {'tree': 'tree (double)', 'branch': 'branch (boolean)'}
+                                value_names = {'tree': 'double literal', 'branch': 'boolean literal (sunshine/frost)'}
+                                declared_type = type_names.get(expecting_value_for_type, expecting_value_for_type)
+                                expected_val = value_names.get(expecting_value_for_type, 'literal')
+                                error_msg = f"SYNTAX error line {next_tok.line} col {next_tok.col} Unexpected operator '{next_tok.value}' after {declared_type} declaration. {declared_type} only accepts a single {expected_val}, expressions are not allowed"
+                                return False, [error_msg]
+                    
                     # Reset after checking
                     expecting_value_for_type = None
                 
@@ -909,7 +982,12 @@ class LL1Parser:
                 continue
 
             expected = {top}
-            shown_value = "EOF" if token_type == self.end_marker else token_value
+            shown_value = "end of file" if token_type == self.end_marker else token_value
+            
+            # PRIORITY: Handle EOF hitting any expected terminal
+            if token_type == self.end_marker:
+                error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected end of file. Expected: '{top}'. Missing closing '}}' or incomplete statement."
+                return False, [error_msg]
             
             # Enhanced error messages for specific missing tokens
             # Check for missing 'grow' after tend { ... }
@@ -992,19 +1070,19 @@ class LL1Parser:
                                 if kw_idx >= 0 and toks[kw_idx].type == 'tend':
                                     error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. 'tend' requires 'grow' after closing brace '}}'. {self._format_expected(expected)}. Correct format: tend {{ ... }} grow (condition);"
                                 else:
-                                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '('. {self._format_expected(expected)}"
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '('. {self._format_expected(expected)}"
                             else:
-                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '('. {self._format_expected(expected)}"
+                                error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '('. {self._format_expected(expected)}"
                         else:
                             keywords_needing_parens = {'spring', 'grow', 'cultivate', 'harvest', 'water', 'plant', 'tend', 'bud'}
                             if prev_tok.type in keywords_needing_parens:
-                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '(' after '{prev_tok.value}'. {self._format_expected(expected)}"
+                                error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '(' after '{prev_tok.value}'. {self._format_expected(expected)}"
                             else:
-                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '('. {self._format_expected(expected)}"
+                                error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '('. {self._format_expected(expected)}"
                     else:
-                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '('. {self._format_expected(expected)}"
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '('. {self._format_expected(expected)}"
                 else:
-                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '('. {self._format_expected(expected)}"
+                    error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '('. {self._format_expected(expected)}"
                 return False, [error_msg]
             elif top == '{' and token_type != '{':
                 # Check for extra closing parenthesis - common mistake like root())
@@ -1067,26 +1145,60 @@ class LL1Parser:
                                     if kw_index >= 0:
                                         kw_tok = toks[kw_index]
                                         if kw_tok.type in {'spring', 'grow', 'cultivate', 'tend', 'harvest', 'bud', 'pollinate', 'root'}:
-                                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{' after '{kw_tok.value}' statement. {self._format_expected(expected)}"
+                                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{' after '{kw_tok.value}' statement. {self._format_expected(expected)}"
                                         else:
-                                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                                     else:
-                                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                                 else:
-                                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                                    error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                             else:
-                                error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{' after '{prev_tok.value}'. {self._format_expected(expected)}"
+                                error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{' after '{prev_tok.value}'. {self._format_expected(expected)}"
                         else:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                     else:
-                        error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                 elif error_msg is None:
-                    error_msg = f"SYNTAX error line {line} col {tok.col} expected '{{'. {self._format_expected(expected)}"
+                    error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '{{'. {self._format_expected(expected)}"
                 return False, [error_msg]
             elif top == '}' and token_type != '}':
-                return False, [f"SYNTAX error line {line} col {tok.col} expected '}}'. Missing closing brace. {self._format_expected(expected)}"]
+                return False, [f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected '}}'. Missing closing brace. {self._format_expected(expected)}"]
             elif top == ')' and token_type != ')':
-                return False, [f"SYNTAX error line {line} col {tok.col} expected ')'. Missing closing parenthesis. {self._format_expected(expected)}"]
+                return False, [f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ')'. Missing closing parenthesis. {self._format_expected(expected)}"]
+            elif top == ':' and token_type != ':':
+                # Missing colon — look back to find 'variety' or 'soil' keyword for context
+                context_keyword = None
+                if index > 0:
+                    prev_index = index - 1
+                    while prev_index >= 0 and toks[prev_index].type in self.skip_token_types:
+                        prev_index -= 1
+                    if prev_index >= 0:
+                        prev_tok = toks[prev_index]
+                        # For 'soil' the colon comes immediately after: soil :
+                        if prev_tok.type == 'soil':
+                            context_keyword = 'soil'
+                        else:
+                            # For 'variety expr :' — walk back past expression to find 'variety'
+                            scan = prev_index
+                            while scan >= 0:
+                                if toks[scan].type in self.skip_token_types:
+                                    scan -= 1
+                                    continue
+                                if toks[scan].type == 'variety':
+                                    context_keyword = 'variety'
+                                    break
+                                # Skip over expression tokens (literals, ids, operators, parens)
+                                if toks[scan].type in {'id', 'intlit', 'floatlit', 'stringlit', 'chrlit',
+                                                       'sunshine', 'frost', '+', '-', '*', '/', '%',
+                                                       '==', '!=', '<', '>', '<=', '>=', '&&', '||',
+                                                       '(', ')', '`', '~'}:
+                                    scan -= 1
+                                    continue
+                                break
+                if context_keyword:
+                    return False, [f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}' after '{context_keyword}'. Expected ':' after '{context_keyword}'. {self._format_expected({':'})}"]
+                else:
+                    return False, [f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ':'. {self._format_expected({':'})}"]
             elif top == ';' and token_type != ';':
                 # Missing semicolon - but check if this might be an invalid keyword used as a function
                 # Pattern: "if (condition) {" where parser saw "if()" as a function call  
@@ -1144,7 +1256,7 @@ class LL1Parser:
                     if prev_index >= 0:
                         prev_tok = toks[prev_index]
                         if prev_tok.type in {'++', '--'}:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected '{token_value}' after '{prev_tok.value}'. Increment/decrement operators cannot be chained. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}' after '{prev_tok.value}'. Increment/decrement operators cannot be chained. {self._format_expected(expected)}"
                 
                 # Check for binary operator after increment/decrement (e.g., a--+2)
                 binary_operators = {'+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||'}
@@ -1168,12 +1280,12 @@ class LL1Parser:
                         if prev_index >= 0:
                             prev_tok = toks[prev_index]
                             # Report error on the line of the previous token (where semicolon should be)
-                            error_msg = f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} expected ';'. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
                             line = prev_tok.line  # Use prev_tok line for deduplication
                         else:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} expected ';'. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
                     else:
-                        error_msg = f"SYNTAX error line {line} col {tok.col} expected ';'. {self._format_expected(expected)}"
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
                 
                 return False, [error_msg]
             else:
@@ -1260,6 +1372,7 @@ class LL1Parser:
                 "errors": [str(e)],
                 "ast": None,
                 "symbol_table": {},
+                "error_stage": "semantic",
             }
 
 
