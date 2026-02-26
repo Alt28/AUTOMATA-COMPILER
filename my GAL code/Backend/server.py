@@ -230,12 +230,14 @@ def semantic_endpoint():
         
         # If syntax or AST construction failed, return errors
         if not parse_result['success']:
+            # Distinguish semantic errors caught during AST building
+            error_stage = parse_result.get('error_stage', 'syntax')
             return jsonify({
                 'success': False,
                 'tokens': token_list,
                 'errors': parse_result['errors'],
                 'warnings': [],
-                'stage': 'syntax'
+                'stage': error_stage
             })
         
         # Run semantic analysis — tree-walking validation of the AST
@@ -297,11 +299,12 @@ def icg_endpoint():
         # 2. Syntax analysis + AST construction (parser builds AST)
         parse_result = parser.parse_and_build(tokens)
         if not parse_result['success']:
+            error_stage = parse_result.get('error_stage', 'syntax')
             return jsonify({
                 'success': False,
                 'tokens': token_list,
                 'errors': parse_result['errors'],
-                'stage': 'syntax'
+                'stage': error_stage
             })
 
         # 3. Semantic analysis — tree-walking validation of the AST
@@ -377,9 +380,10 @@ def run_endpoint():
         # 2. Parse + build AST (parser builds the AST)
         parse_result = parser.parse_and_build(tokens)
         if not parse_result['success']:
+            error_stage = parse_result.get('error_stage', 'syntax')
             return jsonify({
                 'success': False,
-                'stage': 'syntax',
+                'stage': error_stage,
                 'output': [],
                 'errors': [str(e) for e in parse_result['errors']]
             })
@@ -468,9 +472,10 @@ def handle_run_code(data):
     # 2. Syntax analysis + AST construction (parser builds AST)
     parse_result = parser.parse_and_build(tokens)
     if not parse_result['success']:
+        error_stage = parse_result.get('error_stage', 'syntax')
         for err in parse_result['errors']:
             emit('output', {'output': f'{err}'})
-        emit('execution_complete', {'success': False, 'stage': 'syntax'})
+        emit('execution_complete', {'success': False, 'stage': error_stage})
         return
 
     # 3. Semantic analysis — tree-walking validation of the AST
