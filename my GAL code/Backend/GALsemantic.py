@@ -583,6 +583,13 @@ def parse_function(tokens, index, func_name, func_type):
         if (func_type != "empty" and not return_found) and func_name not in {"root"}:
             raise SemanticError(f"Semantic Error: Function '{func_name}' must return a value of type '{func_type}' at the end.", line)
         
+        # All functions (including root) must end with reclaim;
+        if not return_found:
+            if func_name == "root":
+                raise SemanticError(f"Syntax Error: root() must end with 'reclaim;'.", line)
+            elif func_type == "empty":
+                raise SemanticError(f"Syntax Error: Function '{func_name}' must end with 'reclaim;'.", line)
+
         index += 1
         func_node.add_child(block_node)
         symbol_table.exit_scope()
@@ -1068,23 +1075,41 @@ def parse_list_assignment(tokens, index):
     return AssignmentNode(var_name, value_node, line=line), index
 
 
+def _types_compatible(declared, inferred):
+    """Check whether *inferred* expression type can be stored in a *declared* variable."""
+    if declared == inferred:
+        return True
+    # seed (int) and tree (float) are mutually compatible
+    if declared in {"seed", "tree"} and inferred in {"seed", "tree"}:
+        return True
+    return False
+
+
 def parse_expression_type(tokens, index, var_type):
     line = tokens[index].line
-    if var_type in {"seed", "tree"}:
-        return parse_expression_branch(tokens, index)
 
-    elif var_type == "leaf":
-        return parse_expression_branch(tokens, index)
+    if var_type not in {"seed", "tree", "vine", "leaf", "branch"}:
+        raise SemanticError("Semantic Error: Invalid type for assignment.", line)
 
-    elif var_type == "vine":
-        return parse_expression_branch(tokens, index)
-    
-    elif var_type == "branch":
-        return parse_expression_branch(tokens, index)
+    # --- parse the full expression (same logic as parse_expression_branch
+    #     but we keep the inferred type from parse_equality) ---
+    node, index, expr_type = parse_equality(tokens, index)
 
-    else:
-        error = f"Semantic Error: Invalid type for assignment."
-        raise SemanticError(error, line)
+    while tokens[index].type in {"&&", "||"}:
+        operator = tokens[index].value
+        index += 1
+        right_node, index, right_type = parse_equality(tokens, index)
+        node = BinaryOpNode(node, operator, right_node, line=line)
+        expr_type = "branch"
+
+    # --- type-mismatch guard ---
+    if expr_type is not None and not _types_compatible(var_type, expr_type):
+        raise SemanticError(
+            f"Semantic Error: Type mismatch — cannot assign '{expr_type}' value to '{var_type}' variable.",
+            line,
+        )
+
+    return node, index
 
 def parse_expression_vine(tokens, index):
     line = tokens[index].line
