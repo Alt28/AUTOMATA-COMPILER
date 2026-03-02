@@ -613,14 +613,24 @@ cfg = {
     "<case_list>": [
         [
             "variety",             # case keyword
-            "<expression>",        # case value (no parentheses)
+            "<case_literal>",      # case value (literal only, no expressions)
             ":",
             "<case_statements>",   # zero or more statements (including prune)
             "<case_list>",         # More cases
         ],
         [EPSILON],  # No more cases
     ],
-    
+
+    # Only literal values are allowed after variety (case)
+    "<case_literal>": [
+        ["intlit"],                      # Integer literal (e.g., 1)
+        ["dblit"],                       # Double/float literal (e.g., 3.14)
+        ["chrlit"],                      # Character literal (e.g., 'a')
+        ["stringlit"],                   # String literal (e.g., "hello")
+        ["sunshine"],                    # Boolean true
+        ["frost"],                       # Boolean false
+    ],
+
     # Statements inside a case - recursive list of statements
     "<case_statements>": [
         ["<case_statement>", "<case_statements>"],  # One statement, then more
