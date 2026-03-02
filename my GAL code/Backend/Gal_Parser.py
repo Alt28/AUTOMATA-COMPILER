@@ -107,24 +107,24 @@ class LL1Parser:
     # ── human-readable names for terminals ──────────────────────────
     _TERMINAL_DISPLAY: Dict[str, str] = {
         # literals / identifiers
-        'id': 'identifier', 'intlit': 'integer literal', 'dblit': 'double literal',
+        'id': 'id', 'intlit': 'integer literal', 'dblit': 'double literal',
         'stringlit': 'string literal', 'chrlit': 'character literal',
-        'sunshine': 'true (sunshine)', 'frost': 'false (frost)',
+        'sunshine': "'sunshine'", 'frost': "'frost'",
         # data types
-        'seed': "'seed' (integer type)", 'tree': "'tree' (double type)",
-        'leaf': "'leaf' (character type)", 'branch': "'branch' (boolean type)",
-        'vine': "'vine' (string type)",
+        'seed': "'seed'", 'tree': "'tree'",
+        'leaf': "'leaf'", 'branch': "'branch'",
+        'vine': "'vine'",
         # keywords
-        'bundle': "'bundle' (struct)", 'fertile': "'fertile' (constant)",
-        'pollinate': "'pollinate' (function def)", 'root': "'root' (main)",
-        'reclaim': "'reclaim' (return)", 'spring': "'spring' (if)",
-        'bud': "'bud' (else-if)", 'wither': "'wither' (else)",
-        'grow': "'grow' (while)", 'cultivate': "'cultivate' (for)",
-        'tend': "'tend' (do-while)", 'harvest': "'harvest' (switch)",
-        'variety': "'variety' (case)", 'soil': "'soil' (default)",
-        'prune': "'prune' (break)", 'skip': "'skip' (continue)",
-        'water': "'water' (input)", 'plant': "'plant' (output)",
-        'empty': "'empty' (void)",
+        'bundle': "'bundle'", 'fertile': "'fertile'",
+        'pollinate': "'pollinate'", 'root': "'root'",
+        'reclaim': "'reclaim'", 'spring': "'spring'",
+        'bud': "'bud'", 'wither': "'wither'",
+        'grow': "'grow'", 'cultivate': "'cultivate'",
+        'tend': "'tend'", 'harvest': "'harvest'",
+        'variety': "'variety'", 'soil': "'soil'",
+        'prune': "'prune'", 'skip': "'skip'",
+        'water': "'water'", 'plant': "'plant'",
+        'empty': "'empty'",
         # special
         'EOF': 'end of file',
     }
@@ -138,8 +138,13 @@ class LL1Parser:
         symbols = {'(', ')', '{', '}', ';', ',', '=', '+', '-', '*', '/', '%',
                    '++', '--', '==', '!=', '<', '>', '<=', '>=', '&&', '||',
                    '!', '~', '+=', '-=', '*=', '/=', '%=', '.', '[', ']', ':', '`'}
+        # Only hide 'reclaim' from suggestions when the source already contains one
+        has_reclaim = any(tk.type == 'reclaim' for tk in getattr(self, '_current_tokens', []))
+
         parts: List[str] = []
         for t in sorted(expected):
+            if t == 'reclaim' and has_reclaim:
+                continue  # reclaim already present in source; omit from suggestions
             if t in self._TERMINAL_DISPLAY:
                 parts.append(self._TERMINAL_DISPLAY[t])
             elif t in symbols:
@@ -457,9 +462,9 @@ class LL1Parser:
         # Check for missing prune (break) in variety (case) statements
         if 'prune' in expected and token_type in {'variety', 'soil', '}'}:
             if token_type == 'variety':
-                return f"SYNTAX error line {line} col {col} expected 'prune;' before next 'variety'. Each case in 'harvest' (switch) must end with 'prune;'. {self._format_expected(expected, non_terminal)}"
+                return f"SYNTAX error line {line} col {col} expected 'prune;' before next 'variety'. Each case in 'harvest' must end with 'prune;'. {self._format_expected(expected, non_terminal)}"
             elif token_type == 'soil':
-                return f"SYNTAX error line {line} col {col} expected 'prune;' before 'soil' (default case). Each case must end with 'prune;'. {self._format_expected(expected, non_terminal)}"
+                return f"SYNTAX error line {line} col {col} expected 'prune;' before 'soil'. Each case must end with 'prune;'. {self._format_expected(expected, non_terminal)}"
             else:  # token_type == '}'
                 return f"SYNTAX error line {line} col {col} expected 'prune;' before closing '}}'. Each case must end with 'prune;'. {self._format_expected(expected, non_terminal)}"
         
@@ -699,6 +704,9 @@ class LL1Parser:
         toks = [_TokView(self._normalize_token_type(t.type), t.value, t.line, t.col) for t in toks]
         toks = self._ensure_eof(toks)
 
+        # Store tokens so _format_expected can inspect the source
+        self._current_tokens = toks
+
         stack: List[str] = [self.end_marker, self.start_symbol]
         index = 0
         
@@ -858,13 +866,13 @@ class LL1Parser:
                         # Use slicing instead of strip to handle edge cases like '''
                         char_content = token_value[1:-1] if len(token_value) >= 2 else token_value
                         if len(char_content) == 0:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal cannot be empty. Expected a single character for leaf (character) variable"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal cannot be empty. Expected a single character for leaf variable"
                             return False, [error_msg]
                         elif char_content.startswith('\\') and len(char_content) == 2:
                             # Valid escape sequence like \n, \t, \\, \'
                             pass
                         elif len(char_content) > 1:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf (character) variables can only hold a single character"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Character literal '{token_value}' contains {len(char_content)} characters. leaf variables can only hold a single character"
                             return False, [error_msg]
                     
                     # Enforce single-value rule for tree and branch
@@ -878,7 +886,7 @@ class LL1Parser:
                             next_tok = toks[next_idx]
                             expression_operators = {'+', '-', '*', '/', '%', '`', '==', '!=', '<', '>', '<=', '>=', '&&', '||'}
                             if next_tok.type in expression_operators:
-                                type_names = {'tree': 'tree (double)', 'branch': 'branch (boolean)'}
+                                type_names = {'tree': 'tree', 'branch': 'branch'}
                                 value_names = {'tree': 'double literal', 'branch': 'boolean literal (sunshine/frost)'}
                                 declared_type = type_names.get(expecting_value_for_type, expecting_value_for_type)
                                 expected_val = value_names.get(expecting_value_for_type, 'literal')
@@ -945,7 +953,7 @@ class LL1Parser:
                                     'chrlit': 'character literal',
                                 }
                                 op_name = 'AND' if token_type == '&&' else 'OR'
-                                return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{token_type}' ({op_name}) requires branch (boolean) operands, not {type_names[prev_tok.type]} '{prev_tok.value}'"]
+                                return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{token_type}' ({op_name}) requires branch operands, not {type_names[prev_tok.type]} '{prev_tok.value}'"]
                 
                 # Check for non-branch literal after logical operators
                 if token_type in {'intlit', 'dblit', 'stringlit', 'chrlit'}:
@@ -970,7 +978,7 @@ class LL1Parser:
                                 'chrlit': 'character literal',
                             }
                             op_name = 'AND' if toks[prev_idx].type == '&&' else 'OR'
-                            return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{toks[prev_idx].type}' ({op_name}) requires branch (boolean) operands, not {type_names[token_type]} '{token_value}'"]
+                            return False, [f"SYNTAX error line {line} col {tok.col} Logical operator '{toks[prev_idx].type}' ({op_name}) requires branch operands, not {type_names[token_type]} '{token_value}'"]
 
                 stack.pop()
                 index += 1
@@ -1030,9 +1038,9 @@ class LL1Parser:
                 return False, [error_msg]
             elif top == 'prune' and token_type in {'variety', 'soil', '}'}:
                 if token_type == 'variety':
-                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before next 'variety'. Each case in 'harvest' (switch) must end with 'prune;'. {self._format_expected(expected)}"
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before next 'variety'. Each case in 'harvest' must end with 'prune;'. {self._format_expected(expected)}"
                 elif token_type == 'soil':
-                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before 'soil' (default case). Each case must end with 'prune;'. {self._format_expected(expected)}"
+                    error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before 'soil'. Each case must end with 'prune;'. {self._format_expected(expected)}"
                 else:
                     error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before closing '}}'. Each case must end with 'prune;'. {self._format_expected(expected)}"
                 return False, [error_msg]
