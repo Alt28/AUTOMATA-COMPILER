@@ -1439,20 +1439,20 @@ class Lexer:
                     # For decimals, check if integer part exceeds 15 digits
                     if integer_digit_count > 15:
                         # Process integer part in chunks of 15: each 15-digit chunk is an error
-                        # Only the final remaining chunk (≤14 digits) continues to decimal processing
+                        # Only the final remaining chunk (≤15 digits) continues to decimal processing
                         integer_part = ident_str
                         i = 0
                         while i < len(integer_part):
-                            if i + 15 <= len(integer_part):
-                                # 15-digit chunk: generate error
+                            if i + 15 < len(integer_part):
+                                # More than 15 digits remain: generate error for this chunk
                                 errors.append(LexicalError(pos, f"Integer part of decimal exceeds maximum of 15 digits"))
                                 i += 15
                             else:
-                                # Final chunk with 14 or fewer digits
+                                # Final chunk with 15 or fewer digits — valid
                                 ident_str = integer_part[i:]
                                 break
                         else:
-                            # Length was exact multiple of 15 — all digits consumed as errors, no valid remainder
+                            # All digits consumed as errors, no valid remainder
                             ident_str = "0"
                     dot_count = 1  # Mark that we found a decimal point
                     ident_str += self.current_char
@@ -1473,16 +1473,16 @@ class Lexer:
                     # Check if fractional part exceeds 8 digits
                     if fractional_digit_count > 8:
                         # Process in chunks of 8: each 8-digit chunk is an error
-                        # Only the final remaining chunk (≤7 digits) is added to the number
+                        # Only the final remaining chunk (≤8 digits) is added to the number
                         i = 0
                         final_fractional = ""
                         while i < len(fractional_part):
-                            if i + 8 <= len(fractional_part):
-                                # 8-digit chunk: generate error
+                            if i + 8 < len(fractional_part):
+                                # More than 8 digits remain: generate error for this chunk
                                 errors.append(LexicalError(pos, f"Fractional part exceeds maximum of 8 digits"))
                                 i += 8
                             else:
-                                # Final chunk with 7 or fewer digits
+                                # Final chunk with 8 or fewer digits — valid
                                 final_fractional = fractional_part[i:]
                                 break
                         ident_str += final_fractional
@@ -1490,27 +1490,25 @@ class Lexer:
                         ident_str += fractional_part
 
                 # Handle integers longer than 8 digits
-                # Process in chunks of 9: each 9-digit chunk is an error
-                # Only the final chunk (≤8 digits) is valid and added to tokens
+                # Process in chunks of 8: each chunk beyond the valid last ≤8 digits is an error
                 if dot_count == 0 and integer_digit_count > 8:
                     i = 0
                     remaining = None
                     while i < len(ident_str):
-                        # Check if there are at least 8 characters remaining
-                        if i + 8 <= len(ident_str):
-                            # 8-digit chunk: generate error, don't add token
+                        # Check if more than 8 characters remain
+                        if i + 8 < len(ident_str):
+                            # More than 8 digits remain: generate error for this chunk
                             errors.append(LexicalError(pos, f"Integer exceeds maximum of 8 digits"))
                             i += 8
                         else:
-                            # Final chunk with 7 or fewer digits: valid token
+                            # Final chunk with 8 or fewer digits: valid token
                             remaining = ident_str[i:]
                             # Strip leading zeros for the remaining valid portion
                             remaining = remaining.lstrip("0") or "0"
                             tokens.append(Token(TT_INTEGERLIT, remaining, line, pos.col))
                             break
                     if remaining is None:
-                        # Length was exact multiple of 8 — all digits consumed as errors
-                        # Still create a token with "0" as the valid remainder
+                        # Safety fallback (should not happen with the corrected condition)
                         tokens.append(Token(TT_INTEGERLIT, "0", line, pos.col))
                     continue
                 
