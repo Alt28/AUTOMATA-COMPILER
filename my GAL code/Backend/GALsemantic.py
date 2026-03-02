@@ -1504,7 +1504,7 @@ def parse_expression_branch(tokens, index):
         left_node = BinaryOpNode(left_node, operator, right_node, line=line)
         left_type = "branch"
 
-    return left_node, index
+    return left_node, index, left_type
 
 
 def parse_equality(tokens, index):
@@ -1610,7 +1610,7 @@ def parse_operand(tokens, index):
                 
             else:
                 index += 1
-                expr_node, index = parse_expression_branch(tokens, index)
+                expr_node, index, _ = parse_expression_branch(tokens, index)
                 expr_type = "branch"
 
             is_lwk, index = check_lwk(tokens, index)
@@ -1926,7 +1926,7 @@ def parse_print(tokens, index):
                 expr_node, index = parse_expression_leaf(tokens, index)
                 args.append(expr_node)
             elif func_info["return_type"] in {"branch"}:
-                expr_node, index = parse_expression_branch(tokens, index)
+                expr_node, index, _ = parse_expression_branch(tokens, index)
                 args.append(expr_node)
             else:
                 raise SemanticError(f"Semantic Error: Function '{func_name}' returns invalid type '{func_info['return_type']}'.", line)
@@ -1986,19 +1986,19 @@ def parse_print(tokens, index):
                 args.append(ASTNode("Value", identif_name, line=line))
                 
     elif tokens[index].type in {"intlit", "dbllit"}:
-        expr_node, index = parse_expression_branch(tokens, index)
+        expr_node, index, _ = parse_expression_branch(tokens, index)
         args.append(expr_node)
 
     elif tokens[index].type in {"sunshine", "frost", "!"}:
-        expr_node, index = parse_expression_branch(tokens, index)
+        expr_node, index, _ = parse_expression_branch(tokens, index)
         args.append(expr_node)
 
     elif tokens[index].type in {"chrlit"}:
-        expr_node, index = parse_expression_branch(tokens, index)
+        expr_node, index, _ = parse_expression_branch(tokens, index)
         args.append(expr_node)
 
     elif tokens[index].type in {"("}:
-        expr_node, index = parse_expression_branch(tokens, index)
+        expr_node, index, _ = parse_expression_branch(tokens, index)
         args.append(expr_node)
 
     elif tokens[index].type in {"++", "--", "-"}:
@@ -2013,7 +2013,7 @@ def parse_print(tokens, index):
         index += 1
         
         if tokens[index].type in {"intlit", "dbllit", "-"}:
-            arg_node, index = parse_expression_branch(tokens, index)
+            arg_node, index, _ = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
 
@@ -2032,7 +2032,7 @@ def parse_print(tokens, index):
                 raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", tokens[index].line)
 
             index += 2
-            expr_node, index = parse_expression_branch(tokens, index)
+            expr_node, index, _ = parse_expression_branch(tokens, index)
 
             if tokens[index].type != "]":
                 raise SemanticError("Syntax Error: Missing closing bracket.", tokens[index].line)
@@ -2088,7 +2088,7 @@ def parse_print(tokens, index):
                 actual_args.append(arg_node)
 
             elif arg_info["type"] in {"seed", "tree"}:
-                arg_node, index = parse_expression_branch(tokens, index)
+                arg_node, index, _ = parse_expression_branch(tokens, index)
                 actual_args.append(arg_node)
                 
             else:
@@ -2096,7 +2096,7 @@ def parse_print(tokens, index):
                 index += 1
             
         elif tokens[index].type in {"("}:
-            arg_node, index = parse_expression_branch(tokens, index)
+            arg_node, index, _ = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
         elif tokens[index].type == "stringlit":
@@ -2104,11 +2104,11 @@ def parse_print(tokens, index):
             actual_args.append(arg_node)
 
         elif tokens[index].type in {"chrlit"}:
-            arg_node, index = parse_expression_branch(tokens, index)
+            arg_node, index, _ = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
         elif tokens[index].type in {"sunshine", "frost", "!"}:
-            arg_node, index = parse_expression_branch(tokens, index)
+            arg_node, index, _ = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
         elif tokens[index].type in {"++", "--"}:
@@ -2237,8 +2237,10 @@ def parse_if(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected '(' after 'spring'.", line)
     index += 1
 
-    condition_expr, index = parse_expression_branch(tokens, index)  # Parse branch expression
+    condition_expr, index, cond_type = parse_expression_branch(tokens, index)  # Parse branch expression
 
+    if cond_type != "branch":
+        raise SemanticError(f"Semantic Error: spring condition must be branch, got {cond_type}.", line)
     
     if tokens[index].type != ")":
         raise SemanticError(f"Syntax Error: Expected ')' after 'spring' condition.", line)
@@ -2282,7 +2284,10 @@ def parse_if(tokens, index, func_type):
 
         elseif_node = ASTNode("ElseIfStatement", line=line)
 
-        elseif_condition_expr, index = parse_expression_branch(tokens, index)
+        elseif_condition_expr, index, elseif_cond_type = parse_expression_branch(tokens, index)
+
+        if elseif_cond_type != "branch":
+            raise SemanticError(f"Semantic Error: bud condition must be branch, got {elseif_cond_type}.", line)
 
         if tokens[index].type != ")":
             raise SemanticError(f"Syntax Error: Expected ')' after else-if condition.", line)
@@ -2408,7 +2413,10 @@ def parse_for(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected ';' after for loop initialization.", line)
     index += 1
 
-    condition, index = parse_expression_branch(tokens, index)
+    condition, index, cond_type = parse_expression_branch(tokens, index)
+
+    if cond_type != "branch":
+        raise SemanticError(f"Semantic Error: cultivate condition must be branch, got {cond_type}.", line)
 
     condition_node = ASTNode("Condition", line=line)
     condition_node.add_child(condition)
@@ -2606,7 +2614,10 @@ def parse_while(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected '(' after 'grow'.", line)
     index += 1
 
-    condition, index = parse_expression_branch(tokens, index)
+    condition, index, cond_type = parse_expression_branch(tokens, index)
+
+    if cond_type != "branch":
+        raise SemanticError(f"Semantic Error: grow condition must be branch, got {cond_type}.", line)
 
     if tokens[index].type != ")":
         raise SemanticError(f"Syntax Error: Expected ')' after 'grow' condition.", line)
@@ -2671,7 +2682,10 @@ def parse_do(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected '(' after 'grow'.", line)
     index += 1
 
-    condition, index = parse_expression_branch(tokens, index)
+    condition, index, cond_type = parse_expression_branch(tokens, index)
+
+    if cond_type != "branch":
+        raise SemanticError(f"Semantic Error: tend condition must be branch, got {cond_type}.", line)
 
     if tokens[index].type != ")":
         raise SemanticError(f"Syntax Error: Expected ')' after 'grow' condition.", line)
