@@ -11,6 +11,7 @@ https://automata-compiler-3.onrender.com/
 - **Semantic Analysis** - Type checking and variable scope validation
 - **Web Interface** - Built-in code editor with syntax highlighting
 - **Real-time Feedback** - Instant error detection and reporting
+- **AI chatbot - using LLM Gemini for asking simple questions about our compiler *dont rely too much in AI HEHE*
 
 ## Installation
 
