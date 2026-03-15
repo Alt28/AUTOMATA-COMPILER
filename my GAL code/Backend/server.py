@@ -589,25 +589,37 @@ Declared with the `fertile` keyword (like `const` in C):
 ```
 fertile seed MAX = 100;
 fertile vine GREETING = "Hello";
-fertile seed A = 1, B = 2, C = 3;
+```
+Note: each `fertile` declaration can only declare ONE variable. Multiple fertile on one line is NOT allowed.
+**WRONG**: `fertile seed A = 1, B = 2, C = 3;`
+**CORRECT**:
+```
+fertile seed A = 1;
+fertile seed B = 2;
+fertile seed C = 3;
 ```
 
 ### Arrays
 Single-dimensional:
 ```
 seed arr[5];
-seed arr[] = {1, 2, 3, 4, 5};
 arr[0] = 10;
+arr[1] = 20;
 ```
 Multi-dimensional:
 ```
 seed matrix[2][3];
 matrix[0][1] = 5;
 ```
-Array initialization with braces:
+Note: array brace initialization (`seed arr[] = {1, 2, 3};`) is NOT supported. Declare the array with a size, then assign elements individually.
+**WRONG**: `seed arr[] = {1, 2, 3};`
+**WRONG**: `seed arr[3] = {10, 20, 30};`
+**CORRECT**:
 ```
-seed nums[3] = {10, 20, 30};
-seed nums[] = {10, 20, 30};
+seed arr[3];
+arr[0] = 10;
+arr[1] = 20;
+arr[2] = 30;
 ```
 
 ### Bundles (Structs)
@@ -623,6 +635,15 @@ Declaring a bundle variable (the `bundle` keyword is **REQUIRED**, like `struct`
 bundle <Name> <varName>;
 ```
 **WRONG**: `Point p;`   **CORRECT**: `bundle Point p;`
+
+Bundle variables CANNOT be initialized inline. There is NO `= { ... }` syntax for bundles.
+**WRONG**: `bundle Point p = { x: 5, y: 10 };`
+**CORRECT**:
+```
+bundle Point p;
+p.x = 5;
+p.y = 10;
+```
 
 Array of bundles:
 ```
@@ -649,7 +670,7 @@ Return types can be: any data type (`seed`, `tree`, `leaf`, `branch`, `vine`), `
 Parameters can be primitive types or bundle types:
 ```
 pollinate seed add(seed a, seed b) { reclaim a + b; }
-pollinate empty greet(vine name) { plant("Hello " ~ name); }
+pollinate empty greet(vine name) { plant("Hello {}", name); }
 pollinate Point makePoint(seed x, seed y) {
     bundle Point p;
     p.x = x;
@@ -661,20 +682,42 @@ pollinate seed getX(Point p) { reclaim p.x; }
 Note: for bundle parameters and return types, you write the bundle name **without** the `bundle` keyword (e.g., `Point p`, not `bundle Point p`).
 
 ### I/O
-- `plant(expression);` → print output (can print any expression, like printf)
-- `plant("sum = " ~ (a + b));` → string concatenation in output
-- `water(<type>);` → read input, returns a value of that type
-- Can be used in assignment: `seed x = water(seed);`
-- Standalone: `water(seed x);`
+- plant(expression); → print output (can print any expression, like printf)
+- water(<type>); → read input, returns a value of that type
+- Can be used in assignment: seed x = water(seed);
+- Standalone with type: water(seed); — reads a seed value
+- Standalone with variable: water(myVar); — reads into myVar
+- **WRONG**: water(seed x); — do NOT combine type and variable name
+
+plant() supports format strings with {} placeholders (like Python's .format()):
+  plant("Hello {}", name);          // insert variable into string
+  plant("x = {}", x);               // insert number into string
+  plant("{} + {} = {}", a, b, a+b); // multiple placeholders, one argument per {}
+
+plant() can also print single values directly:
+  plant("plain string");   // string literal
+  plant(numVar);           // numeric variable
+  plant(vineVar);          // string variable
+  plant(add(3, 4));        // function call result
+  plant(x + 5);            // expression
+
+**WRONG**: plant("Hello " ` name);   — backtick concat does NOT work with vine (string) variables in plant()
+**CORRECT**: plant("Hello {}", name); — use format string with {} placeholder instead
 
 ### Operators
 - Arithmetic: `+`, `-`, `*`, `/`, `%`
 - Comparison: `==`, `!=`, `<`, `>`, `<=`, `>=`
 - Logical: `&&` (AND), `||` (OR), `!` (NOT)
 - Assignment: `=`, `+=`, `-=`, `*=`, `/=`, `%=`
-- Increment/Decrement: `++`, `--` (both prefix and postfix: `x++`, `++x`, `x--`, `--x`)
-- String concatenation: `~`
-- Unary NOT: `!flag`
+- Increment/Decrement: ++, -- (both prefix and postfix: x++, ++x, x--, --x)
+- Unary negation: ~ (tilde). Example: ~5 means negative 5. This is NOT concatenation!
+- Logical NOT: !flag
+
+IMPORTANT: For string output with variables, use plant() with format strings:
+  plant("Name: {} Age: {}", name, age);
+Do NOT use backtick concatenation with vine variables in plant() — it will cause errors.
+**WRONG**: plant("Name: " ` name ` ", Age: " ` age);
+**CORRECT**: plant("Name: {}, Age: {}", name, age);
 
 ### Control Flow
 - `spring(condition) { ... }` → if
@@ -758,15 +801,20 @@ root() {
     p.x = 5;
     p.y = 10;
     
-    // Arrays
-    seed arr[3] = {10, 20, 30};
+    // Arrays (declare then assign — no brace init)
+    seed arr[3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
     
     // Input
     seed userNum = water(seed);
     
-    // Output with string concatenation
-    plant(greeting ~ " World!");
-    plant(add(3, 4));
+    // Output with format strings
+    plant("Hello World!");
+    plant("greeting = {}", greeting);
+    plant("sum = {}", add(3, 4));
+    plant(num);
     
     // For loop
     cultivate(seed i = 0; i < 5; i++) {
@@ -808,12 +856,16 @@ root() {
 1. Every program MUST have a `root()` function — it's the entry point.
 2. Bundles are defined with `bundle Name { ... };` (note the semicolon after `}`).
 3. Bundle variables MUST use the `bundle` keyword: `bundle Point p;` not `Point p;`.
-4. Bundle types in function parameters/return types do NOT use the `bundle` keyword: `pollinate Point make(Point p)`.
-5. All statements end with `;` except control flow blocks.
-6. Array sizes must be integer literals. Empty brackets `[]` are allowed with initialization.
-7. The `fertile` keyword makes a variable constant (immutable).
-8. `plant()` is for output, `water()` is for input.
-9. `reclaim` is return. Use `reclaim;` for void functions, `reclaim <expr>;` for value-returning functions.
+4. Bundle variables CANNOT be initialized inline — NO `= { ... }` syntax. Declare first, then assign fields one by one.
+5. Bundle types in function parameters/return types do NOT use the `bundle` keyword: `pollinate Point make(Point p)`.
+6. All statements end with `;` except control flow blocks.
+7. Array sizes must be integer literals. Declare arrays with a size, then assign elements individually. Brace initialization is NOT supported.
+8. The `fertile` keyword makes a variable constant (immutable). Only ONE fertile variable per declaration — no comma-separated fertile.
+9. `plant()` is for output, `water()` is for input.
+10. `reclaim` is return. Use `reclaim;` for void functions, `reclaim <expr>;` for value-returning functions.
+11. For printing strings with variables, use format strings with {} placeholders: plant("Hello {}", name);
+12. water() takes either a type (water(seed)) or a variable name (water(myVar)) — NEVER both together (water(seed x) is WRONG).
+13. ~ (tilde) is ONLY for unary negation (~5 means negative 5). It is NOT for string concatenation.
 
 When helping users:
 - Explain GAL syntax using the botanical-themed keywords
@@ -821,8 +873,14 @@ When helping users:
 - Help debug compiler errors (lexical, syntax, semantic)
 - Be concise and helpful
 - If the user shares code, analyze it for errors
-- ALWAYS use `bundle` keyword when declaring bundle variables
-- When showing function params/returns with bundle types, do NOT use the `bundle` keyword
+- ALWAYS use the bundle keyword when declaring bundle variables
+- When showing function params/returns with bundle types, do NOT use the bundle keyword
+- For string output with variables, ALWAYS use format strings: plant("value: {}", x);
+- NEVER use backtick concatenation with vine (string) variables in plant() — it causes errors
+- Example of CORRECT output: plant("Hello {}", name);
+- Example of WRONG output: plant("Hello " ` name);  <-- backtick concat with vine vars fails
+- Arrays: declare with size first, then assign elements. Do NOT use brace init ({1,2,3}).
+- fertile: only ONE per line. Do NOT write fertile seed A=1, B=2;
 """
 
 # Initialize Gemini client — requires GEMINI_API_KEY env var
