@@ -661,6 +661,67 @@
             return div;
           }
 
+          // Typewriter effect — streams formatted HTML word by word
+          function typewriterMessage(rawText, onDone) {
+            var div = document.createElement('div');
+            div.className = 'chat-msg assistant';
+            var avatar = document.createElement('div');
+            avatar.className = 'chat-avatar';
+            avatar.textContent = '🌿';
+            var bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            div.appendChild(avatar);
+            div.appendChild(bubble);
+            chatMessages.appendChild(div);
+
+            // Split raw text into streamable chunks (words/newlines/code-blocks kept whole)
+            var chunks = [];
+            var remaining = rawText;
+            // Pull out code blocks as single chunks, split the rest by word
+            var codeBlockRe = /```[\s\S]*?```/g;
+            var lastIdx = 0;
+            var m;
+            while ((m = codeBlockRe.exec(remaining)) !== null) {
+              if (m.index > lastIdx) {
+                var before = remaining.slice(lastIdx, m.index);
+                before.split(/(\s+)/).forEach(function(w) { if (w) chunks.push(w); });
+              }
+              chunks.push(m[0]); // whole code block
+              lastIdx = m.index + m[0].length;
+            }
+            if (lastIdx < remaining.length) {
+              remaining.slice(lastIdx).split(/(\s+)/).forEach(function(w) { if (w) chunks.push(w); });
+            }
+
+            var i = 0;
+            var accumulated = '';
+            var speed = 18; // ms per chunk
+
+            function tick() {
+              if (i >= chunks.length) {
+                bubble.innerHTML = formatReply(accumulated);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                if (onDone) onDone();
+                return;
+              }
+              accumulated += chunks[i];
+              i++;
+
+              // Batch a few chunks at a time for smoother feel
+              var batch = 2;
+              while (batch-- > 0 && i < chunks.length && !/```/.test(chunks[i])) {
+                accumulated += chunks[i];
+                i++;
+              }
+
+              bubble.innerHTML = formatReply(accumulated);
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+              requestAnimationFrame(function() { setTimeout(tick, speed); });
+            }
+            tick();
+            return div;
+          }
+
           function addTyping() {
             var div = document.createElement('div');
             div.className = 'chat-msg assistant';
@@ -706,16 +767,23 @@
               removeTyping();
               if (data.error) {
                 addMessage('assistant', '<em style="color:#ff8a5b;">' + escapeHtml(data.error) + '</em>');
+                chatBusy = false;
+                chatSendBtn.disabled = false;
+                chatInput.focus();
               } else {
-                addMessage('assistant', formatReply(data.reply || 'No response.'));
+                typewriterMessage(data.reply || 'No response.', function() {
+                  chatBusy = false;
+                  chatSendBtn.disabled = false;
+                  chatInput.focus();
+                });
               }
             } catch(err) {
               removeTyping();
               addMessage('assistant', '<em style="color:#ff8a5b;">Could not connect to server.</em>');
+              chatBusy = false;
+              chatSendBtn.disabled = false;
+              chatInput.focus();
             }
-            chatBusy = false;
-            chatSendBtn.disabled = false;
-            chatInput.focus();
           }
 
           if (chatSendBtn) chatSendBtn.addEventListener('click', sendMessage);
