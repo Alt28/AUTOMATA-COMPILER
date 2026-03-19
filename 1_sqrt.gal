@@ -1,0 +1,32 @@
+// Program 1: Square Root of a Number (User Input)
+// Uses Babylonian (Newton's) Method
+
+pollinate tree sqrtNum(seed num) {
+    tree result = 0.0;
+    spring (num > 0) {
+        tree n = num + 0.0;
+        tree guess = n / 2.0;
+        cultivate(seed i = 0; i < 20; i++) {
+            guess = (guess + n / guess) / 2.0;
+        }
+        result = guess;
+    }
+    reclaim result;
+}
+
+root() {
+    plant("=== Square Root ===");
+    plant("Enter a number:");
+    seed num = water(seed);
+
+    spring (num < 0) {
+        plant("Cannot compute square root of negative");
+    } bud (num == 0) {
+        plant("Square root of 0 = 0");
+    } wither {
+        tree result = sqrtNum(num);
+        plant("Square root of {} = {}", num, result);
+    }
+
+    reclaim;
+}

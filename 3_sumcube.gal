@@ -1,0 +1,24 @@
+// Program 3: Sum of Cubes from 1 to N
+
+pollinate seed cube(seed n) {
+    reclaim n * n * n;
+}
+
+pollinate seed sumOfCube(seed n) {
+    seed total = 0;
+    cultivate(seed i = 1; i <= n; i++) {
+        total = total + cube(i);
+    }
+    reclaim total;
+}
+
+root() {
+    plant("=== Sum of Cubes ===");
+    plant("Enter N:");
+    seed n = water(seed);
+
+    seed result = sumOfCube(n);
+    plant("Sum of cubes from 1 to {} = {}", n, result);
+
+    reclaim;
+}

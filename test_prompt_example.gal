@@ -1,0 +1,85 @@
+// Global bundle definition
+bundle Point {
+    seed x;
+    seed y;
+};
+
+// Global constant
+fertile seed MAX = 100;
+
+// Function with bundle return type
+pollinate Point makePoint(seed x, seed y) {
+    bundle Point p;
+    p.x = x;
+    p.y = y;
+    reclaim p;
+}
+
+// Function with primitive types
+pollinate seed add(seed a, seed b) {
+    reclaim a + b;
+}
+
+root() {
+    // Variable declarations
+    seed num = 10;
+    tree pi = 3.14;
+    vine greeting = "Hello";
+    leaf ch = 'A';
+    branch flag = sunshine;
+    seed a = 1, b = 2, c;
+    
+    // Bundle variable (bundle keyword REQUIRED)
+    bundle Point p;
+    p.x = 5;
+    p.y = 10;
+    
+    // Arrays (declare then assign — no brace init)
+    seed arr[3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    
+    // Input
+    seed userNum = water(seed);
+    
+    // Output with format strings
+    plant("Hello World!");
+    plant("greeting = {}", greeting);
+    plant("sum = {}", add(3, 4));
+    plant(num);
+    
+    // For loop
+    cultivate(seed i = 0; i < 5; i++) {
+        plant(i);
+    }
+    
+    // While loop
+    seed count = 0;
+    grow (count < 3) {
+        plant(count);
+        count++;
+    }
+    
+    // Do-while loop
+    seed val = 0;
+    tend {
+        val++;
+    } grow (val < 5);
+    
+    // If/else
+    spring (num > 5) {
+        plant("big");
+    } wither {
+        plant("small");
+    }
+    
+    // Switch
+    harvest (num) {
+        variety 1: plant("one"); prune;
+        variety 10: plant("ten"); prune;
+        soil: plant("other");
+    }
+    
+    reclaim;
+}

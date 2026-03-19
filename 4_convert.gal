@@ -1,0 +1,128 @@
+// Program 4: Number Base Conversion
+// Binary to Octal, Decimal, Hexadecimal
+// Decimal to Binary, Octal, Hexadecimal
+// Uses functions with parameter passing/return
+
+pollinate seed binToDec(seed bin) {
+    seed decimal = 0;
+    seed base = 1;
+    grow (bin > 0) {
+        seed digit = bin % 10;
+        decimal = decimal + digit * base;
+        base = base * 2;
+        bin = bin / 10;
+    }
+    reclaim decimal;
+}
+
+pollinate seed decToBin(seed dec) {
+    seed binary = 0;
+    seed place = 1;
+    grow (dec > 0) {
+        seed rem = dec % 2;
+        binary = binary + rem * place;
+        place = place * 10;
+        dec = dec / 2;
+    }
+    reclaim binary;
+}
+
+pollinate seed decToOct(seed dec) {
+    seed octal = 0;
+    seed place = 1;
+    grow (dec > 0) {
+        seed rem = dec % 8;
+        octal = octal + rem * place;
+        place = place * 10;
+        dec = dec / 8;
+    }
+    reclaim octal;
+}
+
+pollinate vine dgtToHex(seed d) {
+    vine r = "0";
+    harvest (d) {
+        variety 0: r = "0"; prune;
+        variety 1: r = "1"; prune;
+        variety 2: r = "2"; prune;
+        variety 3: r = "3"; prune;
+        variety 4: r = "4"; prune;
+        variety 5: r = "5"; prune;
+        variety 6: r = "6"; prune;
+        variety 7: r = "7"; prune;
+        variety 8: r = "8"; prune;
+        variety 9: r = "9"; prune;
+        variety 10: r = "A"; prune;
+        variety 11: r = "B"; prune;
+        variety 12: r = "C"; prune;
+        variety 13: r = "D"; prune;
+        variety 14: r = "E"; prune;
+        variety 15: r = "F"; prune;
+    }
+    reclaim r;
+}
+
+pollinate vine decToHex(seed dec) {
+    vine hex = "";
+    spring (dec == 0) {
+        hex = "0";
+    } wither {
+        grow (dec > 0) {
+            seed rem = dec % 16;
+            vine digit = dgtToHex(rem);
+            hex = digit ` hex;
+            dec = dec / 16;
+        }
+    }
+    reclaim hex;
+}
+
+root() {
+    plant("=== Number Conversion ===");
+    plant("1 - Binary to Decimal");
+    plant("2 - Binary to Octal");
+    plant("3 - Binary to Hex");
+    plant("4 - Decimal to Binary");
+    plant("5 - Decimal to Octal");
+    plant("6 - Decimal to Hex");
+    plant("Enter choice:");
+    seed choice = water(seed);
+
+    spring (choice == 1) {
+        plant("Enter binary:");
+        seed bin = water(seed);
+        seed dec = binToDec(bin);
+        plant("{} in Decimal = {}", bin, dec);
+    } bud (choice == 2) {
+        plant("Enter binary:");
+        seed bin = water(seed);
+        seed dec = binToDec(bin);
+        seed oct = decToOct(dec);
+        plant("{} in Octal = {}", bin, oct);
+    } bud (choice == 3) {
+        plant("Enter binary:");
+        seed bin = water(seed);
+        seed dec = binToDec(bin);
+        vine hex = decToHex(dec);
+        plant("{} in Hex = {}", bin, hex);
+    } bud (choice == 4) {
+        plant("Enter decimal:");
+        seed dec = water(seed);
+        seed bin = decToBin(dec);
+        plant("{} in Binary = {}", dec, bin);
+    } bud (choice == 5) {
+        plant("Enter decimal:");
+        seed dec = water(seed);
+        seed oct = decToOct(dec);
+        plant("{} in Octal = {}", dec, oct);
+    } bud (choice == 6) {
+        plant("Enter decimal:");
+        seed dec = water(seed);
+        vine hex = decToHex(dec);
+        plant("{} in Hex = {}", dec, hex);
+    } wither {
+        plant("Invalid choice!");
+    }
+
+    reclaim;
+}

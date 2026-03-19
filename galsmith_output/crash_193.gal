@@ -1,0 +1,57 @@
+// CRASH: seed=193 phase=INTERPRET
+// Error: TypeError: float() argument must be a string or a real number, not 'list'
+// Traceback:
+// Traceback (most recent call last):
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\galsmith.py", line 617, in _run
+//     interp.interpret(ast)
+//     ~~~~~~~~~~~~~~~~^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 147, in interpret
+//     return self.eval_program(node)
+//            ~~~~~~~~~~~~~~~~~^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 239, in eval_program
+//     return self.interpret(main_call)
+//            ~~~~~~~~~~~~~~^^^^^^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 175, in interpret
+//     return self.eval_function_call(node)
+//            ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 910, in eval_function_call
+//     self.eval_block(function_node.children[2])
+//     ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 769, in eval_block
+//     self.interpret(statement)
+//     ~~~~~~~~~~~~~~^^^^^^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 155, in interpret
+//     return self.eval_variable_declaration(node)
+//            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+//   File "C:\Users\clarence\Downloads\AUTOMATA-COMPILER-main (1)\AUTOMATA-COMPILER-main\my GAL code\Backend\GALinterpreter.py", line 270, in eval_variable_declaration
+//     item = float(item)
+// TypeError: float() argument must be a string or a real number, not 'list'
+// 
+
+pollinate seed combine(tree t, seed p) {
+    seed result = 39;
+    result = t + 19;
+    reclaim result;
+}
+
+pollinate tree subDown(seed w) {
+    tree result = 84.34;
+    result = w + 50.32;
+    reclaim result;
+}
+
+root() {
+    branch val = sunshine;
+    branch z = sunshine;
+    tree flag = 81.11;
+    branch tmp;
+    tree res[7][4];
+    tree beta[4];
+    
+    plant("{}", flag);
+    plant("{}", ((flag * flag) * 2));
+    plant("test output");
+    plant("{}", tmp);
+    
+    reclaim;
+}

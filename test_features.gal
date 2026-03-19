@@ -1,0 +1,20 @@
+pollinate seed add(seed a, seed b) {
+    reclaim a + b;
+}
+
+root() {
+    seed x = 10;
+    vine name = "Alice";
+    
+    // Format strings
+    plant("Result: {}", add(3, 4));
+    plant("x = {}", x);
+    plant("Hello {}", name);
+    plant("{} + {} = {}", x, 5, add(x, 5));
+    
+    // plant with just expressions
+    plant(add(x, 5));
+    plant(x + 3);
+    
+    reclaim;
+}

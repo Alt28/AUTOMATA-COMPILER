@@ -1,0 +1,24 @@
+// Program 2: Sum of Squares from 1 to N
+
+pollinate seed square(seed n) {
+    reclaim n * n;
+}
+
+pollinate seed sumOfSqrs(seed n) {
+    seed total = 0;
+    cultivate(seed i = 1; i <= n; i++) {
+        total = total + square(i);
+    }
+    reclaim total;
+}
+
+root() {
+    plant("=== Sum of Squares ===");
+    plant("Enter N:");
+    seed n = water(seed);
+
+    seed result = sumOfSqrs(n);
+    plant("Sum of squares from 1 to {} = {}", n, result);
+
+    reclaim;
+}
