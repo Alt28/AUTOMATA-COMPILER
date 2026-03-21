@@ -2087,12 +2087,12 @@ img, canvas{ image-rendering: pixelated; }
 
 .btn-chat-toggle {
   font-family: var(--pixel-font);
-  font-size: 9px;
+  font-size: 11px;
   background: linear-gradient(180deg, #2a5a35, #1e4228);
   color: var(--accent);
   border: 1px solid rgba(124,210,111,.4);
   border-radius: 6px;
-  padding: 6px 14px;
+  padding: 6px 28px;
   cursor: pointer;
   transition: all .2s ease;
   white-space: nowrap;
