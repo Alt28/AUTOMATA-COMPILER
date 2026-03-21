@@ -3,7 +3,7 @@ NLP-based fallback responder for the GAL AI chat.
 
 Three-layer hybrid architecture:
   Layer 1 — Rule Engine: regex matches compiler error messages → structured explanations
-  Layer 2 — Retriever: sentence-transformers (all-mpnet-base-v2) semantic search over 50+ KB topics
+  Layer 2 — Retriever: sentence-transformers (gal-mpnet-finetuned) semantic search over 50+ KB topics
   Layer 3 — Default: help menu when nothing matches
 
 Plus: synonym expansion, greeting detection, follow-up context, multi-topic blending.
@@ -704,6 +704,7 @@ Use `prune;` (break) and `skip;` (continue) inside loops."""),
         "if else condition",
         "conditional statement",
         "spring bud wither",
+        "how to use spring bud wither",
         "if statement else if",
         "check a condition",
         "branching logic",
@@ -2222,7 +2223,7 @@ root() {
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Sentence-Transformers (all-mpnet-base-v2) — lazy-loaded on first query
+# Sentence-Transformers (gal-mpnet-finetuned) — lazy-loaded on first query
 # ═══════════════════════════════════════════════════════════════════════
 
 _st_model = None
@@ -2299,8 +2300,14 @@ def _ensure_model():
         return
 
     from sentence_transformers import SentenceTransformer
+    import os
 
-    _st_model = SentenceTransformer("all-mpnet-base-v2")
+    # Prefer fine-tuned model, fall back to base
+    finetuned = os.path.join(os.path.dirname(__file__), "..", "gal-mpnet-finetuned")
+    if os.path.isdir(finetuned):
+        _st_model = SentenceTransformer(finetuned)
+    else:
+        _st_model = SentenceTransformer("Clarkoer/gal-mpnet-finetuned")
 
     _phrase_topic_idx = []
     _responses = []

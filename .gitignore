@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 .env
+gal-mpnet-finetuned/
+checkpoints/
