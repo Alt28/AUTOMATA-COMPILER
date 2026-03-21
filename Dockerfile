@@ -6,8 +6,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the ONNX model so first request is fast
-RUN python -c "from huggingface_hub import hf_hub_download; hf_hub_download('Xenova/all-MiniLM-L6-v2','tokenizer.json'); hf_hub_download('Xenova/all-MiniLM-L6-v2','onnx/model.onnx')"
+# Pre-download the sentence-transformers model so first request is fast
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-mpnet-base-v2')"
 
 # Copy the entire project
 COPY . .

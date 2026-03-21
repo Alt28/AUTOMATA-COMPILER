@@ -3,11 +3,11 @@ NLP-based fallback responder for the GAL AI chat.
 
 Three-layer hybrid architecture:
   Layer 1 — Rule Engine: regex matches compiler error messages → structured explanations
-  Layer 2 — Retriever: ONNX MiniLM semantic search over 50+ knowledge-base topics
+  Layer 2 — Retriever: sentence-transformers (all-mpnet-base-v2) semantic search over 50+ KB topics
   Layer 3 — Default: help menu when nothing matches
 
 Plus: synonym expansion, greeting detection, follow-up context, multi-topic blending.
-Lightweight (~30 MB RAM) — fits on Render free tier.
+Uses the #1 ranked sentence embedding model for best semantic matching accuracy.
 All heavy imports are deferred so the server binds its port immediately.
 """
 
@@ -2222,11 +2222,10 @@ root() {
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# ONNX MiniLM — lazy-loaded on first query
+# Sentence-Transformers (all-mpnet-base-v2) — lazy-loaded on first query
 # ═══════════════════════════════════════════════════════════════════════
 
-_session = None
-_tokenizer = None
+_st_model = None
 _phrase_embeddings = None
 _phrase_topic_idx = []
 _responses = []
@@ -2289,44 +2288,19 @@ _GREETING_PATTERNS = [
 
 
 def _encode(texts):
-    """Tokenise + run ONNX inference + mean-pool + L2-normalise."""
-    import numpy as np
-    encodings = _tokenizer.encode_batch(texts)
-    ids = np.array([e.ids for e in encodings], dtype=np.int64)
-    mask = np.array([e.attention_mask for e in encodings], dtype=np.int64)
-    ttype = np.zeros_like(ids)
-    out = _session.run(
-        None,
-        {"input_ids": ids, "attention_mask": mask, "token_type_ids": ttype},
-    )
-    tok_emb = out[0]  # (batch, seq_len, 384)
-    mask_exp = mask[:, :, np.newaxis].astype(np.float32)
-    pooled = np.sum(tok_emb * mask_exp, axis=1) / np.clip(
-        mask_exp.sum(axis=1), 1e-9, None
-    )
-    norms = np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-9, None)
-    return pooled / norms
+    """Encode texts using sentence-transformers (returns L2-normalised embeddings)."""
+    return _st_model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
 def _ensure_model():
-    """Download ONNX model + tokenizer and encode training phrases on first call."""
-    global _session, _tokenizer, _phrase_embeddings, _phrase_topic_idx, _responses
-    if _session is not None:
+    """Load sentence-transformers model and encode training phrases on first call."""
+    global _st_model, _phrase_embeddings, _phrase_topic_idx, _responses
+    if _st_model is not None:
         return
 
-    import numpy as np
-    from huggingface_hub import hf_hub_download
-    from tokenizers import Tokenizer
-    import onnxruntime as ort
+    from sentence_transformers import SentenceTransformer
 
-    repo = "Xenova/all-MiniLM-L6-v2"
-    tok_path = hf_hub_download(repo, "tokenizer.json")
-    model_path = hf_hub_download(repo, "onnx/model.onnx")
-
-    _tokenizer = Tokenizer.from_file(tok_path)
-    _tokenizer.enable_padding()
-    _tokenizer.enable_truncation(max_length=128)
-    _session = ort.InferenceSession(model_path)
+    _st_model = SentenceTransformer("all-mpnet-base-v2")
 
     _phrase_topic_idx = []
     _responses = []
