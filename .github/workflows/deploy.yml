@@ -22,5 +22,5 @@ jobs:
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "github-actions"
-          git remote add space https://Clarkoer:$HF_TOKEN@huggingface.co/spaces/Clarkoer/GAL
-          git push --force space main
+          git remote add space https://Clarkoer:${HF_TOKEN}@huggingface.co/spaces/Clarkoer/GAL
+          git push --force space main 2>&1 || echo "Push failed - check HF_TOKEN has Write permission"
