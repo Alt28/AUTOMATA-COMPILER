@@ -1,3 +1,12 @@
+---
+title: GAL Compiler
+emoji: 🌱
+colorFrom: green
+colorTo: yellow
+sdk: docker
+pinned: false
+---
+
 # GAL Compiler
 
 A web-based compiler for the GAL (Grow A Language) programming language with lexical analysis, parsing, and semantic checking.
