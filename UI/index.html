@@ -845,14 +845,55 @@
             var div = document.createElement('div');
             div.className = 'chat-msg assistant';
             div.id = 'chat-typing-indicator';
-            div.innerHTML = '<div class="chat-avatar">🌿</div><div class="chat-typing"><span></span><span></span><span></span></div>';
+            div.innerHTML = '<div class="chat-avatar">🌿</div>'
+              + '<div class="chat-thinking">'
+              + '<div class="chat-thinking-status" id="think-status">'
+              + '<span class="think-icon"></span>'
+              + '<span class="think-text">Thinking...</span>'
+              + '</div>'
+              + '<div class="chat-thinking-progress"><div class="chat-thinking-progress-bar"></div></div>'
+              + '</div>';
             chatMessages.appendChild(div);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Phase 2: change text after a delay
+            setTimeout(function() {
+              var statusEl = document.getElementById('think-status');
+              if (statusEl) {
+                var textEl = statusEl.querySelector('.think-text');
+                if (textEl) {
+                  statusEl.classList.add('fading');
+                  setTimeout(function() {
+                    textEl.textContent = 'Analyzing your question...';
+                    statusEl.classList.remove('fading');
+                  }, 300);
+                }
+              }
+            }, 1200);
+
+            // Phase 3: another text change
+            setTimeout(function() {
+              var statusEl = document.getElementById('think-status');
+              if (statusEl) {
+                var textEl = statusEl.querySelector('.think-text');
+                if (textEl) {
+                  statusEl.classList.add('fading');
+                  setTimeout(function() {
+                    textEl.textContent = 'Preparing response...';
+                    statusEl.classList.remove('fading');
+                  }, 300);
+                }
+              }
+            }, 2200);
           }
           function removeTyping() {
             var el = document.getElementById('chat-typing-indicator');
             if (el) el.remove();
           }
+
+          // Minimum thinking time so it feels deliberate (ms)
+          var _thinkStart = 0;
+          var THINK_MIN_MS = 1500;
 
           async function sendMessage() {
             if (chatBusy) return;
@@ -865,6 +906,7 @@
 
             chatBusy = true;
             chatSendBtn.disabled = true;
+            _thinkStart = Date.now();
             addTyping();
 
             var body = {
@@ -883,6 +925,12 @@
                 body: JSON.stringify(body)
               });
               var data = await resp.json();
+
+              // Enforce minimum thinking time so fast responses still feel deliberate
+              var elapsed = Date.now() - _thinkStart;
+              var wait = Math.max(0, THINK_MIN_MS - elapsed);
+              await new Promise(function(r) { setTimeout(r, wait); });
+
               removeTyping();
               // Update mode indicator in subtitle
               var subtitle = document.querySelector('.chat-subtitle');
