@@ -966,9 +966,17 @@
                 updateStatusChips(data.stage, data.success);
                 if (data.stage === 'execution') {
                   if (data.success) {
-                    if (!silent) term.write('Code execution successful.\r\n');
+                    if (!silent) {
+                      if (window._needsNewline) term.write('\r\n');
+                      term.write('\x1b[1;32mCode execution successful.\x1b[0m\r\n');
+                      window._needsNewline = false;
+                    }
                   } else {
-                    if (!silent) term.write('Code execution failed.\r\n');
+                    if (!silent) {
+                      if (window._needsNewline) term.write('\r\n');
+                      term.write('\x1b[1;31mCode execution failed.\x1b[0m\r\n');
+                      window._needsNewline = false;
+                    }
                   }
                 }
                 // Highlight errors from collected socket output
@@ -1000,11 +1008,6 @@
             const silent = options.silent || false;
             const sourceCode = editor.getValue();
 
-            // Clear terminal FIRST, before anything else
-            if (!silent) {
-              term.reset();
-              term.clear();
-            }
             // Clear previous error highlights
             if (window._clearErrorHighlights) window._clearErrorHighlights();
             // Remove stale socket listeners
@@ -1037,12 +1040,17 @@
         // Run generation counter — ignore output from stale/previous runs
         window._runGeneration = 0;
         window._socketOutputLog = [];
+        window._needsNewline = false;
         socket.on('output', function (data) {
             // Ignore output from a previous run
             if (data._gen !== undefined && data._gen !== window._runGeneration) return;
             const text = data.output;
             window._socketOutputLog.push(text);
             const isError = /error|Error/.test(text);
+            // Add newline before this output if a previous output already wrote to the terminal
+            if (window._needsNewline) {
+              term.write('\r\n');
+            }
             const lines = text.split('\n');
             lines.forEach((line, index) => {
               if (isError) {
@@ -1054,8 +1062,7 @@
                 term.write('\r\n');
               }
             });
-            // Ensure each message ends on its own line
-            term.write('\r\n');
+            window._needsNewline = true;
             if (autoScroll) term.scrollToBottom();
             term.focus();
         });
@@ -1088,6 +1095,7 @@
 
             if (e === '\r') {
               term.write('\r\n');
+              window._needsNewline = false;
               waitingForInput = false;
               socket.emit('capture_input', { var_name: variable, input: userInput });
               userInput = '';
@@ -1107,11 +1115,7 @@
             const prompt = data.prompt;
             variable = data.variable;
 
-            // Display the prompt so the user knows to type
-            if (prompt) {
-              term.write(prompt);
-            }
-
+            window._needsNewline = false;
             waitingForInput = true;
             userInput = '';  
         });
@@ -1121,8 +1125,8 @@
           
       window.runCode = async function () {
         // Clear terminal and error highlights at the start of each run
-        term.reset();
-        term.clear();
+        term.write('\x1b[2J\x1b[3J\x1b[H');
+        window._needsNewline = false;
         if (window._clearErrorHighlights) window._clearErrorHighlights();
         // Remove any stale socket listeners from previous runs
         socket.removeAllListeners('execution_complete');

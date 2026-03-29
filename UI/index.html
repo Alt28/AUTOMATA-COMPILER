@@ -202,7 +202,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/loader.js"></script> <!-- Monaco editor -->
 
         
-        <script src="main.js?v=20260222a"></script>
+        <script src="main.js?v=20260329h"></script>
 
         
         <script>
@@ -281,7 +281,7 @@
 
             // Lexer / Syntax / Semantic modes — call global functions directly
             if (modeText.indexOf('Lexer') !== -1) {
-              if (term) { term.reset(); term.clear(); }
+              if (term) { term.write('\x1b[2J\x1b[3J\x1b[H'); }
               resetChips();
               if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runLexer) return window.runLexer({ silent: false });
@@ -289,7 +289,7 @@
               return;
             }
             if (modeText.indexOf('Syntax') !== -1) {
-              if (term) { term.reset(); term.clear(); }
+              if (term) { term.write('\x1b[2J\x1b[3J\x1b[H'); }
               resetChips();
               if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runSyntax) return window.runSyntax({ silent: false });
@@ -297,7 +297,7 @@
               return;
             }
             if (modeText.indexOf('Semantic') !== -1) {
-              if (term) { term.reset(); term.clear(); }
+              if (term) { term.write('\x1b[2J\x1b[3J\x1b[H'); }
               resetChips();
               if (window._clearErrorHighlights) window._clearErrorHighlights();
               if (window.runSemantic) return window.runSemantic({ silent: false });
@@ -309,7 +309,8 @@
             try { code = monaco.editor.getModels()[0].getValue(); }
             catch(e) { tw('Error: Editor not ready.\r\n'); return; }
 
-            if (term) { term.reset(); term.clear(); }
+            if (term) { term.write('\x1b[2J\x1b[3J\x1b[H'); }
+            window._needsNewline = false;
             resetChips();
             // Clear previous error highlights immediately
             if (window._clearErrorHighlights) window._clearErrorHighlights();
