@@ -202,7 +202,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/loader.js"></script> <!-- Monaco editor -->
 
         
-        <script src="main.js?v=20260329h"></script>
+        <script src="main.js?v=20260329i"></script>
 
         
         <script>
@@ -354,6 +354,8 @@
               var sock = getSock();
               if (!sock) { tw('\x1b[31mError: Socket not available.\x1b[0m\r\n'); return; }
 
+              // Reset input state from any previous run
+              if (window._resetInputState) window._resetInputState();
               // Bump run generation and clear stale output
               window._runGeneration = (window._runGeneration || 0) + 1;
               if (window._socketOutputLog) window._socketOutputLog.length = 0;

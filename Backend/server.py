@@ -14,7 +14,7 @@ from Gal_Parser import LL1Parser
 from cfg import cfg, first_sets, predict_sets
 from GALsemantic import analyze_semantics, validate_ast
 from icg import generate_icg
-from GALinterpreter import Interpreter, InterpreterError
+from GALinterpreter import Interpreter, InterpreterError, _CancelledError
 from gal_fallback import fallback_reply
 
 def _display_value(val):
@@ -509,7 +509,13 @@ def handle_run_code(data):
         old_interp._cancelled = True
         # Unblock any pending wait_for_input so the old thread can exit
         for evt in list(old_interp.input_events.values()):
-            evt.set()
+            try:
+                evt.send(None)   # eventlet.event.Event uses .send()
+            except (AttributeError, AssertionError):
+                try:
+                    evt.set()    # threading.Event fallback
+                except Exception:
+                    pass
 
     def run_interpreter():
         try:
@@ -518,13 +524,18 @@ def handle_run_code(data):
             interp._cancelled = False
             interpreters[sid] = interp
             interp.interpret(ast)
-            socketio.emit('execution_complete', {'success': True, 'stage': 'execution'}, to=sid)
+            if not interp._cancelled:
+                socketio.emit('execution_complete', {'success': True, 'stage': 'execution'}, to=sid)
+        except _CancelledError:
+            pass  # Old interpreter was cancelled by a new run — exit silently
         except InterpreterError as e:
-            socketio.emit('output', {'output': f'Runtime Error: {e}'}, to=sid)
-            socketio.emit('execution_complete', {'success': False, 'stage': 'execution'}, to=sid)
+            if not getattr(interp, '_cancelled', False):
+                socketio.emit('output', {'output': f'Runtime Error: {e}'}, to=sid)
+                socketio.emit('execution_complete', {'success': False, 'stage': 'execution'}, to=sid)
         except Exception as e:
-            socketio.emit('output', {'output': f'Internal Error: {e}'}, to=sid)
-            socketio.emit('execution_complete', {'success': False, 'stage': 'execution'}, to=sid)
+            if not getattr(interp, '_cancelled', False):
+                socketio.emit('output', {'output': f'Internal Error: {e}'}, to=sid)
+                socketio.emit('execution_complete', {'success': False, 'stage': 'execution'}, to=sid)
         finally:
             # Only remove ourselves — don't remove a newer interpreter
             if interpreters.get(sid) is interp:

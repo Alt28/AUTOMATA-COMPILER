@@ -26,6 +26,10 @@ class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
 
+class _CancelledError(Exception):
+    """Raised when an interpreter is cancelled mid-execution."""
+    pass
+
 class InterpreterError(Exception):
     def __init__(self, message, line):
         super().__init__(message)
@@ -1354,11 +1358,15 @@ class Interpreter:
             self.input_events[var_name] = evt
             value = evt.wait()          # cooperative yield
             self.input_events.pop(var_name, None)
+            if getattr(self, '_cancelled', False):
+                raise _CancelledError()
             return value
         else:
             event = threading.Event()
             self.input_events[var_name] = event
             event.wait()
+            if getattr(self, '_cancelled', False):
+                raise _CancelledError()
             value = self.input_values.pop(var_name, None)
             self.input_events.pop(var_name, None)
             return value

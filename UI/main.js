@@ -11,6 +11,8 @@
     window._galSocket = socket;  // Expose globally for inline scripts
     let waitingForInput = false;
     let userInput = '';
+    // Allow inline scripts to reset input state on re-run
+    window._resetInputState = function() { waitingForInput = false; userInput = ''; };
     let inputCallback = null;
     let variable = '';  // Store the variable name for which we need input
     let termInputRegistered = false;
