@@ -715,8 +715,10 @@ class Interpreter:
 
     def _parse_literal(self, value):
 
-        if isinstance(value, str) and not isinstance(self.lookup_variable(value), str):
-            return self.lookup_variable(value)["value"]
+        if isinstance(value, str):
+            var_info = self.lookup_variable(value)
+            if var_info is not None and not isinstance(var_info, str):
+                return var_info["value"]
 
         if isinstance(value, (int, float, bool)):
             return value

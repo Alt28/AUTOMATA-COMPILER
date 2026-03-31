@@ -166,11 +166,10 @@
           });
 
           // Add line highlighting on click
-          let currentLineDecorations = [];
+          let currentLineDecCollection = editor.createDecorationsCollection([]);
           editor.onDidChangeCursorPosition((e) => {
             const lineNumber = e.position.lineNumber;
-            // Highlight the current line
-            currentLineDecorations = editor.deltaDecorations(currentLineDecorations, [
+            currentLineDecCollection.set([
               {
                 range: new monaco.Range(lineNumber, 1, lineNumber, 1),
                 options: {
@@ -185,7 +184,7 @@
           // (reverted) no status bar cursor updates
 
           // ── Bracket mismatch highlighting ──
-          let bracketDecorations = [];
+          let bracketDecCollection = editor.createDecorationsCollection([]);
           const BRACKET_PAIRS = { '(': ')', '[': ']', '{': '}' };
           const CLOSE_TO_OPEN = { ')': '(', ']': '[', '}': '{' };
 
@@ -246,11 +245,11 @@
                 overviewRuler: { color: '#ff3322', position: monaco.editor.OverviewRulerLane.Center }
               }
             }));
-            bracketDecorations = editor.deltaDecorations(bracketDecorations, decs);
+            bracketDecCollection.set(decs);
           }
 
           // ── Missing semicolon detection ──
-          let semicolonDecorations = [];
+          let semicolonDecCollection = editor.createDecorationsCollection([]);
 
           function findMissingSemicolons(text) {
             const lines = text.split('\n');
@@ -310,7 +309,7 @@
                 overviewRuler: { color: '#ff9900', position: monaco.editor.OverviewRulerLane.Center }
               }
             }));
-            semicolonDecorations = editor.deltaDecorations(semicolonDecorations, decs);
+            semicolonDecCollection.set(decs);
           }
 
           editor.onDidChangeModelContent(() => {
@@ -323,7 +322,7 @@
           updateSemicolonWarnings();
 
           // ── Error line highlighting ──
-          let errorDecorations = [];
+          let errorDecCollection = editor.createDecorationsCollection([]);
 
           // Parse error string for line/col: supports "LEXICAL/SYNTAX error line X col Y" and "Ln X Semantic Error"
           function parseErrorLocations(errors) {
@@ -343,7 +342,7 @@
           window._highlightErrors = function(errors) {
             const locs = parseErrorLocations(errors);
             if (!locs.length) {
-              errorDecorations = window.editor.deltaDecorations(errorDecorations, []);
+              errorDecCollection.set([]);
               monaco.editor.setModelMarkers(window.editor.getModel(), 'gal-errors', []);
               return;
             }
@@ -358,7 +357,7 @@
                 hoverMessage: { value: loc.msg }
               }
             }));
-            errorDecorations = window.editor.deltaDecorations(errorDecorations, decorations);
+            errorDecCollection.set(decorations);
             // Also set model markers (squiggly red underlines)
             const markers = locs.map(loc => ({
               severity: monaco.MarkerSeverity.Error,
@@ -376,7 +375,7 @@
           };
 
           window._clearErrorHighlights = function() {
-            errorDecorations = window.editor.deltaDecorations(errorDecorations, []);
+            errorDecCollection.set([]);
             monaco.editor.setModelMarkers(window.editor.getModel(), 'gal-errors', []);
           };
       });
