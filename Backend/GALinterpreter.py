@@ -1084,11 +1084,9 @@ class Interpreter:
 
         if var_info["is_list"]:
             result = len(var_info["value"])
-            #print(f"Tapered list '{var_name}' to its length: {result}")
         
-        elif var_info["type"] == "leaf":
+        elif var_info["type"] in ("leaf", "vine"):
             result = len(var_info["value"])
-            #print(f"Tapered string '{var_name}' to its length: {result}")
         
         return result
 

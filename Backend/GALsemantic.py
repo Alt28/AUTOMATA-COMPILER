@@ -1806,7 +1806,7 @@ def parse_factor(tokens, index):
         if isinstance(identifier_info, str):
             raise SemanticError(f"Semantic Error: Variable '{identifier}' used before declaration.", token.line)  
 
-        if not identifier_info["is_list"] and identifier_info["type"] != "leaf":
+        if not identifier_info["is_list"] and identifier_info["type"] not in ("leaf", "vine"):
             raise SemanticError(f"Semantic Error: ts() can only be used on lists or strings, but '{identifier}' is of type {identifier_info['type']}.", token.line)
         
         index += 3
