@@ -607,15 +607,15 @@
                     <div class="chat-welcome-sub">Ask me about:</div>
                     <div class="chat-welcome-topics">
                         <span>🌱 GAL syntax</span>
-                        <span>🐛 Debugging errors</span>
+                        <span>🐛 GAL Reserved words</span>
                         <span>✍️ Code writing</span>
                         <span>🔍 Semantic issues</span>
                     </div>
                     <div class="chat-suggestion-chips" id="chat-suggestion-chips">
-                        <button class="chat-chip" data-msg="Explain this syntax error">Explain this syntax error</button>
+                        <button class="chat-chip" data-msg="What is GAL?">What is GAL?</button>
+                        <button class="chat-chip" data-msg="What are the reserved words of GAL?">What are the reserved words of GAL?</button>
+                        <button class="chat-chip" data-msg="Create a switch statement">Create a switch statement</button>
                         <button class="chat-chip" data-msg="Generate a GAL loop">Generate a GAL loop</button>
-                        <button class="chat-chip" data-msg="Check my array code">Check my array code</button>
-                        <button class="chat-chip" data-msg="Why is my semantic analysis failing?">Why is my semantic analysis failing?</button>
                     </div>
                 </div>
             </div>
@@ -991,7 +991,7 @@
             var emptyState = document.createElement('div');
             emptyState.className = 'chat-empty-state';
             emptyState.id = 'chat-empty-state';
-            emptyState.innerHTML = '<div class="chat-watermark"><img src="/images/0.png" alt="GAL" class="chat-watermark-logo"></div><div class="chat-welcome-title">Hi! I\'m your GAL AI Assistant.</div><div class="chat-welcome-sub">Ask me about:</div><div class="chat-welcome-topics"><span>🌱 GAL syntax</span><span>🐛 Debugging errors</span><span>✍️ Code writing</span><span>🔍 Semantic issues</span></div><div class="chat-suggestion-chips" id="chat-suggestion-chips"><button class="chat-chip" data-msg="Explain this syntax error">Explain this syntax error</button><button class="chat-chip" data-msg="Generate a GAL loop">Generate a GAL loop</button><button class="chat-chip" data-msg="Check my array code">Check my array code</button><button class="chat-chip" data-msg="Why is my semantic analysis failing?">Why is my semantic analysis failing?</button></div>';
+            emptyState.innerHTML = '<div class="chat-watermark"><img src="/images/0.png" alt="GAL" class="chat-watermark-logo"></div><div class="chat-welcome-title">Hi! I\'m your GAL AI Assistant.</div><div class="chat-welcome-sub">Ask me about:</div><div class="chat-welcome-topics"><span>🌱 GAL syntax</span><span>🐛 Debugging errors</span><span>✍️ Code writing</span><span>🔍 Semantic issues</span></div><div class="chat-suggestion-chips" id="chat-suggestion-chips"><button class="chat-chip" data-msg="What is GAL?">What is GAL?</button><button class="chat-chip" data-msg="What are the reserved words of GAL?">What are the reserved words of GAL?</button><button class="chat-chip" data-msg="Create a switch statement">Create a switch statement</button><button class="chat-chip" data-msg="Generate a GAL loop">Generate a GAL loop</button></div>';
             chatMessages.appendChild(emptyState);
             bindChips();
             // Reset server session
