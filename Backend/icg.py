@@ -489,8 +489,12 @@ class ICGenerator:
             self._expect("{")
 
             self._emit("FUNC", func_name.value)
-            for ptype, pname in params:
-                self._emit("DECLARE", GAL_TYPE_MAP.get(ptype, ptype), None, pname)
+            for ptype, pname, *rest in params:
+                is_array = rest[0] if rest else False
+                if is_array:
+                    self._emit("ARRAY_DECLARE", GAL_TYPE_MAP.get(ptype, ptype), "param", pname)
+                else:
+                    self._emit("DECLARE", GAL_TYPE_MAP.get(ptype, ptype), None, pname)
 
             self._declaration()
             self._statement()
@@ -508,9 +512,9 @@ class ICGenerator:
             self._expect("}")
             self._emit("ENDFUNC")
 
-    def _parameters(self) -> List[Tuple[str, str]]:
+    def _parameters(self):
         """<parameters> → <param> <param_next> | λ"""
-        params: List[Tuple[str, str]] = []
+        params = []
         if self._is_data_type(self._peek()) or self._peek().type == "id":
             p = self._param()
             params.append(p)
@@ -524,7 +528,13 @@ class ICGenerator:
         id_tok = self._expect("id")
         # For bundle types, dtype.type is "id" — use dtype.value to get the actual type name
         type_name = dtype.value if dtype.type == "id" else dtype.type
-        return (type_name, id_tok.value)
+        # Check for array parameter: seed arr[]
+        is_array = False
+        if self._peek().type == "[":
+            self._advance()  # skip '['
+            self._expect("]")
+            is_array = True
+        return (type_name, id_tok.value, is_array)
 
     # ======================================================================
     # STATEMENTS

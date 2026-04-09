@@ -631,11 +631,22 @@ def parse_function(tokens, index, func_name, func_type):
                     param_node = ASTNode("Parameter")
                     param_node.add_child(ASTNode("Type", param_type))
                     param_node.add_child(ASTNode("Identifier", param_name))
+                    index += 1
+
+                    # Check for array parameter: seed arr[]
+                    is_list = False
+                    if tokens[index].type == "[":
+                        index += 1  # skip '['
+                        if tokens[index].type != "]":
+                            raise SemanticError(f"Syntax Error: Expected ']' after '[' in array parameter.", line)
+                        index += 1  # skip ']'
+                        is_list = True
+                        param_node.add_child(ASTNode("ArrayParam", "true"))
+
                     params_node.add_child(param_node)
-                    error = symbol_table.declare_variable(param_name, param_type)
+                    error = symbol_table.declare_variable(param_name, param_type, is_list=is_list)
                     if error:
                         raise SemanticError(error, line)
-                    index += 1
 
                     if tokens[index].type == ",":
                         index += 1
@@ -802,6 +813,24 @@ def parse_variable(tokens, index, var_name, var_type):
 
             list_node = build_list_node(dimensions)
             var_node.add_child(list_node)
+
+            # Handle optional initialization after size: seed nums[3] = {10, 20, 30} ;
+            if tokens[index].type == "=":
+                index += 1  # skip '='
+                if tokens[index].type == "{":
+                    index += 1  # skip '{'
+                    elements = []
+                    while tokens[index].type != "}":
+                        expr, index = parse_expression_type(tokens, index, var_type)
+                        elements.append(expr)
+                        if tokens[index].type == ",":
+                            index += 1
+                    index += 1  # skip '}'
+                    value_node = ListNode(elements=elements, line=line)
+                    # Replace the default list_node with the initialized values
+                    var_node.children[-1] = value_node
+                else:
+                    raise SemanticError(f"Syntax Error: Expected '{{' after '=' in array initialization.", line)
    
         else:
             # Uninitialized declaration: vine name; or seed x;
@@ -2281,7 +2310,26 @@ def parse_function_call(tokens, index, func_name, func_type, func_params):
 
         expected_type = expected_params[len(provided_args)].children[0].value 
         
-        expr_node, index = parse_expression_type(tokens, index, expected_type)
+        # Check if the expected parameter is an array parameter
+        expected_param = expected_params[len(provided_args)]
+        is_array_param = any(child.node_type == "ArrayParam" for child in expected_param.children)
+
+        if is_array_param:
+            # Array parameter: expect an array identifier
+            if tokens[index].type != "id":
+                raise SemanticError(f"Semantic Error: Expected array variable for parameter {len(provided_args) + 1} of '{func_name}'.", line)
+            arg_name = tokens[index].value
+            arg_info = symbol_table.lookup_variable(arg_name)
+            if isinstance(arg_info, str):
+                raise SemanticError(arg_info, line)
+            if not arg_info.get("is_list", False):
+                raise SemanticError(f"Semantic Error: Argument '{arg_name}' is not an array. Parameter {len(provided_args) + 1} of '{func_name}' expects an array.", line)
+            if arg_info["type"] != expected_type:
+                raise SemanticError(f"Semantic Error: Array argument '{arg_name}' is of type '{arg_info['type']}', but parameter expects '{expected_type}'.", line)
+            expr_node = ASTNode("Identifier", arg_name, line=line)
+            index += 1
+        else:
+            expr_node, index = parse_expression_type(tokens, index, expected_type)
 
         arg_node = ASTNode("Argument")
         arg_node.add_child(expr_node)

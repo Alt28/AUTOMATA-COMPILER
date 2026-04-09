@@ -764,7 +764,8 @@ class Interpreter:
                     raise Exception(f"Invalid parameter: {param.value}")
                 param_type = param.children[0].value
                 param_name = param.children[1].value
-                params.append({"name": param_name, "type": param_type})
+                is_list = any(child.node_type == "ArrayParam" for child in param.children)
+                params.append({"name": param_name, "type": param_type, "is_list": is_list})
 
         self.declare_function(func_name, return_type, params, node)
 
@@ -909,8 +910,9 @@ class Interpreter:
                 param_name = param["name"]
                 param_type = param["type"]
                 arg_value = args[i]
+                is_list = param.get("is_list", False)
                 #print(f"\n[CALL] In function: {function_name} — Argument '{param_name}' of type '{param_type}' with value: {arg_value}")
-                self.declare_variable(param_name, param_type, arg_value)
+                self.declare_variable(param_name, param_type, arg_value, is_list=is_list)
 
             try:
                 self.eval_block(function_node.children[2])

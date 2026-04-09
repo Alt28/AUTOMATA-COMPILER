@@ -367,8 +367,13 @@ cfg = {
     ],
 
     "<param>": [
-        ["<data_type>", "id"],  # Parameter: primitive type + name
+        ["<data_type>", "id", "<param_array>"],  # Parameter: primitive type + name (optionally array)
         ["id", "id"],           # Parameter: bundle type + name (e.g., Pair p)
+    ],
+
+    "<param_array>": [
+        [EPSILON],              # Scalar parameter
+        ["[", "]"],             # Array parameter: seed arr[]
     ],
 
     "<param_next>": [
