@@ -269,19 +269,24 @@
               }
               // Skip empty lines, line comments, and brace-only lines
               if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue;
+              // Strip inline comments to get actual code
+              const codePart = trimmed.replace(/\/\/.*$/, '').trimEnd();
+              if (!codePart) continue;
               // Skip lines that end with { or } (block openers/closers)
-              if (/[{}]\s*$/.test(trimmed)) continue;
+              if (/[{}]\s*$/.test(codePart)) continue;
               // Skip lines that are only a closing brace or opening brace
-              if (/^[{}]+$/.test(trimmed)) continue;
-              // Skip sow/tend/bud case labels ending with :
-              if (/^(sow|tend|bud)\b.*:\s*$/.test(trimmed)) continue;
+              if (/^[{}]+$/.test(codePart)) continue;
+              // Skip variety/soil case labels (with or without inline comment)
+              if (/^(variety|soil)\b/.test(codePart) && codePart.endsWith(':')) continue;
               // Skip control flow lines ending with ) — they need { not ;
-              if (/^(cultivate|grow|tend|spring|bud)\b.*\)\s*$/.test(trimmed)) continue;
+              if (/^(cultivate|grow|tend|spring|bud|pollinate|root)\b.*\)\s*$/.test(codePart)) continue;
               // If line doesn't end with ; it's missing one
-              if (!trimmed.endsWith(';')) {
+              if (!codePart.endsWith(';') && !codePart.endsWith(':') && !codePart.endsWith('{') && !codePart.endsWith('}')) {
                 const lineNum = i + 1;
-                const lastCharCol = raw.trimEnd().length;
-                missing.push({ line: lineNum, col: lastCharCol });
+                // Find where code ends (before any inline comment) for ghost placement
+                const commentIdx = raw.indexOf('//');
+                const codeEnd = commentIdx >= 0 ? raw.substring(0, commentIdx).trimEnd().length : raw.trimEnd().length;
+                missing.push({ line: lineNum, col: codeEnd });
               }
             }
             return missing;
@@ -301,7 +306,7 @@
               message: 'Missing semicolon ;'
             }));
             monaco.editor.setModelMarkers(model, 'gal-semicolons', markers);
-            // Red ghost ";" after the last character
+            // Ghost ";" after the last code character (not after comments)
             const decs = bad.map(b => ({
               range: new monaco.Range(b.line, b.col, b.line, b.col + 1),
               options: {
