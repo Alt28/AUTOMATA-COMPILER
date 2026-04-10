@@ -138,27 +138,52 @@ pollinate seed getX(Point p) { reclaim p.x; }
 Note: for bundle parameters and return types, you write the bundle name **without** the `bundle` keyword (e.g., `Point p`, not `bundle Point p`).
 
 ### I/O
-- plant(expression); → print output (can print any expression, like printf)
+- plant(expression); → print output (like C's printf — does NOT automatically add a newline)
+- To print a newline, use \n in the string: plant("Hello\n");
 - water(<type>); → read input, returns a value of that type
 - Can be used in assignment: seed x = water(seed);
 - Standalone with type: water(seed); — reads a seed value
 - Standalone with variable: water(myVar); — reads into myVar
 - **WRONG**: water(seed x); — do NOT combine type and variable name
 
+**IMPORTANT**: plant() does NOT add an automatic newline. It behaves like C's printf().
+- To end a line, include \n: plant("Hello World\n");
+- For prompts before input, no \n needed: plant("Enter a number: ");
+- For multi-line output (tables, triangles), use plant("\n") to move to the next line.
+
+Example — printing numbers on the same line then a newline:
+```
+cultivate (i = 1; i <= 5; i = i + 1) {
+    plant("{} ", i);
+}
+plant("\n");
+// Output: 1 2 3 4 5
+```
+
+Example — asterisk triangle using plant() without auto-newline:
+```
+cultivate (i = 1; i <= n; i = i + 1) {
+    cultivate (j = 1; j <= i; j = j + 1) {
+        plant("* ");
+    }
+    plant("\n");
+}
+```
+
 plant() supports format strings with {} placeholders (like Python's .format()):
-  plant("Hello {}", name);          // insert variable into string
-  plant("x = {}", x);               // insert number into string
-  plant("{} + {} = {}", a, b, a+b); // multiple placeholders, one argument per {}
+  plant("Hello {}\n", name);          // insert variable into string
+  plant("x = {}\n", x);               // insert number into string
+  plant("{} + {} = {}\n", a, b, a+b); // multiple placeholders, one argument per {}
 
 plant() can also print single values directly:
-  plant("plain string");   // string literal
-  plant(numVar);           // numeric variable
-  plant(vineVar);          // string variable
-  plant(add(3, 4));        // function call result
-  plant(x + 5);            // expression
+  plant("plain string\n");   // string literal with newline
+  plant(numVar);             // numeric variable (no newline)
+  plant(vineVar);            // string variable (no newline)
+  plant(add(3, 4));          // function call result
+  plant(x + 5);              // expression
 
 **WRONG**: plant("Hello " ` name);   — backtick concat does NOT work with vine (string) variables in plant()
-**CORRECT**: plant("Hello {}", name); — use format string with {} placeholder instead
+**CORRECT**: plant("Hello {}\n", name); — use format string with {} placeholder instead
 
 ### Operators
 - Arithmetic: `+`, `-`, `*`, `/`, `%`
@@ -171,10 +196,11 @@ plant() can also print single values directly:
 - Note: `**` (exponentiation) is NOT supported. There is no power operator in GAL.
 
 IMPORTANT: For string output with variables, use plant() with format strings:
-  plant("Name: {} Age: {}", name, age);
+  plant("Name: {} Age: {}\n", name, age);
 Do NOT use backtick concatenation with vine variables in plant() — it will cause errors.
 **WRONG**: plant("Name: " ` name ` ", Age: " ` age);
-**CORRECT**: plant("Name: {}, Age: {}", name, age);
+**CORRECT**: plant("Name: {}, Age: {}\n", name, age);
+Remember: plant() does NOT add a newline automatically. Use \n when you want a line break.
 
 ### Control Flow
 - `spring(condition) { ... }` → if

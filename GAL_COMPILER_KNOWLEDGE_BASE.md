@@ -704,7 +704,8 @@ Ln {line} Semantic Error: {message}
 | **MAX_DIGITS** | 16 digits for any evaluated number |
 | **Float display** | Truncated to 5 decimal places, trailing zeros stripped |
 | **`seed`↔`tree` coercion** | Implicit — `seed` vars can hold `tree` values and vice versa |
-| **String interpolation** | `plant("Hello {}", name)` — `{}` replaced by args positionally |
+| **String interpolation** | `plant("Hello {}\n", name)` — `{}` replaced by args positionally |
+| **plant() newline** | `plant()` does NOT auto-add newline (like C's `printf`). Use `\n` explicitly: `plant("text\n")` or `plant("\n")` |
 | **Async I/O** | Uses `socketio` + `eventlet` for non-blocking `water()` input |
 | **Scope** | Stack-based — `enter_scope()` pushes, `exit_scope()` pops |
 | **Global scope** | Separate `global_variables` dict accessible from all functions |
