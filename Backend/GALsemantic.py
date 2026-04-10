@@ -166,6 +166,16 @@ class TSNode(ASTNode):
         super().__init__("TSFunction", line=line)
         self.add_child(ASTNode("Identifier", variable_name, line=line))
 
+class SoilNode(ASTNode):
+    def __init__(self, variable_name, line=None):
+        super().__init__("SoilFunction", line=line)
+        self.add_child(ASTNode("Identifier", variable_name, line=line))
+
+class BloomNode(ASTNode):
+    def __init__(self, variable_name, line=None):
+        super().__init__("BloomFunction", line=line)
+        self.add_child(ASTNode("Identifier", variable_name, line=line))
+
 class AppendNode(ASTNode):
     def __init__(self, elements, line=None):
         super().__init__("Append", line=line)
@@ -967,7 +977,7 @@ def parse_statement(tokens, index, func_type = None):
                 if is_fertile:
                     raise SemanticError(f"Semantic Error: Variable '{var_name}' is declared as fertile and cannot be re-assigned a value.", line)
 
-                if is_list:
+                if is_list or (var_type == "vine" and tokens[index + 1].type == "["):
                     if tokens[index + 1].type == "=":
                         node, index = parse_list_assignment(tokens, index)
                         assignments_node.add_child(node)
@@ -1277,7 +1287,7 @@ def parse_list_access(tokens, index):
     if isinstance(list_info, str):
         raise SemanticError(list_info, line)
     
-    if not list_info.get("is_list", False):
+    if not list_info.get("is_list", False) and list_info.get("type") != "vine":
         raise SemanticError(f"Semantic Error: Variable '{list_name}' is not a list.", line)
     
     list_type = list_info["type"]
@@ -1514,7 +1524,7 @@ def parse_expression_leaf(tokens, index):
         if isinstance(list_info, str):
             raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", token.line)
 
-        if not list_info["is_list"]:
+        if not list_info["is_list"] and list_info.get("type") != "vine":
             raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", token.line)
 
         index += 2
@@ -1588,7 +1598,7 @@ def parse_expression_leaf(tokens, index):
                 if isinstance(list_info, str):
                     raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", token.line)
 
-                if not list_info["is_list"]:
+                if not list_info["is_list"] and list_info.get("type") != "vine":
                     raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", token.line)
 
                 index += 2
@@ -1845,6 +1855,29 @@ def parse_factor(tokens, index):
 
     elif (
         tokens[index].type == "id" and
+        tokens[index + 1].type == "." and
+        tokens[index + 2].value in ("wilt", "bloom")
+    ):
+        func_name = tokens[index + 2].value
+        identifier = tokens[index].value
+
+        identifier_info = symbol_table.lookup_variable(identifier)
+        if isinstance(identifier_info, str):
+            raise SemanticError(f"Semantic Error: Variable '{identifier}' used before declaration.", token.line)
+
+        if identifier_info["type"] != "vine":
+            raise SemanticError(f"Semantic Error: {func_name}() can only be used on vine (string) variables, but '{identifier}' is of type {identifier_info['type']}.", token.line)
+
+        index += 3
+
+        if func_name == "wilt":
+            node = SoilNode(identifier, line=token.line)
+        else:
+            node = BloomNode(identifier, line=token.line)
+        return node, index, "vine"
+
+    elif (
+        tokens[index].type == "id" and
         tokens[index + 1].type == "."
     ):
         # Bundle member access in expression: p.age, p.name
@@ -1887,7 +1920,7 @@ def parse_factor(tokens, index):
         if isinstance(list_info, str):
             raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", token.line)
 
-        if not list_info["is_list"]:
+        if not list_info["is_list"] and list_info.get("type") != "vine":
             raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", token.line)
 
         index += 2
@@ -2167,7 +2200,7 @@ def parse_operand(tokens, index):
         if isinstance(list_info, str):
             raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", token.line)
 
-        if not list_info["is_list"]:
+        if not list_info["is_list"] and list_info.get("type") != "vine":
             raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", token.line)
 
         # Delegate to parse_expression so arithmetic (a[0] + a[1]) is handled
@@ -2406,7 +2439,7 @@ def parse_water_statement(tokens, index):
 
         # Check for list element access: water(arr[i])
         if tokens[index].type == "[":
-            if not var_info.get("is_list", False):
+            if not var_info.get("is_list", False) and var_info.get("type") != "vine":
                 raise SemanticError(f"Semantic Error: Variable '{var_name}' is not a list.", line)
             index += 1  # skip '['
             index_expr, index, idx_type = parse_equality(tokens, index)
@@ -2511,7 +2544,7 @@ def parse_print(tokens, index):
             if isinstance(list_info, str):
                 raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", tokens[index].line)
 
-            if not list_info["is_list"]:
+            if not list_info["is_list"] and list_info.get("type") != "vine":
                 raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", tokens[index].line)
 
             index += 2
@@ -2598,7 +2631,7 @@ def parse_print(tokens, index):
             if isinstance(list_info, str):
                 raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", tokens[index].line)
 
-            if not list_info["is_list"]:
+            if not list_info["is_list"] and list_info.get("type") != "vine":
                 raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", tokens[index].line)
 
             index += 2
@@ -3065,7 +3098,7 @@ def parse_update(tokens, index):
                 if is_fertile:
                     raise SemanticError(f"Semantic Error: Variable '{var_name}' is declared as fertile and cannot be re-assigned a value.", line)
 
-                if is_list:
+                if is_list or (var_type == "vine" and tokens[index + 1].type == "["):
                     if tokens[index + 1].type == "=":
                         node, index = parse_list_assignment(tokens, index)
                         assignments_node.add_child(node)

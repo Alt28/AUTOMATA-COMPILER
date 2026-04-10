@@ -1,10 +1,13 @@
 from GALsemantic import (ProgramNode, VariableDeclarationNode, AssignmentNode, BinaryOpNode, FunctionDeclarationNode, 
                           FunctionCallNode, IfStatementNode, ForLoopNode, WhileLoopNode, PrintNode, UnaryOpNode, 
                           FertileDeclarationNode, ReturnNode,  SwitchNode, ContinueNode, BreakNode, ListNode, TaperNode, 
-                          TSNode, AppendNode, InsertNode, RemoveNode, CastNode, ListAccessNode, DoWhileLoopNode,
+                          TSNode, SoilNode, BloomNode, AppendNode, InsertNode, RemoveNode, CastNode, ListAccessNode, DoWhileLoopNode,
                           MemberAccessNode, BundleDefinitionNode, ArrayMemberAccessNode)
 
 import threading
+import sys
+
+sys.setrecursionlimit(10000)
 
 # Prefer eventlet's cooperative Event so wait_for_input yields to the
 # eventlet hub instead of blocking the entire event loop.
@@ -193,6 +196,10 @@ class Interpreter:
             return self.eval_taper(node)
         elif isinstance(node, TSNode):
             return self.eval_ts(node)
+        elif isinstance(node, SoilNode):
+            return self.eval_soil(node)
+        elif isinstance(node, BloomNode):
+            return self.eval_bloom(node)
         elif isinstance(node, IfStatementNode):
             return self.eval_if_statement(node)
         elif isinstance(node, ForLoopNode):
@@ -412,26 +419,38 @@ class Interpreter:
                 raise InterpreterError(list_entry, node.line)
 
             list_value = list_entry["value"]
-            if not isinstance(list_value, list):
+            if not isinstance(list_value, (list, str)):
                 raise InterpreterError(f"Runtime Error: Variable '{list_name}' is not a list.", node.line)
 
-            # indices were collected outermost-first, reverse to get innermost-first
-            indices.reverse()
+            # Handle string element assignment (vine)
+            if isinstance(list_value, str):
+                if len(indices) != 1:
+                    raise InterpreterError(f"Runtime Error: Multi-dimensional indexing not supported for strings.", node.line)
+                final_idx = indices[0]
+                if final_idx < 0 or final_idx >= len(list_value):
+                    raise InterpreterError(f"Runtime Error: Index '{final_idx}' out of bounds for '{list_name}'.", node.line)
+                if not isinstance(value, str) or len(value) != 1:
+                    raise InterpreterError(f"Runtime Error: Can only assign a single character to a string index.", node.line)
+                list_value = list_value[:final_idx] + value + list_value[final_idx + 1:]
+                list_entry["value"] = list_value
+            else:
+                # indices were collected outermost-first, reverse to get innermost-first
+                indices.reverse()
 
-            # Navigate to the correct nested list
-            target = list_value
-            for i, idx in enumerate(indices[:-1]):
-                if idx < 0 or idx >= len(target):
-                    raise InterpreterError(f"Runtime Error: Index '{idx}' out of bounds for list '{list_name}'.", node.line)
-                target = target[idx]
-                if not isinstance(target, list):
-                    raise InterpreterError(f"Runtime Error: Cannot index into a non-list value.", node.line)
+                # Navigate to the correct nested list
+                target = list_value
+                for i, idx in enumerate(indices[:-1]):
+                    if idx < 0 or idx >= len(target):
+                        raise InterpreterError(f"Runtime Error: Index '{idx}' out of bounds for list '{list_name}'.", node.line)
+                    target = target[idx]
+                    if not isinstance(target, list):
+                        raise InterpreterError(f"Runtime Error: Cannot index into a non-list value.", node.line)
 
-            final_idx = indices[-1]
-            if final_idx < 0 or final_idx >= len(target):
-                raise InterpreterError(f"Runtime Error: Index '{final_idx}' out of bounds for list '{list_name}'.", node.line)
+                final_idx = indices[-1]
+                if final_idx < 0 or final_idx >= len(target):
+                    raise InterpreterError(f"Runtime Error: Index '{final_idx}' out of bounds for list '{list_name}'.", node.line)
 
-            target[final_idx] = value
+                target[final_idx] = value
 
         elif target_node.node_type == "MemberAccess":
             # Bundle member assignment: p.age = 19 or p.addr.zip = 1000
@@ -872,11 +891,11 @@ class Interpreter:
         if not isinstance(index, int):
             raise InterpreterError(f"Runtime Error: List index must be an integer. Got '{index}'", node.line)
         
-        if not isinstance(list_value, list):
+        if not isinstance(list_value, (list, str)):
             raise InterpreterError(f"Runtime Error: Cannot index into a non-list value.", node.line)
 
         if index < 0 or index >= len(list_value):
-            raise InterpreterError(f"Runtime Error: Index '{index}' out of bounds for list '{display_name}'.", node.line)
+            raise InterpreterError(f"Runtime Error: Index '{index}' out of bounds for '{display_name}'.", node.line)
 
         return list_value[index]
     
@@ -1091,6 +1110,16 @@ class Interpreter:
             result = len(var_info["value"])
         
         return result
+
+    def eval_soil(self, node):
+        var_name = node.children[0].value
+        var_info = self.lookup_variable(var_name)
+        return var_info["value"].lower()
+
+    def eval_bloom(self, node):
+        var_name = node.children[0].value
+        var_info = self.lookup_variable(var_name)
+        return var_info["value"].upper()
 
     def eval_if_statement(self, node):
         condition_result = self.interpret(node.children[0].children[0])
