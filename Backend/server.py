@@ -7,7 +7,7 @@ eventlet.monkey_patch()
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-import os, threading
+import os
 from google import genai
 from lexer import lex, get_token_description
 from Gal_Parser import LL1Parser

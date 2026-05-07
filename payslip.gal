@@ -1,0 +1,166 @@
+// COMPILER CODING ACTIVITY / APR.29.2026
+// Problem 1 — Employee Salary Payslip (GAL version)
+
+pollinate empty printGroup3(seed g) {
+    spring (g < 10) {
+        plant("00");
+    } bud (g < 100) {
+        plant("0");
+    }
+    plant(g);
+    reclaim;
+}
+
+pollinate empty printCommas(seed n) {
+    spring (n < 1000) {
+        plant(n);
+        reclaim;
+    }
+    seed top = n / 1000;
+    seed rem = n % 1000;
+    printCommas(top);
+    plant(",");
+    printGroup3(rem);
+    reclaim;
+}
+
+pollinate empty printAmount(seed n) {
+    printCommas(n);
+    plant(".00");
+    reclaim;
+}
+
+pollinate empty bar() {
+    plant("======================================\n");
+    reclaim;
+}
+
+root() {
+    vine empId;
+    vine empName;
+    vine empDesignation;
+    vine empDepartment;
+
+    seed basicPay;
+    seed taxWithheld;
+    seed sssPremium;
+    seed philHealth;
+    seed hdmf;
+    seed absences;
+    seed utTardiness;
+
+    seed totalEarnings;
+    seed totalDeductions;
+    seed netPay;
+
+    // --- INPUT: EMPLOYEE DETAILS ---
+    bar();
+    plant("EMPLOYEE DETAILS\n");
+    bar();
+    plant("\n");
+    plant("Input ID         : ");
+    empId = water(vine);
+    plant("Input Name       : ");
+    empName = water(vine);
+    plant("Input Designation: ");
+    empDesignation = water(vine);
+    plant("Input Department : ");
+    empDepartment = water(vine);
+
+    // --- INPUT: EMPLOYEE EARNINGS ---
+    plant("\n");
+    bar();
+    plant("EMPLOYEE EARNINGS\n");
+    bar();
+    plant("\n");
+    plant("Input Basic Pay  : ");
+    basicPay = water(seed);
+
+    // --- INPUT: EMPLOYEE DEDUCTIONS ---
+    plant("\n");
+    bar();
+    plant("EMPLOYEE DEDUCTIONS\n");
+    bar();
+    plant("\n");
+    plant("Input Tax Withheld     : ");
+    taxWithheld = water(seed);
+    plant("Input SSS Premium      : ");
+    sssPremium = water(seed);
+    plant("Input PhilHealth Premium: ");
+    philHealth = water(seed);
+    plant("Input HDMF Premium     : ");
+    hdmf = water(seed);
+    plant("Input Absences         : ");
+    absences = water(seed);
+    plant("Input UT/Tardiness     : ");
+    utTardiness = water(seed);
+
+    // --- COMPUTE NET PAY ---
+    totalEarnings = basicPay;
+    totalDeductions = taxWithheld + sssPremium + philHealth + hdmf + absences + utTardiness;
+    netPay = totalEarnings - totalDeductions;
+
+    // --- OUTPUT: PAYSLIP ---
+    plant("\n");
+    bar();
+    plant("PAYSLIP FOR THE MONTH OF JANUARY 2026\n");
+    bar();
+    plant("\n");
+    plant("Employee ID      : ");
+    plant(empId);
+    plant("\n");
+    plant("Name             : ");
+    plant(empName);
+    plant("\n");
+    plant("Designation      : ");
+    plant(empDesignation);
+    plant("\n");
+    plant("Department       : ");
+    plant(empDepartment);
+    plant("\n");
+
+    bar();
+    plant("              EARNINGS\n");
+    plant("\n");
+    plant("Basic Pay        : ");
+    printAmount(basicPay);
+    plant("\n");
+
+    bar();
+    plant("              DEDUCTIONS\n");
+    plant("\n");
+    plant("Tax Withheld     : ");
+    printAmount(taxWithheld);
+    plant("\n");
+    plant("SSS Premium      : ");
+    printAmount(sssPremium);
+    plant("\n");
+    plant("PhilHealth Premium : ");
+    printAmount(philHealth);
+    plant("\n");
+    plant("HDMF Premium     : ");
+    printAmount(hdmf);
+    plant("\n");
+    plant("Absences         : ");
+    printAmount(absences);
+    plant("\n");
+    plant("UT/Tardiness     : ");
+    printAmount(utTardiness);
+    plant("\n");
+
+    bar();
+    plant("              TOTAL\n");
+    plant("\n");
+    plant("Total Earnings   : ");
+    printAmount(totalEarnings);
+    plant("\n");
+    plant("Total Deductions : ");
+    printAmount(totalDeductions);
+    plant("\n");
+    plant("Net Pay          : ");
+    printAmount(netPay);
+    plant("\n");
+    bar();
+
+    reclaim;
+}

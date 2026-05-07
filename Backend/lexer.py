@@ -92,7 +92,6 @@ TT_MOD = '%'                # Modulo operator (remainder)
 TT_EXP = '**'               # Exponentiation operator (power)
 TT_EQ = '='                 # Assignment operator
 TT_EQTO = '=='              # Equality comparison operator
-TT_TRIPLEEQ = '==='          # Invalid triple equals operator
 TT_PLUSEQ = '+='            # Add and assign operator
 TT_MINUSEQ = '-='           # Subtract and assign operator
 TT_MULTIEQ = '*='           # Multiply and assign operator
@@ -124,9 +123,7 @@ TT_RSQBR = ']'                  # Right square bracket
 TT_NEGATIVE = '~'               # Unary negation operator
 TT_MEMBER = 'member'            # Member token for struct access
 TT_INTEGERLIT = 'intlit'        # Integer literal token (e.g., 42, 100)
-TT_NEGINTLIT = '~intlit'        # Negative integer literal token
 TT_DOUBLELIT = 'dbllit'         # Double/float literal token (e.g., 3.14, 2.5)
-TT_NEGDOUBLELIT = '~dbllit'     # Negative double literal token
 TT_STRINGLIT = 'stringlit'      # String literal token (e.g., "hello")
 TT_CHARLIT = 'chrlit'           # Character literal token (e.g., 'a')
 TT_BOOLLIT_TRUE = 'sunshine'   # Boolean true literal
@@ -187,9 +184,7 @@ def get_token_description(token_type: str, value: str = '') -> str:
         # Identifiers and Literals
         'id': 'Identifier',
         'intlit': 'Integer Literal',
-        '~intlit': 'Negative Integer Literal',
-        'dbllit': 'Float Literal',
-        '~dbllit': 'Negative Float Literal',
+        'dbllit': 'double Literal',
         'stringlit': 'string',
         'chrlit': 'Character',
         'sunshine': 'Boolean True',
@@ -216,7 +211,6 @@ def get_token_description(token_type: str, value: str = '') -> str:
         
         # Comparison Operators
         '==': 'Equal Operator',
-        '===': 'Invalid Triple-Equal',
         '!=': 'Not-Equal Operator',
         '<': 'Less-Than Operator',
         '>': 'Greater-Than Operator',
@@ -1308,13 +1302,15 @@ class Lexer:
                 pos = self.pos.copy()
                 while self.current_char == '\t':
                     self.advance()
-                
+                continue
+
             elif self.current_char == ' ':
                 ident_str = self.current_char
                 pos = self.pos.copy()
                 self.advance()
                 while self.current_char == ' ':
                     self.advance()
+                continue
 
             # =====================================================================
             # FORWARD SLASH: / (division), // (comment), /* */ (multi-line comment), /= (divide-assign)

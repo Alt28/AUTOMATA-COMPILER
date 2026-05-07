@@ -255,7 +255,7 @@ class LL1Parser:
                                 'skip': 'continue statement', 'pollinate': 'function declaration',
                                 'root': 'main function', 'wither': 'else-statement',
                                 'fertile': 'constant declaration', 'bundle': 'struct definition',
-                                'harvest': 'switch-statement', 'variety': 'case label', 'soil': 'default case',
+                                'variety': 'case label', 'soil': 'default case',
                                 'empty': 'void type',
                             }
                             kw_tok = toks[kw_index]
@@ -398,7 +398,7 @@ class LL1Parser:
                         context_keyword = 'soil'
                         break
                     # Skip expression tokens between variety and here
-                    if toks[scan].type in {'id', 'intlit', 'floatlit', 'stringlit', 'chrlit',
+                    if toks[scan].type in {'id', 'intlit', 'dblit', 'stringlit', 'chrlit',
                                            'sunshine', 'frost', '+', '-', '*', '/', '%',
                                            '==', '!=', '<', '>', '<=', '>=', '&&', '||',
                                            '(', ')', '`', '~'}:
@@ -1246,7 +1246,7 @@ class LL1Parser:
                                     context_keyword = 'variety'
                                     break
                                 # Skip over expression tokens (literals, ids, operators, parens)
-                                if toks[scan].type in {'id', 'intlit', 'floatlit', 'stringlit', 'chrlit',
+                                if toks[scan].type in {'id', 'intlit', 'dblit', 'stringlit', 'chrlit',
                                                        'sunshine', 'frost', '+', '-', '*', '/', '%',
                                                        '==', '!=', '<', '>', '<=', '>=', '&&', '||',
                                                        '(', ')', '`', '~'}:

@@ -1070,7 +1070,7 @@ class ICGenerator:
         # Literals
         if tok.type == "intlit":
             return self._advance().value
-        if tok.type == "dblit":
+        if tok.type == "dbllit":
             return self._advance().value
         if tok.type == "chrlit":
             return self._advance().value

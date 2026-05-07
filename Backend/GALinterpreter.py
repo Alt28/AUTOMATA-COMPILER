@@ -164,7 +164,7 @@ class Interpreter:
             return self.eval_assignment(node)
         elif isinstance(node, BinaryOpNode):
             value = self.eval_binary_op(node)
-            if isinstance(value, int or float):
+            if isinstance(value, (int, float)):
                 if value > 1000000000000000 or value < -9999999999999999:
                     raise InterpreterError(f"Runtime Error: Evaluated number exceeds maximum number of 16 digits", node.line)
             return value
@@ -585,61 +585,61 @@ class Interpreter:
 
         try:
             if operator == '+':
-                if not isinstance(left, float or int) and not isinstance(right, float or int):
+                if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
                         left = 1 if left == True else 0
                     elif isinstance(left, str):
                         left = 1 if left != "" else 0
                     if isinstance(right, bool):
-                        left = 1 if left != "" else 0
+                        right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
                 return left + right
             
             elif operator == '-':
-                if not isinstance(left, float or int) and not isinstance(right, float or int):
+                if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
                         left = 1 if left == True else 0
                     elif isinstance(left, str):
                         left = 1 if left != "" else 0
                     if isinstance(right, bool):
-                        left = 1 if left != "" else 0
+                        right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
-                    
+
                 return left - right
             elif operator == '*':
-                if not isinstance(left, float or int) and not isinstance(right, float or int):
+                if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
                         left = 1 if left == True else 0
                     elif isinstance(left, str):
                         left = 1 if left != "" else 0
                     if isinstance(right, bool):
-                        left = 1 if left != "" else 0
+                        right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
                 return left * right
             elif operator == '/':
-                if not isinstance(left, float or int) and not isinstance(right, float or int):
+                if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
                         left = 1 if left == True else 0
                     elif isinstance(left, str):
                         left = 1 if left != "" else 0
                     if isinstance(right, bool):
-                        left = 1 if left != "" else 0
+                        right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
                 if right == 0:
                     raise InterpreterError("Runtime Error: Division by zero is undefined", node.line)
                 return left / right
             elif operator == '%':
-                if not isinstance(left, float or int) and not isinstance(right, float or int):
+                if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
                         left = 1 if left == True else 0
                     elif isinstance(left, str):
                         left = 1 if left != "" else 0
                     if isinstance(right, bool):
-                        left = 1 if left != "" else 0
+                        right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
                 if right == 0:
@@ -651,34 +651,26 @@ class Interpreter:
                 return left != right
             elif operator == '<':
                 if isinstance(left, str):
-                    print(left)
                     left = 0 if left == "" else 1
-                    print(left)
                 if isinstance(right, str):
                     right = 0 if right == "" else 1
                 return left < right
             elif operator == '<=':
                 if isinstance(left, str):
-                    print(left)
                     left = 0 if left == "" else 1
-                    print(left)
                 if isinstance(right, str):
                     right = 0 if right == "" else 1
                 return left <= right
             elif operator == '>':
                 if isinstance(left, str):
-                    print(left)
                     left = 0 if left == "" else 1
-                    print(left)
                 if isinstance(right, str):
                     right = 0 if right == "" else 1
                 return left > right
-            
+
             elif operator == '>=':
                 if isinstance(left, str):
-                    print(left)
                     left = 0 if left == "" else 1
-                    print(left)
                 if isinstance(right, str):
                     right = 0 if right == "" else 1
                 return left >= right

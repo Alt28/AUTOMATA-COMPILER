@@ -603,8 +603,6 @@ def parse_function(tokens, index, func_name, func_type):
         error = f"Semantic Error: '{func_name}' already declared."
         raise SemanticError(error, tokens[index].line)
 
-    main_func_declared = False
-
     # Entry point: root()  (legacy alias: skibidi{...})
     if func_name in {"root"}:
         symbol_table.enter_scope()
@@ -621,7 +619,6 @@ def parse_function(tokens, index, func_name, func_type):
 
         params_node = ASTNode("Parameters")
         func_node = FunctionDeclarationNode(func_type, func_name, params_node)
-        main_func_declared = True
 
     else:
         if tokens[index].type != "(":
@@ -1475,10 +1472,6 @@ def parse_expression_vine(tokens, index):
         if is_list and tokens[index + 1].type != "[":
             raise SemanticError(f"Semantic Error: List '{token.value}' must be indexed with '[]'.", line)
 
-        if isinstance(variable_info, str):
-            error = f"Semantic Error: Variable '{tokens[index].value}' used before declaration."
-            raise SemanticError(error, line)
-        
         if variable_info["type"] != "vine":
             error = f"Semantic Error: Cannot use '{tokens[index].value}' of type {variable_info['type']}. Expected valid vine value."
             raise SemanticError(error, line)
@@ -1558,8 +1551,6 @@ def parse_expression_leaf(tokens, index):
         is_list = var_info.get("is_list", False)
         if is_list and tokens[index + 1].type != "[":
             raise SemanticError(f"Semantic Error: List '{tokens[index].value}' must be indexed with '[]'.", line)
-        if isinstance(var_info, str):  # Variable not found
-            raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
 
         if var_info["type"] not in {"vine", "leaf"}:
             raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']}. Expected valid leaf value.", line)
@@ -1623,9 +1614,6 @@ def parse_expression_leaf(tokens, index):
 
                 if is_list and tokens[index + 1].type != "[":
                     raise SemanticError(f"Semantic Error: List '{token.value}' must be indexed with '[]' in expressions.", line)
-
-                if isinstance(var_info, str):  # Variable not found
-                    raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
 
                 if var_info["type"] not in {"vine", "leaf"}:
                     raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in this expression.", line)
@@ -1979,10 +1967,7 @@ def parse_factor(tokens, index):
         is_list = variable_info.get("is_list", False)
         if is_list and tokens[index + 1].type != "[":
             raise SemanticError(f"Semantic Error: List '{token.value}' must be indexed with '[]' in expressions.", token.line)
-        
-        if isinstance(variable_info, str):
-            raise SemanticError(f"Semantic Error: Variable '{token.value}' used before declaration.", token.line)
-        
+
         var_type = variable_info["type"]
         
         node = ASTNode("Value", token.value)
@@ -2208,7 +2193,7 @@ def parse_operand(tokens, index):
         return expr_node, index, expr_type
 
     # Chungus or Chudeluxe (arithmetic types)
-    if token.type in {"intlit", "dbllit", "-"}:
+    if token.type in {"intlit", "dbllit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
@@ -2286,7 +2271,7 @@ def parse_operand(tokens, index):
 
 def infer_literal_type(token_type):
     """Returns the type string for a given literal token type."""
-    if token_type in {"intlit", "-"}:
+    if token_type == "intlit":
         return "seed"
     if token_type == "dbllit":
         return "tree"
@@ -2538,11 +2523,12 @@ def parse_print(tokens, index):
         elif tokens[index].type == "id" and tokens[index + 1].type == "[":
             list_name = token.value
             list_info = symbol_table.lookup_variable(list_name)
-            list_type = list_info["type"]
-            start_index = index
 
             if isinstance(list_info, str):
                 raise SemanticError(f"Semantic Error: List '{list_name}' used before declaration.", tokens[index].line)
+
+            list_type = list_info["type"]
+            start_index = index
 
             if not list_info["is_list"] and list_info.get("type") != "vine":
                 raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", tokens[index].line)
@@ -2793,7 +2779,7 @@ def parse_fertile(tokens, index):
     token = tokens[index]
     line = token.line
     index += 1
-    if tokens[index].value not in {"seed", "tree", "vine", "leaf", "branch", "seed", "tree", "vine", "leaf", "branch"}:
+    if tokens[index].value not in {"seed", "tree", "vine", "leaf", "branch"}:
         raise SemanticError(f"Semantic Error: Invalid fertile variable type '{tokens[index].value}'.", line)
     
     var_type = tokens[index].value
