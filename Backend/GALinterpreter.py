@@ -1438,14 +1438,26 @@ class Interpreter:
         self.input_required = False  # Reset the input flag
 
         if var_type == "seed":
+            # GAL uses ~ for negative numbers; '-' is NOT accepted at input
+            original_input = input_value
+            if isinstance(input_value, str) and input_value.startswith('-'):
+                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
+            if isinstance(input_value, str) and input_value.startswith('~'):
+                input_value = '-' + input_value[1:]
             try:
                 if len(input_value.strip('-').lstrip('0')) > 16:
                     raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
                 input_value = int(float(input_value))
             except ValueError:
-                raise InterpreterError(f"Runtime Error: Expected integer value, got '{input_value}'", node.line)
-            
+                raise InterpreterError(f"Runtime Error: Expected integer value, got '{original_input}'", node.line)
+
         elif var_type == "tree":
+            # GAL uses ~ for negative numbers; '-' is NOT accepted at input
+            original_input = input_value
+            if isinstance(input_value, str) and input_value.startswith('-'):
+                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
+            if isinstance(input_value, str) and input_value.startswith('~'):
+                input_value = '-' + input_value[1:]
             try:
                 if '.' in input_value:
                     integer_part, decimal_part = str(input_value).split('.')
@@ -1453,24 +1465,28 @@ class Interpreter:
                         raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
                     if len(decimal_part.rstrip('0')) > 5:
                         raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 5 decimal numbers", node.line)
-                    
+
                 else:
                     if len(input_value.strip('-').lstrip('0')) > 16:
                         raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
-                
+
                 input_value = float(input_value)
-                
-                
+
+
             except ValueError:
-                raise InterpreterError(f"Runtime Error: Expected float value, got '{input_value}'", node.line)
-            
+                raise InterpreterError(f"Runtime Error: Expected float value, got '{original_input}'", node.line)
+
         elif var_type == "branch":
-            if input_value == "true":
+            # GAL booleans are 'sunshine' (true) and 'frost' (false); 'true'/'false' are NOT accepted
+            if input_value == "true" or input_value == "false":
+                suggestion = "sunshine" if input_value == "true" else "frost"
+                raise InterpreterError(f"Runtime Error: GAL uses 'sunshine' and 'frost' for booleans, not 'true'/'false'. Got '{input_value}'; did you mean '{suggestion}'?", node.line)
+            if input_value == "sunshine":
                 input_value = True
-            elif input_value == "false":
+            elif input_value == "frost":
                 input_value = False
             else:
-                raise InterpreterError(f"Runtime Error: expected branch value, got '{input_value}'", node.line)
+                raise InterpreterError(f"Runtime Error: expected branch value (sunshine/frost), got '{input_value}'", node.line)
             
         elif var_type == "leaf":
             if len(input_value) != 1:
