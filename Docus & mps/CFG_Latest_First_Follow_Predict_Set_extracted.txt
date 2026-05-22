@@ -1,0 +1,1441 @@
+XI. FIRST SET
+#
+Nonterminal
+First Set
+1
+<program>
+->
+{ branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
+2
+<global_declaration>
+->
+{ branch, bundle, fertile, leaf, seed, tree, vine, λ }
+3
+<bundle_or_var>
+->
+{ {, ,, ;, id }
+4
+<declaration>
+->
+{ branch, bundle, fertile, leaf, seed, tree, vine, λ }
+5
+<data_type>
+->
+{ branch, leaf, seed, tree, vine }
+6
+<const_dec>
+->
+{ fertile }
+7
+<const_next>
+->
+{ ,, λ }
+8
+<var_dec>
+->
+{ branch, bundle, leaf, seed, tree, vine }
+9
+<bundle_mem_dec>
+->
+{ ,, id, λ }
+10
+<var_value>
+->
+{ ,, =, λ }
+11
+<var_value_next>
+->
+{ ,, λ }
+12
+<init_val>
+->
+{ !, ~, (, {, id, water, intlit, dblit, chrlit, stringlit, sunshine, frost, λ }
+13
+<array_dec>
+->
+{ [, λ }
+14
+<array_dim_opt>
+->
+{ intlit, dblit, λ }
+15
+<array_init_opt>
+->
+{ {, λ }
+16
+<init_vals>
+->
+{ !, ~, (, {, id, intlit, dblit, chrlit, stringlit, sunshine, frost, λ }
+17
+<init_vals_next>
+->
+{ ,, λ }
+18
+<init_val_item>
+->
+{ !, ~, (, {, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+19
+<bundle_declaration>
+->
+{ bundle }
+20
+<bundle_members>
+->
+{ branch, id, leaf, seed, tree, vine, λ }
+21
+<function_definition>
+->
+{ pollinate, λ }
+22
+<return_type>
+->
+{ branch, empty, id, leaf, seed, tree, vine }
+23
+<parameters>
+->
+{ branch, id, leaf, seed, tree, vine, λ }
+24
+<param>
+->
+{ branch, id, leaf, seed, tree, vine }
+25
+<param_array>
+->
+{ [, λ }
+26
+<param_next>
+->
+{ ,, λ }
+27
+<reclaim_opt>
+->
+{ reclaim, λ }
+28
+<reclaim_value>
+->
+{ !, ~, (, ;, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+29
+<statement>
+->
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water, λ }
+30
+<simple_stmt>
+->
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+31
+<id_stmt>
+->
+{ ++, --, (, [, ., =, +=, -=, *=, /=, %= }
+32
+<assignment_stmt>
+->
+{ id }
+33
+<assign_rhs>
+->
+{ !, ~, (, id, water, intlit, dblit, chrlit, stringlit, sunshine, frost }
+34
+<assign_op>
+->
+{ =, +=, -=, *=, /=, %= }
+35
+<value>
+->
+{ id }
+36
+<id_next>
+->
+{ [, ., λ }
+37
+<array_access>
+->
+{ [ }
+38
+<array_access_more>
+->
+{ [, λ }
+39
+<struct_access>
+->
+{ . }
+40
+<struct_access_more>
+->
+{ ., λ }
+41
+<post_array_access>
+->
+{ ., λ }
+42
+<io_stmt>
+->
+{ plant, water }
+43
+<water_arg>
+->
+{ branch, id, leaf, seed, tree, vine, λ }
+44
+<water_id_tail>
+->
+{ [, λ }
+45
+<arguments>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost, λ }
+46
+<arg_next>
+->
+{ ,, λ }
+47
+<conditional_stmt>
+->
+{ spring }
+48
+<elseif_chain>
+->
+{ bud, λ }
+49
+<else_opt>
+->
+{ wither, λ }
+50
+<loop_stmt>
+->
+{ cultivate, grow, tend }
+51
+<for_init>
+->
+{ branch, id, leaf, seed, tree, vine, λ }
+52
+<for_update>
+->
+{ id, λ }
+53
+<for_update_type>
+->
+{ ++, --, [, ., =, +=, -=, *=, /=, %= }
+54
+<unary_stmt>
+->
+{ id }
+55
+<inc_dec_op>
+->
+{ ++, -- }
+56
+<switch_stmt>
+->
+{ harvest }
+57
+<case_list>
+->
+{ variety, λ }
+58
+<case_literal>
+->
+{ intlit, dblit, chrlit, stringlit, sunshine, frost }
+59
+<case_statements>
+->
+{ ++, --, {, branch, bundle, cultivate, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water, λ }
+60
+<case_statement>
+->
+{ ++, --, {, branch, bundle, cultivate, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+61
+<default_opt>
+->
+{ soil, λ }
+62
+<control_stmt>
+->
+{ prune, skip }
+63
+<function_call>
+->
+{ id }
+64
+<expression>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+65
+<logic_or>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+66
+<logic_or_next>
+->
+{ ||, λ }
+67
+<logic_and>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+68
+<logic_and_next>
+->
+{ &&, λ }
+69
+<relational>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+70
+<relational_next>
+->
+{ >, <, >=, <=, ==, !=, λ }
+71
+<relational_op>
+->
+{ >, <, >=, <=, ==, != }
+72
+<arithmetic>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+73
+<arithmetic_next>
+->
+{ +, -, `, λ }
+74
+<term>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+75
+<term_next>
+->
+{ *, /, %, λ }
+76
+<factor>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+77
+<paren_expr>
+->
+{ !, ~, (, branch, id, leaf, seed, tree, vine, intlit, dblit, chrlit, stringlit, sunshine, frost }
+78
+<unary_op>
+->
+{ !, ~ }
+79
+<factor_id_next>
+->
+{ (, [, ., λ }
+XII. FOLLOW SET
+#
+Nonterminal
+Follow Set
+1
+<program>
+->
+{ EOF }
+2
+<global_declaration>
+->
+{ pollinate, root }
+3
+<bundle_or_var>
+->
+{ branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
+4
+<declaration>
+->
+{ }
+5
+<data_type>
+->
+{ ), id }
+6
+<const_dec>
+->
+{ ; }
+7
+<const_next>
+->
+{ ; }
+8
+<var_dec>
+->
+{ ; }
+9
+<bundle_mem_dec>
+->
+{ ; }
+10
+<var_value>
+->
+{ ; }
+11
+<var_value_next>
+->
+{ ; }
+12
+<init_val>
+->
+{ ,, ; }
+13
+<array_dec>
+->
+{ ,, ;, = }
+14
+<array_dim_opt>
+->
+{ ] }
+15
+<array_init_opt>
+->
+{ ,, ; }
+16
+<init_vals>
+->
+{ } }
+17
+<init_vals_next>
+->
+{ } }
+18
+<init_val_item>
+->
+{ }, , }
+19
+<bundle_declaration>
+->
+{ }
+20
+<bundle_members>
+->
+{ } }
+21
+<function_definition>
+->
+{ root }
+22
+<return_type>
+->
+{ id }
+23
+<parameters>
+->
+{ ) }
+24
+<param>
+->
+{ ), , }
+25
+<param_array>
+->
+{ ), , }
+26
+<param_next>
+->
+{ ) }
+27
+<reclaim_opt>
+->
+{ }
+28
+<reclaim_value>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+29
+<statement>
+->
+{ } }
+30
+<simple_stmt>
+->
+{ ++, --, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+31
+<id_stmt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+32
+<assignment_stmt>
+->
+{ }
+33
+<assign_rhs>
+->
+{ ; }
+34
+<assign_op>
+->
+{ !, ~, (, id, water, intlit, dblit, chrlit, stringlit, sunshine, frost }
+35
+<value>
+->
+{ =, +=, -=, *=, /=, %= }
+36
+<id_next>
+->
+{ =, +=, -=, *=, /=, %= }
+37
+<array_access>
+->
+{ ), ], }, ,, ;, ., =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+38
+<array_access_more>
+->
+{ ), ], }, ,, ;, ., =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+39
+<struct_access>
+->
+{ ), ], }, ,, ;, =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+40
+<struct_access_more>
+->
+{ ), ], }, ,, ;, =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+41
+<post_array_access>
+->
+{ ), ], }, ,, ;, =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+42
+<io_stmt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+43
+<water_arg>
+->
+{ ) }
+44
+<water_id_tail>
+->
+{ ) }
+45
+<arguments>
+->
+{ ) }
+46
+<arg_next>
+->
+{ ) }
+47
+<conditional_stmt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+48
+<elseif_chain>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water, wither }
+49
+<else_opt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+50
+<loop_stmt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+51
+<for_init>
+->
+{ ; }
+52
+<for_update>
+->
+{ ) }
+53
+<for_update_type>
+->
+{ ) }
+54
+<unary_stmt>
+->
+{ }
+55
+<inc_dec_op>
+->
+{ ), ;, id }
+56
+<switch_stmt>
+->
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+57
+<case_list>
+->
+{ }, soil }
+58
+<case_literal>
+->
+{ : }
+59
+<case_statements>
+->
+{ }, soil, variety }
+60
+<case_statement>
+->
+{ ++, --, {, }, branch, bundle, cultivate, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+61
+<default_opt>
+->
+{ } }
+62
+<control_stmt>
+->
+{ ++, --, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+63
+<function_call>
+->
+{ }
+64
+<expression>
+->
+{ ), ], }, ,, ; }
+65
+<logic_or>
+->
+{ ), ], }, ,, ; }
+66
+<logic_or_next>
+->
+{ ), ], }, ,, ; }
+67
+<logic_and>
+->
+{ ), ], }, ,, ;, || }
+68
+<logic_and_next>
+->
+{ ), ], }, ,, ;, || }
+69
+<relational>
+->
+{ ), ], }, ,, ;, &&, || }
+70
+<relational_next>
+->
+{ ), ], }, ,, ;, &&, || }
+71
+<relational_op>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+72
+<arithmetic>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, || }
+73
+<arithmetic_next>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, || }
+74
+<term>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, ` }
+75
+<term_next>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, ` }
+76
+<factor>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+77
+<paren_expr>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+78
+<unary_op>
+->
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+79
+<factor_id_next>
+->
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+XIII. PREDICT SET
+No
+FIRST / Expression Form
+Basis
+Predict Set
+1
+first(<global_declaration> <function_definition> root ( ) { <statement> })
+first(<global_declaration> <function_definition> root ( ) { <statement> })
+{ branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
+2
+first(bundle id <bundle_or_var> <global_declaration>)
+first(bundle id <bundle_or_var> <global_declaration>)
+{ bundle }
+3
+first(<data_type> id <array_dec> <var_value> ; <global_declaration>)
+first(<data_type> id <array_dec> <var_value> ; <global_declaration>)
+{ branch, leaf, seed, tree, vine }
+4
+first(fertile <data_type> id = <init_val> <const_next> ; <global_declaration>)
+first(fertile <data_type> id = <init_val> <const_next> ; <global_declaration>)
+{ fertile }
+5
+first(λ)
+follow(<global_declaration>)
+{ pollinate, root }
+6
+first({ <bundle_members> } ;)
+first({ <bundle_members> } ;)
+{ { }
+7
+first(<bundle_mem_dec> ;)
+first(<bundle_mem_dec> ;)
+{ ,, ;, id }
+8
+first(<var_dec> ; <declaration>)
+first(<var_dec> ; <declaration>)
+{ branch, bundle, leaf, seed, tree, vine }
+9
+first(<const_dec> ; <declaration>)
+first(<const_dec> ; <declaration>)
+{ fertile }
+10
+first(λ)
+follow(<declaration>)
+{ }
+11
+first(seed)
+first(seed)
+{ seed }
+12
+first(tree)
+first(tree)
+{ tree }
+13
+first(leaf)
+first(leaf)
+{ leaf }
+14
+first(branch)
+first(branch)
+{ branch }
+15
+first(vine)
+first(vine)
+{ vine }
+16
+first(fertile <data_type> id = <init_val> <const_next>)
+first(fertile <data_type> id = <init_val> <const_next>)
+{ fertile }
+17
+first(, id = <init_val> <const_next>)
+first(, id = <init_val> <const_next>)
+{ , }
+18
+first(λ)
+follow(<const_next>)
+{ ; }
+19
+first(<data_type> id <array_dec> <var_value>)
+first(<data_type> id <array_dec> <var_value>)
+{ branch, leaf, seed, tree, vine }
+20
+first(bundle id <bundle_mem_dec>)
+first(bundle id <bundle_mem_dec>)
+{ bundle }
+21
+first(id <array_dec> <var_value_next>)
+first(id <array_dec> <var_value_next>)
+{ id }
+22
+first(, id <var_value_next>)
+first(, id <var_value_next>)
+{ , }
+23
+first(λ)
+follow(<bundle_mem_dec>)
+{ ; }
+24
+first(= <init_val> <var_value_next>)
+first(= <init_val> <var_value_next>)
+{ = }
+25
+first(<var_value_next>)
+first(<var_value_next>) ∪ follow(<var_value>)
+{ ,, ; }
+26
+first(, id <array_dec> <var_value>)
+first(, id <array_dec> <var_value>)
+{ , }
+27
+first(λ)
+follow(<var_value_next>)
+{ ; }
+28
+first(<array_init_opt>)
+first(<array_init_opt>) ∪ follow(<init_val>)
+{ {, ,, ; }
+29
+first(water ( <water_arg> ))
+first(water ( <water_arg> ))
+{ water }
+30
+first(<expression>)
+first(<expression>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+31
+first([ <array_dim_opt> ] <array_dec>)
+first([ <array_dim_opt> ] <array_dec>)
+{ [ }
+32
+first(λ)
+follow(<array_dec>)
+{ ,, ;, = }
+33
+first(intlit)
+first(intlit)
+{ intlit }
+34
+first(dblit)
+first(dblit)
+{ dblit }
+35
+first(λ)
+follow(<array_dim_opt>)
+{ ] }
+36
+first({ <init_vals> })
+first({ <init_vals> })
+{ { }
+37
+first(λ)
+follow(<array_init_opt>)
+{ ,, ; }
+38
+first(<init_val_item> <init_vals_next>)
+first(<init_val_item> <init_vals_next>)
+{ !, ~, (, {, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+39
+first(λ)
+follow(<init_vals>)
+{ } }
+40
+first(, <init_val_item> <init_vals_next>)
+first(, <init_val_item> <init_vals_next>)
+{ , }
+41
+first(λ)
+follow(<init_vals_next>)
+{ } }
+42
+first({ <init_vals> })
+first({ <init_vals> })
+{ { }
+43
+first(<expression>)
+first(<expression>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+44
+first(bundle id { <bundle_members> })
+first(bundle id { <bundle_members> })
+{ bundle }
+45
+first(<data_type> id ; <bundle_members>)
+first(<data_type> id ; <bundle_members>)
+{ branch, leaf, seed, tree, vine }
+46
+first(id id ; <bundle_members>)
+first(id id ; <bundle_members>)
+{ id }
+47
+first(λ)
+follow(<bundle_members>)
+{ } }
+48
+first(pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition>)
+first(pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition>)
+{ pollinate }
+49
+first(λ)
+follow(<function_definition>)
+{ root }
+50
+first(<data_type>)
+first(<data_type>)
+{ branch, leaf, seed, tree, vine }
+51
+first(empty)
+first(empty)
+{ empty }
+52
+first(id)
+first(id)
+{ id }
+53
+first(λ)
+follow(<parameters>)
+{ ) }
+54
+first(<param> <param_next>)
+first(<param> <param_next>)
+{ branch, id, leaf, seed, tree, vine }
+55
+first(<data_type> id <param_array>)
+first(<data_type> id <param_array>)
+{ branch, leaf, seed, tree, vine }
+56
+first(id id)
+first(id id)
+{ id }
+57
+first(λ)
+follow(<param_array>)
+{ ), , }
+58
+first([ ])
+first([ ])
+{ [ }
+59
+first(λ)
+follow(<param_next>)
+{ ) }
+60
+first(, <param> <param_next>)
+first(, <param> <param_next>)
+{ , }
+61
+first(reclaim <reclaim_value>)
+first(reclaim <reclaim_value>)
+{ reclaim }
+62
+first(λ)
+follow(<reclaim_opt>)
+{ }
+63
+first(<expression> ;)
+first(<expression> ;)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+64
+first(;)
+first(;)
+{ ; }
+65
+first(<simple_stmt> <statement>)
+first(<simple_stmt> <statement>)
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+66
+first(λ)
+follow(<statement>)
+{ } }
+67
+first(id <id_stmt>)
+first(id <id_stmt>)
+{ id }
+68
+first(<inc_dec_op> id ;)
+first(<inc_dec_op> id ;)
+{ ++, -- }
+69
+first(<io_stmt>)
+first(<io_stmt>)
+{ plant, water }
+70
+first(<conditional_stmt>)
+first(<conditional_stmt>)
+{ spring }
+71
+first(<loop_stmt>)
+first(<loop_stmt>)
+{ cultivate, grow, tend }
+72
+first(<switch_stmt>)
+first(<switch_stmt>)
+{ harvest }
+73
+first(<control_stmt>)
+first(<control_stmt>)
+{ prune, skip }
+74
+first(reclaim <reclaim_value>)
+first(reclaim <reclaim_value>)
+{ reclaim }
+75
+first(<var_dec> ;)
+first(<var_dec> ;)
+{ branch, bundle, leaf, seed, tree, vine }
+76
+first(<const_dec> ;)
+first(<const_dec> ;)
+{ fertile }
+77
+first(<id_next> <assign_op> <assign_rhs> ;)
+first(<id_next> <assign_op> <assign_rhs> ;)
+{ [, ., =, +=, -=, *=, /=, %= }
+78
+first(<inc_dec_op> ;)
+first(<inc_dec_op> ;)
+{ ++, -- }
+79
+first(( <arguments> ) ;)
+first(( <arguments> ) ;)
+{ ( }
+80
+first(<value> <assign_op> <assign_rhs> ;)
+first(<value> <assign_op> <assign_rhs> ;)
+{ id }
+81
+first(water ( <water_arg> ))
+first(water ( <water_arg> ))
+{ water }
+82
+first(<expression>)
+first(<expression>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+83
+first(=)
+first(=)
+{ = }
+84
+first(+=)
+first(+=)
+{ += }
+85
+first(-=)
+first(-=)
+{ -= }
+86
+first(*=)
+first(*=)
+{ *= }
+87
+first(/=)
+first(/=)
+{ /= }
+88
+first(%=)
+first(%=)
+{ %= }
+89
+first(id <id_next>)
+first(id <id_next>)
+{ id }
+90
+first(<array_access> <post_array_access>)
+first(<array_access> <post_array_access>)
+{ [ }
+91
+first(<struct_access>)
+first(<struct_access>)
+{ . }
+92
+first(λ)
+follow(<id_next>)
+{ =, +=, -=, *=, /=, %= }
+93
+first([ <expression> ] <array_access_more>)
+first([ <expression> ] <array_access_more>)
+{ [ }
+94
+first([ <expression> ] <array_access_more>)
+first([ <expression> ] <array_access_more>)
+{ [ }
+95
+first(λ)
+follow(<array_access_more>)
+{ ), ], }, ,, ;, ., =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+96
+first(. id <struct_access_more>)
+first(. id <struct_access_more>)
+{ . }
+97
+first(. id <struct_access_more>)
+first(. id <struct_access_more>)
+{ . }
+98
+first(λ)
+follow(<struct_access_more>)
+{ ), ], }, ,, ;, =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+99
+first(. id <post_array_access>)
+first(. id <post_array_access>)
+{ . }
+100
+first(λ)
+follow(<post_array_access>)
+{ ), ], }, ,, ;, =, +=, -=, *=, /=, %=, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }
+101
+first(plant ( <arguments> ) ;)
+first(plant ( <arguments> ) ;)
+{ plant }
+102
+first(water ( <water_arg> ) ;)
+first(water ( <water_arg> ) ;)
+{ water }
+103
+first(<data_type>)
+first(<data_type>)
+{ branch, leaf, seed, tree, vine }
+104
+first(id <water_id_tail>)
+first(id <water_id_tail>)
+{ id }
+105
+first(λ)
+follow(<water_arg>)
+{ ) }
+106
+first([ <expression> ] <water_id_tail>)
+first([ <expression> ] <water_id_tail>)
+{ [ }
+107
+first(λ)
+follow(<water_id_tail>)
+{ ) }
+108
+first(<expression> <arg_next>)
+first(<expression> <arg_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+109
+first(λ)
+follow(<arguments>)
+{ ) }
+110
+first(, <expression> <arg_next>)
+first(, <expression> <arg_next>)
+{ , }
+111
+first(λ)
+follow(<arg_next>)
+{ ) }
+112
+first(spring ( <expression> ) { <statement> } <elseif_chain> <else_opt>)
+first(spring ( <expression> ) { <statement> } <elseif_chain> <else_opt>)
+{ spring }
+113
+first(bud ( <expression> ) { <statement> } <elseif_chain>)
+first(bud ( <expression> ) { <statement> } <elseif_chain>)
+{ bud }
+114
+first(λ)
+follow(<elseif_chain>)
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water, wither }
+115
+first(wither { <statement> })
+first(wither { <statement> })
+{ wither }
+116
+first(λ)
+follow(<else_opt>)
+{ ++, --, {, }, branch, bundle, cultivate, fertile, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, tree, variety, vine, water }
+117
+first(grow ( <expression> ) { <statement> })
+first(grow ( <expression> ) { <statement> })
+{ grow }
+118
+first(cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> })
+first(cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> })
+{ cultivate }
+119
+first(tend { <statement> } grow ( <expression> ) ;)
+first(tend { <statement> } grow ( <expression> ) ;)
+{ tend }
+120
+first(<data_type> id <array_dec> <var_value>)
+first(<data_type> id <array_dec> <var_value>)
+{ branch, leaf, seed, tree, vine }
+121
+first(id <id_next> <assign_op> <expression>)
+first(id <id_next> <assign_op> <expression>)
+{ id }
+122
+first(λ)
+follow(<for_init>)
+{ ; }
+123
+first(id <for_update_type>)
+first(id <for_update_type>)
+{ id }
+124
+first(λ)
+follow(<for_update>)
+{ ) }
+125
+first(<inc_dec_op>)
+first(<inc_dec_op>)
+{ ++, -- }
+126
+first(<id_next> <assign_op> <expression>)
+first(<id_next> <assign_op> <expression>)
+{ [, ., =, +=, -=, *=, /=, %= }
+127
+first(id <inc_dec_op> ;)
+first(id <inc_dec_op> ;)
+{ id }
+128
+first(++)
+first(++)
+{ ++ }
+129
+first(--)
+first(--)
+{ -- }
+130
+first(harvest ( <expression> ) { <case_list> <default_opt> })
+first(harvest ( <expression> ) { <case_list> <default_opt> })
+{ harvest }
+131
+first(variety <case_literal> : <case_statements> <case_list>)
+first(variety <case_literal> : <case_statements> <case_list>)
+{ variety }
+132
+first(λ)
+follow(<case_list>)
+{ }, soil }
+133
+first(intlit)
+first(intlit)
+{ intlit }
+134
+first(dblit)
+first(dblit)
+{ dblit }
+135
+first(chrlit)
+first(chrlit)
+{ chrlit }
+136
+first(stringlit)
+first(stringlit)
+{ stringlit }
+137
+first(sunshine)
+first(sunshine)
+{ sunshine }
+138
+first(frost)
+first(frost)
+{ frost }
+139
+first(<case_statement> <case_statements>)
+first(<case_statement> <case_statements>)
+{ ++, --, {, branch, bundle, cultivate, grow, harvest, id, leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, vine, water }
+140
+first(λ)
+follow(<case_statements>)
+{ }, soil, variety }
+141
+first(id <id_stmt>)
+first(id <id_stmt>)
+{ id }
+142
+first(<inc_dec_op> id ;)
+first(<inc_dec_op> id ;)
+{ ++, -- }
+143
+first(<var_dec> ;)
+first(<var_dec> ;)
+{ branch, bundle, leaf, seed, tree, vine }
+144
+first(<io_stmt>)
+first(<io_stmt>)
+{ plant, water }
+145
+first(<conditional_stmt>)
+first(<conditional_stmt>)
+{ spring }
+146
+first(<loop_stmt>)
+first(<loop_stmt>)
+{ cultivate, grow, tend }
+147
+first(<switch_stmt>)
+first(<switch_stmt>)
+{ harvest }
+148
+first({ <case_statements> })
+first({ <case_statements> })
+{ { }
+149
+first(prune ;)
+first(prune ;)
+{ prune }
+150
+first(skip ;)
+first(skip ;)
+{ skip }
+151
+first(reclaim <reclaim_value>)
+first(reclaim <reclaim_value>)
+{ reclaim }
+152
+first(soil : <case_statements>)
+first(soil : <case_statements>)
+{ soil }
+153
+first(λ)
+follow(<default_opt>)
+{ } }
+154
+first(prune ;)
+first(prune ;)
+{ prune }
+155
+first(skip ;)
+first(skip ;)
+{ skip }
+156
+first(id ( <arguments> ) ;)
+first(id ( <arguments> ) ;)
+{ id }
+157
+first(<logic_or>)
+first(<logic_or>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+158
+first(<logic_and> <logic_or_next>)
+first(<logic_and> <logic_or_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+159
+first(|| <logic_and> <logic_or_next>)
+first(|| <logic_and> <logic_or_next>)
+{ || }
+160
+first(λ)
+follow(<logic_or_next>)
+{ ), ], }, ,, ; }
+161
+first(<relational> <logic_and_next>)
+first(<relational> <logic_and_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+162
+first(&& <relational> <logic_and_next>)
+first(&& <relational> <logic_and_next>)
+{ && }
+163
+first(λ)
+follow(<logic_and_next>)
+{ ), ], }, ,, ;, || }
+164
+first(<arithmetic> <relational_next>)
+first(<arithmetic> <relational_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+165
+first(<relational_op> <arithmetic>)
+first(<relational_op> <arithmetic>)
+{ >, <, >=, <=, ==, != }
+166
+first(λ)
+follow(<relational_next>)
+{ ), ], }, ,, ;, &&, || }
+167
+first(>)
+first(>)
+{ > }
+168
+first(<)
+first(<)
+{ < }
+169
+first(>=)
+first(>=)
+{ >= }
+170
+first(<=)
+first(<=)
+{ <= }
+171
+first(==)
+first(==)
+{ == }
+172
+first(!=)
+first(!=)
+{ != }
+173
+first(<term> <arithmetic_next>)
+first(<term> <arithmetic_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+174
+first(+ <term> <arithmetic_next>)
+first(+ <term> <arithmetic_next>)
+{ + }
+175
+first(- <term> <arithmetic_next>)
+first(- <term> <arithmetic_next>)
+{ - }
+176
+first(` <term> <arithmetic_next>)
+first(` <term> <arithmetic_next>)
+{ ` }
+177
+first(λ)
+follow(<arithmetic_next>)
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, || }
+178
+first(<factor> <term_next>)
+first(<factor> <term_next>)
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+179
+first(* <factor> <term_next>)
+first(* <factor> <term_next>)
+{ * }
+180
+first(/ <factor> <term_next>)
+first(/ <factor> <term_next>)
+{ / }
+181
+first(% <factor> <term_next>)
+first(% <factor> <term_next>)
+{ % }
+182
+first(λ)
+follow(<term_next>)
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, ` }
+183
+first(( <paren_expr>)
+first(( <paren_expr>)
+{ ( }
+184
+first(<unary_op> <factor>)
+first(<unary_op> <factor>)
+{ !, ~ }
+185
+first(id <factor_id_next>)
+first(id <factor_id_next>)
+{ id }
+186
+first(intlit)
+first(intlit)
+{ intlit }
+187
+first(dblit)
+first(dblit)
+{ dblit }
+188
+first(chrlit)
+first(chrlit)
+{ chrlit }
+189
+first(stringlit)
+first(stringlit)
+{ stringlit }
+190
+first(sunshine)
+first(sunshine)
+{ sunshine }
+191
+first(frost)
+first(frost)
+{ frost }
+192
+first(<data_type> ) <factor>)
+first(<data_type> ) <factor>)
+{ branch, leaf, seed, tree, vine }
+193
+first(<expression> ))
+first(<expression> ))
+{ !, ~, (, id, intlit, dblit, chrlit, stringlit, sunshine, frost }
+194
+first(~)
+first(~)
+{ ~ }
+195
+first(!)
+first(!)
+{ ! }
+196
+first(<array_access> <post_array_access>)
+first(<array_access> <post_array_access>)
+{ [ }
+197
+first(<struct_access>)
+first(<struct_access>)
+{ . }
+198
+first(( <arguments> ))
+first(( <arguments> ))
+{ ( }
+199
+first(λ)
+follow(<factor_id_next>)
+{ ), ], }, ,, ;, >, <, >=, <=, ==, !=, &&, ||, +, -, `, *, /, % }

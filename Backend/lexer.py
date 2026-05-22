@@ -323,140 +323,148 @@ class Lexer:
         - tokens: list of Token objects
         - errors: list of LexicalError objects
         """
-        tokens = []  # List to store all tokens found
-        line = 1     # Current line number (for token tracking)
-        errors = []  # List to store all lexical errors found
-        pos = self.pos.copy()  # Initialize pos for EOF handling (avoids crash on empty source)
-        
-        # Main loop: process each character until end of file
-        while self.current_char != None:
-            
+        tokens = []                                                  # accumulator: every recognized Token is appended here
+        line = 1                                                     # running line number (1-indexed for user-facing errors)
+        errors = []                                                  # accumulator: every LexicalError encountered is appended here
+        pos = self.pos.copy()                                        # snapshot of current pos; reused as fallback for EOF token at end
+
+        # Main loop: drive the FSM one character at a time until source is exhausted (current_char becomes None).
+        while self.current_char != None:                             # None sentinel = end of source_code reached
+
             # =====================================================================
             # KEYWORD & IDENTIFIER RECOGNITION
-            # Check if current character starts a keyword or identifier (letter)
+            # Hand-written transition diagram: each branch matches one keyword.
+            # If no keyword path completes, the trailing "else" falls through to
+            # generic identifier scanning at the bottom of this if-block.
             # =====================================================================
-            if self.current_char in ALPHA:
-                ident_str = ''      # String to build the identifier/keyword
-                pos = self.pos.copy()  # Save position for error reporting
-                
+            if self.current_char in ALPHA:                           # only letters can start a keyword/identifier (digits cannot)
+                ident_str = ''                                       # buffer that will hold the lexeme as we walk it character-by-character
+                pos = self.pos.copy()                                # capture starting position so error/Token carries the *first* char's line/col
+
                 # --- Letter B: 'branch', 'bud', 'bundle' ---
-                if self.current_char == "b":
-                    ident_str += self.current_char
-                    self.advance()
-                    if self.current_char == "r": # branch
-                        ident_str += self.current_char
-                        self.advance()
-                        if self.current_char == "a":
-                            ident_str += self.current_char
-                            self.advance()
-                            if self.current_char == "n":
-                                ident_str += self.current_char
-                                self.advance()
-                                if self.current_char == "c":
-                                    ident_str += self.current_char
-                                    self.advance()
-                                    if self.current_char == "h":
-                                        ident_str += self.current_char
-                                        self.advance()
-                                        # Branch keyword recognized - emit token
+                if self.current_char == "b":                         # FSM root for words starting with 'b'
+                    ident_str += self.current_char                   # buffer the 'b'
+                    self.advance()                                   # consume it; current_char now points to the 2nd letter
+                    if self.current_char == "r":                     # 'b'+'r' → potentially "branch"
+                        ident_str += self.current_char               # buffer the 'r'
+                        self.advance()                               # consume 'r'; look at 3rd letter
+                        if self.current_char == "a":                 # 'br'+'a' → still on track for "branch"
+                            ident_str += self.current_char           # buffer the 'a'
+                            self.advance()                           # consume 'a'
+                            if self.current_char == "n":             # 'bra'+'n'
+                                ident_str += self.current_char       # buffer the 'n'
+                                self.advance()                       # consume 'n'
+                                if self.current_char == "c":         # 'bran'+'c'
+                                    ident_str += self.current_char   # buffer the 'c'
+                                    self.advance()                   # consume 'c'
+                                    if self.current_char == "h":     # 'branc'+'h' → full keyword spelled out
+                                        ident_str += self.current_char  # buffer the trailing 'h'
+                                        self.advance()               # consume 'h'; current_char is now whatever comes AFTER "branch"
+                                        # Maximal-munch check: only emit BRANCH token if the next char is a legal delimiter.
+                                        # Otherwise "branchx" must become an identifier, not keyword+identifier.
                                         if self.current_char is None or self.current_char in space_delim or self.current_char == ';':
-                                            tokens.append(Token(TT_RW_BRANCH, ident_str, line, pos.col))
-                                            continue
-                                        elif self.current_char not in ALPHANUM:
-                                            tokens.append(Token(TT_RW_BRANCH, ident_str, line, pos.col))
-                                            continue
-                    elif self.current_char == "u":
-                        ident_str += self.current_char
-                        self.advance()
-                        if self.current_char == "d": # bud
-                            ident_str += self.current_char
-                            self.advance()
+                                            tokens.append(Token(TT_RW_BRANCH, ident_str, line, pos.col))  # emit reserved-word token
+                                            continue                 # restart the outer while loop — do NOT fall through to identifier scan
+                                        elif self.current_char not in ALPHANUM:  # any non-alphanumeric (e.g. '(', '{') also closes the keyword
+                                            tokens.append(Token(TT_RW_BRANCH, ident_str, line, pos.col))  # emit reserved-word token
+                                            continue                 # restart the outer while loop
+                    elif self.current_char == "u":                       # 'b'+'u' → either "bud" or "bundle"
+                        ident_str += self.current_char                   # buffer the 'u'
+                        self.advance()                                   # consume 'u'
+                        if self.current_char == "d":                     # 'bu'+'d' → potentially "bud"
+                            ident_str += self.current_char               # buffer the 'd'
+                            self.advance()                               # consume 'd'; check what follows
+                            # Maximal-munch: "bud" needs whitespace or delim4 ({':', '('}) to terminate.
                             if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in delim4:
-                                tokens.append(Token(TT_RW_BUD, ident_str, line, pos.col))
-                                continue
+                                tokens.append(Token(TT_RW_BUD, ident_str, line, pos.col))  # emit BUD reserved-word token
+                                continue                                 # restart outer loop on next char
                             elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in delim4 and self.current_char not in ALPHANUM:
+                                # Strict rule: an illegal delimiter after the keyword is a lexical error (not a fallback to identifier).
                                 errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                self.advance()
-                                continue
-                        elif self.current_char == "n": # bundle
-                            ident_str += self.current_char
-                            self.advance()
-                            if self.current_char == "d":
-                                ident_str += self.current_char
-                                self.advance()
-                                if self.current_char == "l":
-                                    ident_str += self.current_char
-                                    self.advance()
-                                    if self.current_char == "e":
-                                        ident_str += self.current_char
-                                        self.advance()
-                                        if self.current_char is not None and self.current_char in space_delim: # struct delimiter (was hawk_dlm)
-                                            tokens.append(Token(TT_RW_BUNDLE, ident_str, line, pos.col))
-                                            continue
+                                self.advance()                           # skip the bad char so we don't loop forever
+                                continue                                 # back to outer scan
+                        elif self.current_char == "n":                   # 'bu'+'n' → potentially "bundle"
+                            ident_str += self.current_char               # buffer 'n'
+                            self.advance()                               # consume 'n'
+                            if self.current_char == "d":                 # 'bun'+'d'
+                                ident_str += self.current_char           # buffer 'd'
+                                self.advance()                           # consume 'd'
+                                if self.current_char == "l":             # 'bund'+'l'
+                                    ident_str += self.current_char       # buffer 'l'
+                                    self.advance()                       # consume 'l'
+                                    if self.current_char == "e":         # 'bundl'+'e' → "bundle" complete
+                                        ident_str += self.current_char   # buffer trailing 'e'
+                                        self.advance()                   # consume 'e'
+                                        if self.current_char is not None and self.current_char in space_delim:  # bundle requires whitespace next
+                                            tokens.append(Token(TT_RW_BUNDLE, ident_str, line, pos.col))  # emit BUNDLE token
+                                            continue                     # next iteration
                                         elif self.current_char is not None and self.current_char not in space_delim and self.current_char not in ALPHANUM:
+                                            # Anything else (and not a letter that would extend it to an identifier) → illegal delimiter error.
                                             errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                            self.advance()
-                                            continue
-                
+                                            self.advance()               # skip bad char
+                                            continue                     # restart outer scan
+
                 #Letter C
-                elif self.current_char == "c":
-                    ident_str += self.current_char
-                    self.advance()
-                    if self.current_char == "u": # cultivate
-                        ident_str += self.current_char
-                        self.advance()
-                        if self.current_char == "l":
-                            ident_str += self.current_char
-                            self.advance()
-                            if self.current_char == "t":
-                                ident_str += self.current_char
-                                self.advance()
-                                if self.current_char == "i":
-                                    ident_str += self.current_char
-                                    self.advance()
-                                    if self.current_char == "v":
-                                        ident_str += self.current_char
-                                        self.advance()
-                                        if self.current_char == "a":
-                                            ident_str += self.current_char
-                                            self.advance()
-                                            if self.current_char == "t":
-                                                ident_str += self.current_char
-                                                self.advance()
-                                                if self.current_char == "e":
-                                                    ident_str += self.current_char
-                                                    self.advance()
+                elif self.current_char == "c":                           # FSM root for words starting with 'c' (only "cultivate")
+                    ident_str += self.current_char                       # buffer 'c'
+                    self.advance()                                       # consume 'c'
+                    if self.current_char == "u":                         # 'c'+'u' → on track for "cultivate"
+                        ident_str += self.current_char                   # buffer 'u'
+                        self.advance()                                   # consume 'u'
+                        if self.current_char == "l":                     # 'cu'+'l'
+                            ident_str += self.current_char               # buffer 'l'
+                            self.advance()                               # consume 'l'
+                            if self.current_char == "t":                 # 'cul'+'t'
+                                ident_str += self.current_char           # buffer 't'
+                                self.advance()                           # consume 't'
+                                if self.current_char == "i":             # 'cult'+'i'
+                                    ident_str += self.current_char       # buffer 'i'
+                                    self.advance()                       # consume 'i'
+                                    if self.current_char == "v":         # 'culti'+'v'
+                                        ident_str += self.current_char   # buffer 'v'
+                                        self.advance()                   # consume 'v'
+                                        if self.current_char == "a":     # 'cultiv'+'a'
+                                            ident_str += self.current_char  # buffer 'a'
+                                            self.advance()               # consume 'a'
+                                            if self.current_char == "t": # 'cultiva'+'t'
+                                                ident_str += self.current_char  # buffer 't'
+                                                self.advance()           # consume 't'
+                                                if self.current_char == "e":  # 'cultivat'+'e' → "cultivate" complete
+                                                    ident_str += self.current_char  # buffer trailing 'e'
+                                                    self.advance()       # consume 'e'
+                                                    # cultivate (for-loop) requires whitespace or delim4 ({':', '('}) next.
                                                     if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in delim4:
-                                                        tokens.append(Token(TT_RW_CULTIVATE, ident_str, line, pos.col))
-                                                        continue
+                                                        tokens.append(Token(TT_RW_CULTIVATE, ident_str, line, pos.col))  # emit CULTIVATE token
+                                                        continue         # next iteration
                                                     elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in delim4 and self.current_char not in ALPHANUM:
-                                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                                        self.advance()
-                                                        continue
-                
+                                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))  # illegal trailer
+                                                        self.advance()   # skip bad char
+                                                        continue         # restart outer scan
+
                 # Letter E
-                elif self.current_char == "e":
-                    ident_str += self.current_char
-                    self.advance()
-                    if self.current_char == "m": # empty
-                        ident_str += self.current_char
-                        self.advance()
-                        if self.current_char == "p":
-                            ident_str += self.current_char
-                            self.advance()
-                            if self.current_char == "t":
-                                ident_str += self.current_char
-                                self.advance()
-                                if self.current_char == "y":
-                                    ident_str += self.current_char
-                                    self.advance()
+                elif self.current_char == "e":                           # FSM root for 'e' (only "empty")
+                    ident_str += self.current_char                       # buffer 'e'
+                    self.advance()                                       # consume 'e'
+                    if self.current_char == "m":                         # 'e'+'m' → potentially "empty"
+                        ident_str += self.current_char                   # buffer 'm'
+                        self.advance()                                   # consume 'm'
+                        if self.current_char == "p":                     # 'em'+'p'
+                            ident_str += self.current_char               # buffer 'p'
+                            self.advance()                               # consume 'p'
+                            if self.current_char == "t":                 # 'emp'+'t'
+                                ident_str += self.current_char           # buffer 't'
+                                self.advance()                           # consume 't'
+                                if self.current_char == "y":             # 'empt'+'y' → "empty" complete
+                                    ident_str += self.current_char       # buffer trailing 'y'
+                                    self.advance()                       # consume 'y'
+                                    # empty is the void return type; whitespace is a valid delimiter.
                                     if self.current_char is None or (self.current_char is not None and self.current_char.isspace()) or self.current_char in space_delim:
-                                        tokens.append(Token(TT_RW_EMPTY, ident_str, line, pos.col))
-                                        continue
+                                        tokens.append(Token(TT_RW_EMPTY, ident_str, line, pos.col))  # emit EMPTY token
+                                        continue                         # next iteration
                                     elif self.current_char is not None and not self.current_char.isspace() and self.current_char not in space_delim and self.current_char not in ALPHANUM:
-                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))
-                                        self.advance()
-                                        continue
+                                        errors.append(LexicalError(pos, f"Invalid delimiter '{self.current_char}' after '{ident_str}'"))  # illegal trailer
+                                        self.advance()                   # skip bad char
+                                        continue                         # restart outer scan
 
                 # Letter F
                 elif self.current_char == "f":

@@ -1,0 +1,943 @@
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+78 
+X. CONTEXT-FREE GRAMMAR 
+ 
+# Production  Production Set 
+1 <program> -> <global_declaration> <function_definition> root ( ) { <statement> } 
+2 <global_declaration> -> bundle id <bundle_or_var> <global_declaration> 
+3 <global_declaration> -> <data_type> id <array_dec> <var_value> ; <global_declaration> 
+4 <global_declaration> -> fertile <data_type> id = <init_val> <const_next> ; <global_declaration> 
+5 <global_declaration> -> λ 
+6 <bundle_or_var> -> { <bundle_members> } ; 
+7 <bundle_or_var> -> <bundle_mem_dec> ; 
+8 <declaration> -> <var_dec> ; <declaration> 
+9 <declaration> -> <const_dec> ; <declaration> 
+10 <declaration> -> λ 
+11 <data_type> -> seed 
+12 <data_type> -> tree 
+13 <data_type> -> leaf 
+14 <data_type> -> branch 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+79 
+15 <data_type> -> vine 
+16 <const_dec> -> fertile <data_type> id = <init_val> <const_next> 
+17 <const_next> -> , id = <init_val> <const_next> 
+18 <const_next> -> λ 
+19 <var_dec> -> <data_type> id <array_dec> <var_value> 
+20 <var_dec> -> bundle id <bundle_mem_dec> 
+21 <bundle_mem_dec> -> id <array_dec> <var_value_next> 
+22 <bundle_mem_dec> -> , id <var_value_next> 
+23 <bundle_mem_dec> -> λ 
+24 <var_value> -> = <init_val> <var_value_next> 
+25 <var_value> -> <var_value_next> 
+26 <var_value_next> -> , id <array_dec> <var_value> 
+27 <var_value_next> -> λ 
+28 <init_val> -> <array_init_opt> 
+29 <init_val> -> water ( <water_arg> ) 
+30 <init_val> -> <expression> 
+31 <array_dec> -> [ <array_dim_opt> ] <array_dec> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+80 
+32 <array_dec> -> λ 
+33 <array_dim_opt> -> intlit 
+34 <array_dim_opt> -> dblit 
+35 <array_dim_opt> -> λ 
+36 <array_init_opt> -> { <init_vals> } 
+37 <array_init_opt> -> λ 
+38 <init_vals> -> <init_val_item> <init_vals_next> 
+39 <init_vals> -> λ 
+40 <init_vals_next> -> , <init_val_item> <init_vals_next> 
+41 <init_vals_next> -> λ 
+42 <init_val_item> -> { <init_vals> } 
+43 <init_val_item> -> <expression> 
+44 <bundle_declaration> -> bundle id { <bundle_members> } 
+45 <bundle_members> -> <data_type> id ; <bundle_members> 
+46 <bundle_members> -> id id ; <bundle_members> 
+47 <bundle_members> -> λ 
+48 <function_definition> -> pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+81 
+49 <function_definition> -> λ 
+50 <return_type> -> <data_type> 
+51 <return_type> -> empty 
+52 <return_type> -> id 
+53 <parameters> -> λ 
+54 <parameters> -> <param> <param_next> 
+55 <param> -> <data_type> id <param_array> 
+56 <param> -> id id 
+57 <param_array> -> λ 
+58 <param_array> -> [ ] 
+59 <param_next> -> λ 
+60 <param_next> -> , <param> <param_next> 
+61 <reclaim_opt> -> reclaim <reclaim_value> 
+62 <reclaim_opt> -> λ 
+63 <reclaim_value> -> <expression> ; 
+64 <reclaim_value> -> ; 
+65 <statement> -> <simple_stmt> <statement> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+82 
+66 <statement> -> λ 
+67 <simple_stmt> -> id <id_stmt> 
+68 <simple_stmt> -> <inc_dec_op> id ; 
+69 <simple_stmt> -> <io_stmt> 
+70 <simple_stmt> -> <conditional_stmt> 
+71 <simple_stmt> -> <loop_stmt> 
+72 <simple_stmt> -> <switch_stmt> 
+73 <simple_stmt> -> <control_stmt> 
+74 <simple_stmt> -> reclaim <reclaim_value> 
+75 <simple_stmt> -> <var_dec> ; 
+76 <simple_stmt> -> <const_dec> ; 
+77 <id_stmt> -> <id_next> <assign_op> <assign_rhs> ; 
+78 <id_stmt> -> <inc_dec_op> ; 
+79 <id_stmt> -> ( <arguments> ) ; 
+80 <assignment_stmt> -> <value> <assign_op> <assign_rhs> ; 
+81 <assign_rhs> -> water ( <water_arg> ) 
+82 <assign_rhs> -> <expression> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+83 
+83 <assign_op> -> = 
+84 <assign_op> -> += 
+85 <assign_op> -> -= 
+86 <assign_op> -> *= 
+87 <assign_op> -> /= 
+88 <assign_op> -> %= 
+89 <value> -> id <id_next> 
+90 <id_next> -> <array_access> <post_array_access> 
+91 <id_next> -> <struct_access> 
+92 <id_next> -> λ 
+93 <array_access> -> [ <expression> ] <array_access_more> 
+94 <array_access_more> -> [ <expression> ] <array_access_more> 
+95 <array_access_more> -> λ 
+96 <struct_access> -> . id <struct_access_more> 
+97 <struct_access_more> -> . id <struct_access_more> 
+98 <struct_access_more> -> λ 
+99 <post_array_access> -> . id <post_array_access> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+84 
+100 <post_array_access> -> λ 
+101 <io_stmt> -> plant ( <arguments> ) ; 
+102 <io_stmt> -> water ( <water_arg> ) ; 
+103 <water_arg> -> <data_type> 
+104 <water_arg> -> id <water_id_tail> 
+105 <water_arg> -> λ 
+106 <water_id_tail> -> [ <expression> ] <water_id_tail> 
+107 <water_id_tail> -> λ 
+108 <arguments> -> <expression> <arg_next> 
+109 <arguments> -> λ 
+110 <arg_next> -> , <expression> <arg_next> 
+111 <arg_next> -> λ 
+112 <conditional_stmt> -> spring ( <expression> ) { <statement> } <elseif_chain> <else_opt> 
+113 <elseif_chain> -> bud ( <expression> ) { <statement> } <elseif_chain> 
+114 <elseif_chain> -> λ 
+115 <else_opt> -> wither { <statement> } 
+116 <else_opt> -> λ 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+85 
+117 <loop_stmt> -> grow ( <expression> ) { <statement> } 
+118 <loop_stmt> -> cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> } 
+119 <loop_stmt> -> tend { <statement> } grow ( <expression> ) ; 
+120 <for_init> -> <data_type> id <array_dec> <var_value> 
+121 <for_init> -> id <id_next> <assign_op> <expression> 
+122 <for_init> -> λ 
+123 <for_update> ->  id <for_update_type> 
+124 <for_update> -> λ 
+125 <for_update_type> -> <inc_dec_op> 
+126 <for_update_type> -> <id_next> <assign_op> <expression> 
+127 <unary_stmt> -> id <inc_dec_op> ; 
+128 <inc_dec_op> -> ++ 
+129 <inc_dec_op> -> -- 
+130 <switch_stmt> -> harvest ( <expression> ) { <case_list> <default_opt> } 
+131 <case_list> -> variety <case_literal> : <case_statements> <case_list> 
+132 <case_list> -> λ 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+86 
+133 <case_literal> -> intlit 
+134 <case_literal> -> dblit 
+135 <case_literal> -> chrlit 
+136 <case_literal> -> stringlit 
+137 <case_literal> -> sunshine 
+138 <case_literal> -> frost 
+139 <case_statements> -> <case_statement> <case_statements> 
+140 <case_statements> -> λ 
+141 <case_statement> -> id <id_stmt> 
+142 <case_statement> -> <inc_dec_op> id ; 
+143 <case_statement> -> <var_dec> ; 
+144 <case_statement> -> <io_stmt> 
+145 <case_statement> -> <conditional_stmt> 
+146 <case_statement> -> <loop_stmt> 
+147 <case_statement> -> <switch_stmt> 
+148 <case_statement> -> { <case_statements> } 
+149 <case_statement> -> prune ; 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+87 
+150 <case_statement> -> skip ; 
+151 <case_statement> -> reclaim <reclaim_value> 
+152 <default_opt> -> soil : <case_statements> 
+153 <default_opt> -> λ 
+154 <control_stmt> -> prune ; 
+155 <control_stmt> -> skip ; 
+156 <function_call> -> id ( <arguments> ) ; 
+157 <expression> -> <logic_or> 
+158 <logic_or> -> <logic_and> <logic_or_next> 
+159 <logic_or_next> -> || <logic_and> <logic_or_next> 
+160 <logic_or_next> -> λ 
+161 <logic_and> -> <relational> <logic_and_next> 
+162 <logic_and_next> -> && <relational> <logic_and_next> 
+163 <logic_and_next> -> λ 
+164 <relational> -> <arithmetic> <relational_next> 
+165 <relational_next> -> <relational_op> <arithmetic> 
+166 <relational_next> -> λ 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+88 
+167 <relational_op> -> > 
+168 <relational_op> -> < 
+169 <relational_op> -> >= 
+170 <relational_op> -> <= 
+171 <relational_op> -> == 
+172 <relational_op> -> != 
+173 <arithmetic> -> <term> <arithmetic_next> 
+174 <arithmetic_next> -> + <term> <arithmetic_next> 
+175 <arithmetic_next> -> - <term> <arithmetic_next> 
+176 <arithmetic_next> -> ` <term> <arithmetic_next> 
+177 <arithmetic_next> -> λ 
+178 <term> -> <factor> <term_next> 
+179 <term_next> -> * <factor> <term_next> 
+180 <term_next> -> / <factor> <term_next> 
+181 <term_next> -> % <factor> <term_next> 
+182 <term_next> -> λ 
+183 <factor> -> ( <paren_expr> 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+89 
+184 <factor> -> <unary_op> <factor> 
+185 <factor> -> id <factor_id_next> 
+186 <factor> -> intlit 
+187 <factor> -> dblit 
+188 <factor> -> chrlit 
+189 <factor> -> stringlit 
+190 <factor> -> sunshine 
+191 <factor> -> frost 
+192 <paren_expr> -> <data_type> ) <factor> 
+193 <paren_expr> -> <expression> ) 
+194 <unary_op> -> ~ 
+195 <unary_op> -> ! 
+196 <factor_id_next> -> <array_access> <post_array_access> 
+197 <factor_id_next> -> <struct_access> 
+198 <factor_id_next> -> ( <arguments> ) 
+199 <factor_id_next> -> λ 
+ 
+ 
+ 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+90 
+XI. FIRST SET 
+ 
+# Nonterminal -> First Set 
+1 <global_declaration> -> { branch, bundle, fertile, leaf, seed, tree, vine, λ } 
+2 <bundle_or_var> -> { ,, ;, id, { } 
+3 <declaration> -> { branch, bundle, fertile, leaf, seed, tree, vine, λ } 
+4 <data_type> -> { branch, leaf, seed, tree, vine } 
+5 <const_dec> -> { fertile } 
+6 <const_next> -> { ,, λ } 
+7 <var_dec> -> { branch, bundle, leaf, seed, tree, vine } 
+8 <bundle_mem_dec> -> { ,, id, λ } 
+9 <var_value> -> { ,, =, λ } 
+10 <var_value_next> -> { ,, λ } 
+11 <init_val> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, {, 
+~, λ } 
+12 <array_dec> -> { [, λ } 
+13 <array_dim_opt> -> { dblit, intlit, λ } 
+14 <array_init_opt> -> { {, λ } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+91 
+15 <init_vals> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, {, ~, λ } 
+16 <init_vals_next> -> { ,, λ } 
+17 <init_val_item> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, {, ~ } 
+18 <bundle_declaration> -> { bundle } 
+19 <bundle_members> -> { branch, id, leaf, seed, tree, vine, λ } 
+20 <function_definition> -> { pollinate, λ } 
+21 <return_type> -> { branch, empty, id, leaf, seed, tree, vine } 
+22 <parameters> -> { branch, id, leaf, seed, tree, vine, λ } 
+23 <param> -> { branch, id, leaf, seed, tree, vine } 
+24 <param_array> -> { [, λ } 
+25 <param_next> -> { ,, λ } 
+26 <reclaim_opt> -> { reclaim, λ } 
+27 <reclaim_value> -> { !, (, ;, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ } 
+28 <statement> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, 
+vine, water, λ } 
+29 <simple_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, 
+vine, water } 
+30 <id_stmt> -> { %=, (, *=, ++, +=, --, -=, ., /=, =, [ } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+92 
+31 <assign_rhs> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, ~ 
+} 
+32 <assign_op> -> { %=, *=, +=, -=, /=, = } 
+33 <value> -> { id } 
+34 <id_next> -> { ., [, λ } 
+35 <array_access> -> { [ } 
+36 <array_access_more> -> { [, λ } 
+37 <struct_access> -> { . } 
+38 <struct_access_more> -> { ., λ } 
+39 <post_array_access> -> { ., λ } 
+40 <io_stmt> -> { plant, water } 
+41 <water_arg> -> { branch, id, leaf, seed, tree, vine, λ } 
+42 <water_id_tail> -> { [, λ } 
+43 <arguments> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~, λ } 
+44 <arg_next> -> { ,, λ } 
+45 <conditional_stmt> -> { spring } 
+46 <elseif_chain> -> { bud, λ } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+93 
+47 <else_opt> -> { wither, λ } 
+48 <loop_stmt> -> { cultivate, grow, tend } 
+49 <for_init> -> { branch, id, leaf, seed, tree, vine, λ } 
+50 <for_update> -> { id, λ } 
+51 <unary_stmt> -> { id } 
+52 <inc_dec_op> -> { ++, -- } 
+53 <switch_stmt> -> { harvest } 
+54 <case_list> -> { variety, λ } 
+55 <case_literal> -> { chrlit, dblit, frost, intlit, stringlit, sunshine } 
+56 <case_statements> -> 
+{ ++, --, branch, bundle, cultivate, grow, harvest, id, leaf, 
+plant, prune, reclaim, seed, skip, spring, tend, tree, vine, 
+water, {, λ } 
+57 <case_statement> -> 
+{ ++, --, branch, bundle, cultivate, grow, harvest, id, leaf, 
+plant, prune, reclaim, seed, skip, spring, tend, tree, vine, 
+water, { } 
+58 <default_opt> -> { soil, λ } 
+59 <control_stmt> -> { prune, skip } 
+60 <function_call> -> { id } 
+61 <logic_or_next> -> { ||, λ } 
+62 <logic_and_next> -> { &&, λ } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+94 
+63 <relational_next> -> { !=, <, <=, ==, >, >=, λ } 
+64 <relational_op> -> { !=, <, <=, ==, >, >= } 
+65 <arithmetic_next> -> { +, -, `, λ } 
+66 <term_next> -> { %, *, /, λ } 
+67 <factor> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ } 
+ 
+ 
+XII. FOLLOW SET 
+ 
+# Nonterminal -> Follow Set 
+1 <program> -> { EOF } 
+2 <global_declaration> -> { pollinate, root } 
+3 <function_definition> -> { root } 
+4 <statement> -> { } } 
+5 <bundle_or_var> -> { branch, bundle, fertile, leaf, pollinate, root, seed, tree, 
+vine } 
+6 <data_type> -> { ), id } 
+7 <array_dec> -> { ,, ;, = } 
+8 <var_value> -> { ; } 
+9 <init_val> -> { ,, ; } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+95 
+10 <const_next> -> { ; } 
+11 <bundle_members> -> { } } 
+12 <bundle_mem_dec> -> { ; } 
+13 <var_dec> -> { ; } 
+14 <declaration> -> {  } 
+15 <const_dec> -> { ; } 
+16 <var_value_next> -> { ; } 
+17 <array_init_opt> -> { ,, ; } 
+18 <water_arg> -> { ) } 
+19 <expression> -> { ), ,, ;, ], } } 
+20 <array_dim_opt> -> { ] } 
+21 <init_vals> -> { } } 
+22 <init_val_item> -> { ,, } } 
+23 <init_vals_next> -> { } } 
+24 <return_type> -> { id } 
+25 <parameters> -> { ) } 
+26 <param> -> { ), , } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+96 
+27 <param_next> -> { ) } 
+28 <param_array> -> { ), , } 
+29 <reclaim_value> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+30 <reclaim_opt> -> {  } 
+31 <simple_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, 
+vine, water, } } 
+32 <id_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+33 <inc_dec_op> -> { ), ;, id } 
+34 <io_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+35 <conditional_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+36 <loop_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+37 <switch_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+38 <control_stmt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, spring, tend, tree, 
+vine, water, } } 
+39 <id_next> -> { %=, *=, +=, -=, /=, = } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+97 
+40 <assign_op> -> { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, ~ 
+} 
+41 <assign_rhs> -> { ; } 
+42 <arguments> -> { ) } 
+43 <value> -> { %=, *=, +=, -=, /=, = } 
+44 <array_access> -> { !=, %, %=, &&, ), *, *=, +, +=, ,, -, -=, ., /, /=, ;, <, <=, =, ==, 
+>, >=, ], `, ||, } } 
+45 <post_array_access> -> { !=, %, %=, &&, ), *, *=, +, +=, ,, -, -=, /, /=, ;, <, <=, =, ==, >, 
+>=, ], `, ||, } } 
+46 <struct_access> -> { !=, %, %=, &&, ), *, *=, +, +=, ,, -, -=, /, /=, ;, <, <=, =, ==, >, 
+>=, ], `, ||, } } 
+47 <array_access_more> -> { !=, %, %=, &&, ), *, *=, +, +=, ,, -, -=, ., /, /=, ;, <, <=, =, ==, 
+>, >=, ], `, ||, } } 
+48 <struct_access_more> -> { !=, %, %=, &&, ), *, *=, +, +=, ,, -, -=, /, /=, ;, <, <=, =, ==, >, 
+>=, ], `, ||, } } 
+49 <water_id_tail> -> { ) } 
+50 <arg_next> -> { ) } 
+51 <elseif_chain> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, wither, {, } } 
+52 <else_opt> -> 
+{ ++, --, branch, bundle, cultivate, fertile, grow, harvest, id, 
+leaf, plant, prune, reclaim, seed, skip, soil, spring, tend, 
+tree, variety, vine, water, {, } } 
+53 <for_init> -> { ; } 
+54 <for_update> -> { ) } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+98 
+55 <for_update_type> -> { ) } 
+56 <case_list> -> { soil, } } 
+57 <default_opt> -> { } } 
+58 <case_literal> -> { : } 
+59 <case_statements> -> { soil, variety, } } 
+60 <case_statement> -> 
+{ ++, --, branch, bundle, cultivate, grow, harvest, id, leaf, 
+plant, prune, reclaim, seed, skip, soil, spring, tend, tree, 
+variety, vine, water, {, } } 
+61 <logic_or> -> { ), ,, ;, ], } } 
+62 <logic_and> -> { ), ,, ;, ], ||, } } 
+63 <logic_or_next> -> { ), ,, ;, ], } } 
+64 <relational> -> { &&, ), ,, ;, ], ||, } } 
+65 <logic_and_next> -> { ), ,, ;, ], ||, } } 
+66 <arithmetic> -> { !=, &&, ), ,, ;, <, <=, ==, >, >=, ], ||, } } 
+67 <relational_next> -> { &&, ), ,, ;, ], ||, } } 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+99 
+XIII. PREDICT SET 
+ 
+No. FIRST / Expression Form Basis Predict Set 
+1 
+first(<global_declaration> 
+<function_definition> root ( ) { 
+<statement> }) 
+first(<global_declaration>) 
+{ branch, bundle, fertile, 
+leaf, pollinate, root, seed, 
+tree, vine } 
+2 first(bundle id <bundle_or_var> 
+<global_declaration>) first(bundle) { bundle } 
+3 
+first(<data_type> id <array_dec> 
+<var_value> ; 
+<global_declaration>) 
+first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+4 
+first(fertile <data_type> id = 
+<init_val> <const_next> ; 
+<global_declaration>) 
+first(fertile) { fertile } 
+5 first(λ) ∪ 
+follow(<global_declaration>) follow(<global_declaration>) { pollinate, root } 
+6 first({ <bundle_members> } ;) first({) { { } 
+7 first(<bundle_mem_dec> ;) first(<bundle_mem_dec>) { ,, ;, id } 
+8 first(<var_dec> ; <declaration>) first(<var_dec>) { branch, bundle, leaf, 
+seed, tree, vine } 
+9 first(<const_dec> ; <declaration>) first(<const_dec>) { fertile } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+100 
+10 first(λ) ∪ follow(<declaration>) follow(<declaration>) {  } 
+11 first(seed) first(seed) { seed } 
+12 first(tree) first(tree) { tree } 
+13 first(leaf) first(leaf) { leaf } 
+14 first(branch) first(branch) { branch } 
+15 first(vine) first(vine) { vine } 
+16 first(fertile <data_type> id = 
+<init_val> <const_next>) first(fertile) { fertile } 
+17 first(, id = <init_val> <const_next>) first(,) { , } 
+18 first(λ) ∪ follow(<const_next>) follow(<const_next>) { ; } 
+19 first(<data_type> id <array_dec> 
+<var_value>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+20 first(bundle id 
+<bundle_mem_dec>) first(bundle) { bundle } 
+21 first(id <array_dec> 
+<var_value_next>) first(id) { id } 
+22 first(, id <var_value_next>) first(,) { , } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+101 
+23 first(λ) ∪ 
+follow(<bundle_mem_dec>) follow(<bundle_mem_dec>) { ; } 
+24 first(= <init_val> 
+<var_value_next>) first(=) { = } 
+25 first(<var_value_next>) first(<var_value_next>) { ,, ;, λ } 
+26 first(, id <array_dec> <var_value>) first(,) { , } 
+27 first(λ) ∪ follow(<var_value_next>) follow(<var_value_next>) { ; } 
+28 first(<array_init_opt>) first(<array_init_opt>) { ,, ;, {, λ } 
+29 first(water ( <water_arg> )) first(water) { water } 
+30 first(<expression>) first(<expression>) { !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, ~ } 
+31 first([ <array_dim_opt> ] 
+<array_dec>) first([) { [ } 
+32 first(λ) ∪ follow(<array_dec>) follow(<array_dec>) { ,, ;, = } 
+33 first(intlit) first(intlit) { intlit } 
+34 first(dblit) first(dblit) { dblit } 
+35 first(λ) ∪ follow(<array_dim_opt>) follow(<array_dim_opt>) { ] } 
+36 first({ <init_vals> }) first({) { { } 
+37 first(λ) ∪ follow(<array_init_opt>) follow(<array_init_opt>) { ,, ; } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+102 
+38 first(<init_val_item> 
+<init_vals_next>) first(<init_val_item>) 
+{ !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, {, 
+~ } 
+39 first(λ) ∪ follow(<init_vals>) follow(<init_vals>) { } } 
+40 first(, <init_val_item> 
+<init_vals_next>) first(,) { , } 
+41 first(λ) ∪ follow(<init_vals_next>) follow(<init_vals_next>) { } } 
+42 first({ <init_vals> }) first({) { { } 
+43 first(<expression>) first(<expression>) { !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, ~ } 
+44 first(bundle id { 
+<bundle_members> }) first(bundle) { bundle } 
+45 first(<data_type> id ; 
+<bundle_members>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+46 first(id id ; <bundle_members>) first(id) { id } 
+47 first(λ) ∪ 
+follow(<bundle_members>) follow(<bundle_members>) { } } 
+48 
+first(pollinate <return_type> id ( 
+<parameters> ) { <statement> } 
+<function_definition>) 
+first(pollinate) { pollinate } 
+49 first(λ) ∪ 
+follow(<function_definition>) follow(<function_definition>) { root } 
+50 first(<data_type>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+103 
+51 first(empty) first(empty) { empty } 
+52 first(id) first(id) { id } 
+53 first(λ) ∪ follow(<parameters>) follow(<parameters>) { ) } 
+54 first(<param> <param_next>) first(<param>) { branch, id, leaf, seed, 
+tree, vine } 
+55 first(<data_type> id 
+<param_array>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+56 first(id id) first(id) { id } 
+57 first(λ) ∪ follow(<param_array>) follow(<param_array>) { ), , } 
+58 first([ ]) first([) { [ } 
+59 first(λ) ∪ follow(<param_next>) follow(<param_next>) { ) } 
+60 first(, <param> <param_next>) first(,) { , } 
+61 first(reclaim <reclaim_value>) first(reclaim) { reclaim } 
+62 first(λ) ∪ follow(<reclaim_opt>) follow(<reclaim_opt>) {  } 
+63 first(<expression> ;) first(<expression>) { !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, ~ } 
+64 first(;) first(;) { ; } 
+65 first(<simple_stmt> <statement>) first(<simple_stmt>) { ++, --, branch, bundle, 
+cultivate, fertile, grow, 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+104 
+harvest, id, leaf, plant, 
+prune, reclaim, seed, skip, 
+spring, tend, tree, vine, 
+water } 
+66 first(λ) ∪ follow(<statement>) follow(<statement>) { } } 
+67 first(id <id_stmt>) first(id) { id } 
+68 first(<inc_dec_op> id ;) first(<inc_dec_op>) { ++, -- } 
+69 first(<io_stmt>) first(<io_stmt>) { plant, water } 
+70 first(<conditional_stmt>) first(<conditional_stmt>) { spring } 
+71 first(<loop_stmt>) first(<loop_stmt>) { cultivate, grow, tend } 
+72 first(<switch_stmt>) first(<switch_stmt>) { harvest } 
+73 first(<control_stmt>) first(<control_stmt>) { prune, skip } 
+74 first(reclaim <reclaim_value>) first(reclaim) { reclaim } 
+75 first(<var_dec> ;) first(<var_dec>) { branch, bundle, leaf, 
+seed, tree, vine } 
+76 first(<const_dec> ;) first(<const_dec>) { fertile } 
+77 first(<id_next> <assign_op> 
+<assign_rhs> ;) first(<id_next>) { %=, *=, +=, -=, ., /=, =, [ } 
+78 first(<inc_dec_op> ;) first(<inc_dec_op>) { ++, -- } 
+79 first(( <arguments> ) ;) first(() { ( } 
+80 first(<value> <assign_op> 
+<assign_rhs> ;) first(<value>) { id } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+105 
+81 first(water ( <water_arg> )) first(water) { water } 
+82 first(<expression>) first(<expression>) { !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, ~ } 
+83 first(=) first(=) { = } 
+84 first(+=) first(+=) { += } 
+85 first(-=) first(-=) { -= } 
+86 first(*=) first(*=) { *= } 
+87 first(/=) first(/=) { /= } 
+88 first(%=) first(%=) { %= } 
+89 first(id <id_next>) first(id) { id } 
+90 first(<array_access> 
+<post_array_access>) first(<array_access>) { [ } 
+91 first(<struct_access>) first(<struct_access>) { . } 
+92 first(λ) ∪ follow(<id_next>) follow(<id_next>) { %=, *=, +=, -=, /=, = } 
+93 first([ <expression> ] 
+<array_access_more>) first([) { [ } 
+94 first([ <expression> ] 
+<array_access_more>) first([) { [ } 
+95 first(λ) ∪ 
+follow(<array_access_more>) follow(<array_access_more>) 
+{ !=, %, %=, &&, ), *, *=, +, 
++=, ,, -, -=, ., /, /=, ;, <, <=, 
+=, ==, >, >=, ], `, ||, } } 
+96 first(. id <struct_access_more>) first(.) { . } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+106 
+97 first(. id <struct_access_more>) first(.) { . } 
+98 first(λ) ∪ 
+follow(<struct_access_more>) follow(<struct_access_more>) 
+{ !=, %, %=, &&, ), *, *=, +, 
++=, ,, -, -=, /, /=, ;, <, <=, =, 
+==, >, >=, ], `, ||, } } 
+99 first(. id <post_array_access>) first(.) { . } 
+100 first(λ) ∪ 
+follow(<post_array_access>) follow(<post_array_access>) 
+{ !=, %, %=, &&, ), *, *=, +, 
++=, ,, -, -=, /, /=, ;, <, <=, =, 
+==, >, >=, ], `, ||, } } 
+101 first(plant ( <arguments> ) ;) first(plant) { plant } 
+102 first(water ( <water_arg> ) ;) first(water) { water } 
+103 first(<data_type>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+104 first(id <water_id_tail>) first(id) { id } 
+105 first(λ) ∪ follow(<water_arg>) follow(<water_arg>) { ) } 
+106 first([ <expression> ] 
+<water_id_tail>) first([) { [ } 
+107 first(λ) ∪ follow(<water_id_tail>) follow(<water_id_tail>) { ) } 
+108 first(<expression> <arg_next>) first(<expression>) { !, (, chrlit, dblit, frost, id, 
+intlit, stringlit, sunshine, ~ } 
+109 first(λ) ∪ follow(<arguments>) follow(<arguments>) { ) } 
+110 first(, <expression> <arg_next>) first(,) { , } 
+111 first(λ) ∪ follow(<arg_next>) follow(<arg_next>) { ) } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+107 
+112 
+first(spring ( <expression> ) { 
+<statement> } <elseif_chain> 
+<else_opt>) 
+first(spring) { spring } 
+113 first(bud ( <expression> ) { 
+<statement> } <elseif_chain>) first(bud) { bud } 
+114 first(λ) ∪ follow(<elseif_chain>) follow(<elseif_chain>) 
+{ ++, --, branch, bundle, 
+cultivate, fertile, grow, 
+harvest, id, leaf, plant, 
+prune, reclaim, seed, skip, 
+soil, spring, tend, tree, 
+variety, vine, water, 
+wither, {, } } 
+115 first(wither { <statement> }) first(wither) { wither } 
+116 first(λ) ∪ follow(<else_opt>) follow(<else_opt>) 
+{ ++, --, branch, bundle, 
+cultivate, fertile, grow, 
+harvest, id, leaf, plant, 
+prune, reclaim, seed, skip, 
+soil, spring, tend, tree, 
+variety, vine, water, {, } } 
+117 first(grow ( <expression> ) { 
+<statement> }) first(grow) { grow } 
+118 
+first(cultivate ( <for_init> ; 
+<expression> ; <for_update> ) { 
+<statement> }) 
+first(cultivate) { cultivate } 
+119 first(tend { <statement> } grow ( 
+<expression> ) ;) first(tend) { tend } 
+120 first(<data_type> id <array_dec> 
+<var_value>) first(<data_type>) { branch, leaf, seed, tree, 
+vine } 
+121 first(id <id_next> <assign_op> 
+<expression>) first(id) { id } 
+122 first(λ) ∪ follow(<for_init>) follow(<for_init>) { ; } 
+123 first(id <for_update_type>) first(id) { id } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+108 
+124 first(λ) ∪ follow(<for_update>) follow(<for_update>) { ) } 
+125 first(<inc_dec_op>) first(<inc_dec_op>) { ++, -- } 
+126 first(<id_next> <assign_op> 
+<expression>) first(<id_next>) { %=, *=, +=, -=, ., /=, =, [ } 
+127 first(id <inc_dec_op> ;) first(id) { id } 
+128 first(++) first(++) { ++ } 
+129 first(--) first(--) { -- } 
+130 first(harvest ( <expression> ) { 
+<case_list> <default_opt> }) first(harvest) { harvest } 
+131 first(variety <case_literal> : 
+<case_statements> <case_list>) first(variety) { variety } 
+132 first(λ) ∪ follow(<case_list>) follow(<case_list>) { soil, } } 
+133 first(intlit) first(intlit) { intlit } 
+134 first(dblit) first(dblit) { dblit } 
+135 first(chrlit) first(chrlit) { chrlit } 
+136 first(stringlit) first(stringlit) { stringlit } 
+137 first(sunshine) first(sunshine) { sunshine } 
+138 first(frost) first(frost) { frost } 
+139 first(<case_statement> 
+<case_statements>) first(<case_statement>) 
+{ ++, --, branch, bundle, 
+cultivate, grow, harvest, id, 
+leaf, plant, prune, reclaim, 
+seed, skip, spring, tend, 
+tree, vine, water, { } 
+BERCASIO, E. M. S.                  MIRALLES, K. L.  
+BAYNA, C. L.                              TARINO, J. L. A. 
+HULIGANGA, S. K. E.  TOMINIO, M. 
+RAMOS, J.                                                                                      GrowALanguage 
+ 
+ 
+ 
+109 
+140 first(λ) ∪ 
+follow(<case_statements>) follow(<case_statements>) { soil, variety, } } 
+141 first(id <id_stmt>) first(id) { id } 
+142 first(<inc_dec_op> id ;) first(<inc_dec_op>) { ++, -- } 
+143 first(<var_dec> ;) first(<var_dec>) { branch, bundle, leaf, 
+seed, tree, vine } 
+144 first(<io_stmt>) first(<io_stmt>) { plant, water } 
+145 first(<conditional_stmt>) first(<conditional_stmt>) { spring } 
+146 first(<loop_stmt>) first(<loop_stmt>) { cultivate, grow, tend } 
+147 first(<switch_stmt>) first(<switch_stmt>) { harvest } 
+148 first({ <case_statements> }) first({) { { } 
+149 first(prune ;) first(prune) { prune } 
+150 first(skip ;) first(skip) { skip } 
+151 first(reclaim <reclaim_value>) first(reclaim) { reclaim } 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+XIV.  Lexical Test Scripts 
+ 

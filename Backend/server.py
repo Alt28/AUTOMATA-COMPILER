@@ -1,22 +1,49 @@
+# ============================================================================
+# GAL COMPILER SERVER - HTTP + WebSocket entry point
+# ============================================================================
+# This is the orchestrator of the entire compiler. It exposes Flask routes
+# for each compiler stage (lex / parse / semantic / icg / run) and Socket.IO
+# events for interactive program execution. Every request flows through:
+#
+#     source code -> lexer -> parser+AST -> semantic -> ICG -> interpreter
+#
+# Each stage short-circuits on failure so the user sees the FIRST stage that
+# rejected their code, not a flood of cascading errors.
+# ============================================================================
+
+# ============================================================================
+# WARNING SUPPRESSION + EVENTLET BOOTSTRAP
+# Eventlet provides cooperative concurrency so Socket.IO can park a request
+# (e.g. waiting on water() input) without blocking the whole server.
+# monkey_patch() must run BEFORE flask/socketio are imported.
+# ============================================================================
 import warnings
 warnings.filterwarnings("ignore", message=".*RLock.*were not greened.*")
 
 import eventlet
 eventlet.monkey_patch()
 
+# ============================================================================
+# IMPORTS - Flask web framework + every layer of the GAL compiler
+# ============================================================================
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import os
-from google import genai
-from lexer import lex, get_token_description
-from Gal_Parser import LL1Parser
-from cfg import cfg, first_sets, predict_sets
-from GALsemantic import analyze_semantics, validate_ast
-from icg import generate_icg
-from GALinterpreter import Interpreter, InterpreterError, _CancelledError
-from gal_fallback import fallback_reply
+from google import genai                                       # AI chat helper (optional)
+from lexer import lex, get_token_description                   # Stage 1: Lexical
+from Gal_Parser import LL1Parser                               # Stage 2: Syntax (LL(1))
+from cfg import cfg, first_sets, predict_sets                  # Grammar + parse table
+from GALsemantic import analyze_semantics, validate_ast        # Stage 3: Semantic
+from icg import generate_icg                                   # Stage 4: ICG (display)
+from GALinterpreter import Interpreter, InterpreterError, _CancelledError  # Stage 5: Run
+from gal_fallback import fallback_reply                        # Rule-based AI fallback
 
+
+# ============================================================================
+# DISPLAY HELPER - Escapes control characters so token values are safe
+# to embed in JSON responses for the IDE's lexeme table.
+# ============================================================================
 def _display_value(val):
     """Escape special chars in token values for safe display (like C's repr)."""
     if val is None:
@@ -27,33 +54,52 @@ def _display_value(val):
     s = s.replace('\r', '\\r')
     return s
 
-app = Flask(__name__, static_folder='../UI', static_url_path='')
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Store interpreter instances per session for input handling
+# ============================================================================
+# FLASK APP INITIALIZATION
+# ============================================================================
+app = Flask(__name__, static_folder='../UI', static_url_path='')
+CORS(app)                                                       # Allow browser frontend on any origin (dev)
+socketio = SocketIO(app, cors_allowed_origins="*")              # WebSocket layer for live program execution
+
+# Per-session interpreter registry (sid -> Interpreter instance).
+# One user can only have one program running at a time; new runs cancel the old.
 interpreters = {}
 
 
+# ============================================================================
+# SESSION EMITTER - Routes interpreter output to the originating browser
+# session instead of broadcasting to every connected client.
+# ============================================================================
 class SessionEmitter:
     """Wrapper around SocketIO that always emits to a specific client session."""
     def __init__(self, sio, sid):
-        self._sio = sio
-        self._sid = sid
+        self._sio = sio                                         # the global SocketIO instance
+        self._sid = sid                                         # this client's session ID
 
     def emit(self, event, data=None, **kwargs):
+        # Always 'to=sid' so output goes to one user, never broadcast
         self._sio.emit(event, data, to=self._sid, **kwargs)
 
-# Initialize the parser once at startup
+
+# ============================================================================
+# PARSER SINGLETON - Built once at startup; the LL(1) parser is stateless
+# across calls so this instance is shared by every request.
+# ============================================================================
 parser = LL1Parser(
-    cfg=cfg,
-    predict_sets=predict_sets,
-    first_sets=first_sets,
-    start_symbol="<program>",
-    end_marker="EOF",
-    skip_token_types={'\n'}  # Skip newline tokens
+    cfg=cfg,                            # Grammar productions
+    predict_sets=predict_sets,          # Pre-computed parse table
+    first_sets=first_sets,              # FIRST sets (for error recovery hints)
+    start_symbol="<program>",           # Top of the GAL grammar
+    end_marker="EOF",                   # Matches the synthetic EOF token from the lexer
+    skip_token_types={'\n'}             # Newlines are filtered before the parser sees them
 )
 
+# ============================================================================
+# STATIC FILE SERVING - Serves the IDE's HTML/CSS/JS/images so the whole app
+# works as a single deployable. The no-cache header prevents stale UI during
+# development.
+# ============================================================================
 @app.after_request
 def add_no_cache(response):
     """Prevent browser from caching static files during development."""
@@ -77,6 +123,12 @@ def serve_static(path):
     """Serve static files (CSS, JS, etc.) from UI folder"""
     return send_from_directory('../UI', path)
 
+
+# ============================================================================
+# API ENDPOINT: /api/lex  - LEXICAL ANALYSIS (stage 1 only)
+# Returns the token stream and any lexical errors. Used by the IDE's
+# "Lexemes" tab to display the token table.
+# ============================================================================
 @app.route('/api/lex', methods=['POST'])
 def lexer_endpoint():
     """
@@ -118,6 +170,12 @@ def lexer_endpoint():
             'error': f'Server error: {str(e)}'
         }), 500
 
+# ============================================================================
+# API ENDPOINT: /api/parse  - LEX + SYNTAX ANALYSIS
+# Runs the lexer and (only if no lex errors) the LL(1) parser.
+# Short-circuits at the first failing stage and labels the response with
+# the failing stage so the IDE can highlight the right phase indicator.
+# ============================================================================
 @app.route('/api/parse', methods=['POST'])
 def parser_endpoint():
     """
@@ -181,6 +239,9 @@ def parser_endpoint():
             'error': f'Server error: {str(e)}'
         }), 500
 
+# ============================================================================
+# API ENDPOINT: /api/health  - liveness check (used by deployment tools)
+# ============================================================================
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -189,6 +250,13 @@ def health_check():
         'message': 'GAL Compiler Server is running'
     })
 
+
+# ============================================================================
+# API ENDPOINT: /api/semantic  - LEX + PARSE + AST + SEMANTIC ANALYSIS
+# Uses the parser's two-step API: parse_and_build (syntax + AST construction)
+# then validate_ast (tree-walking semantic checks). Distinguishes between
+# 'syntax' and 'semantic' error stages even though both come from the parser.
+# ============================================================================
 @app.route('/api/semantic', methods=['POST'])
 def semantic_endpoint():
     """
@@ -262,6 +330,12 @@ def semantic_endpoint():
             'error': f'Server error: {str(e)}'
         }), 500
 
+# ============================================================================
+# API ENDPOINT: /api/icg  - LEX + PARSE + SEMANTIC + ICG (display only)
+# ICG produces three-address code (TAC) for the IDE's "Intermediate Code"
+# tab. The interpreter does NOT consume this output; it walks the AST directly.
+# So ICG is a teaching/visualization layer, not a runtime layer.
+# ============================================================================
 @app.route('/api/icg', methods=['POST'])
 def icg_endpoint():
     """
@@ -342,26 +416,41 @@ def icg_endpoint():
         }), 500
 
 
-# ─── REST endpoint for program execution (no Socket.IO needed) ────
+# ============================================================================
+# SYNCHRONOUS EXECUTION (no Socket.IO required)
+#
+# OutputCollector is an adapter — same .emit() interface as SessionEmitter,
+# but instead of streaming output via WebSocket it captures it in a list.
+# This is the adapter pattern: one Interpreter class, two delivery modes.
+# ============================================================================
 
 class OutputCollector:
     """Drop-in replacement for SessionEmitter that collects output in a list."""
     def __init__(self):
-        self.outputs = []
-        self.needs_input = False
+        self.outputs = []                 # Accumulated plant() output strings
+        self.needs_input = False          # Flips to True if program calls water()
 
     def emit(self, event, data=None, **kwargs):
         if event == 'output' and data:
+            # Accumulate normal plant() output
             self.outputs.append(data.get('output', ''))
         elif event == 'input_required':
+            # No interactive channel here -> abort the interpreter so the
+            # client can switch to the Socket.IO flow that supports input.
             self.needs_input = True
-            raise _InputNeeded()  # Abort interpreter when input is needed
+            raise _InputNeeded()
 
 
 class _InputNeeded(Exception):
     """Raised by OutputCollector to abort REST execution when water() is called."""
     pass
 
+
+# ============================================================================
+# API ENDPOINT: /api/run  - One-shot execution returning all output at once.
+# Used for non-interactive programs (no water() calls). For interactive runs,
+# the client uses the Socket.IO 'run_code' event below.
+# ============================================================================
 @app.route('/api/run', methods=['POST'])
 def run_endpoint():
     """Run a GAL program synchronously and return all output."""
@@ -446,14 +535,22 @@ def run_endpoint():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
-# ─── Socket.IO events for program execution ───────────────────────
+# ============================================================================
+# SOCKET.IO INTERACTIVE EXECUTION
+#
+# This path supports water() input. The interpreter runs in a green thread
+# (eventlet) so it can park while waiting for input without blocking the
+# server. Output is streamed back via 'output' events as plant() fires.
+# ============================================================================
 
 @socketio.on('connect')
 def handle_connect():
+    # No setup needed — interpreter is created lazily on first 'run_code'.
     pass
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    # Drop the user's interpreter so memory doesn't leak across reconnects.
     sid = request.sid
     interpreters.pop(sid, None)
 
@@ -543,6 +640,11 @@ def handle_run_code(data):
 
     socketio.start_background_task(run_interpreter)
 
+# ============================================================================
+# SOCKET.IO INPUT CHANNEL - When a running program calls water(), the
+# interpreter parks on an event. The frontend prompts the user, sends back
+# 'capture_input', and this handler routes the value to the right interpreter.
+# ============================================================================
 @socketio.on('capture_input')
 def handle_capture_input(data):
     """Receive input from the client and forward to the waiting interpreter."""
@@ -551,11 +653,18 @@ def handle_capture_input(data):
     if interp:
         var_name = data.get('var_name', '')
         input_value = data.get('input', '')
+        # Unblock the parked interpreter so execution resumes
         interp.provide_input(var_name, input_value)
 
 
-# ─── AI Chat Helper (Google Gemini) ─────────────────────────────
+# ============================================================================
+# AI CHAT HELPER (Google Gemini)
+# Optional learning aid — answers user questions about GAL syntax. Falls
+# back to a rule-based reply if no GEMINI_API_KEY is set or the API fails.
+# This is NOT part of the compiler pipeline.
+# ============================================================================
 
+# Load the system prompt that teaches Gemini how to talk about GAL
 _prompt_path = os.path.join(os.path.dirname(__file__), 'gal_prompt.txt')
 with open(_prompt_path, 'r', encoding='utf-8') as _f:
     GAL_SYSTEM_PROMPT = _f.read()
@@ -659,10 +768,16 @@ def chat_clear_endpoint():
     return jsonify({'success': True})
 
 
+# ============================================================================
+# SERVER STARTUP - Reads PORT/DEBUG env vars, prints a banner listing every
+# endpoint, then hands the app to eventlet's WSGI server.
+# host='0.0.0.0' makes the server reachable from any network interface,
+# not just localhost.
+# ============================================================================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'False') != 'True'
-    
+
     print("Starting GAL Compiler Server...")
     print(f"Server running at http://0.0.0.0:{port}")
     print("API endpoints:")
@@ -672,4 +787,5 @@ if __name__ == '__main__':
     print(f"  - POST http://localhost:{port}/api/icg (Intermediate Code Generation)")
     print(f"  - POST http://localhost:{port}/api/chat (AI Chat Helper)")
     print(f"  - Socket.IO: run_code (Execute Program)")
+    # allow_unsafe_werkzeug=True is needed when running inside eventlet during dev
     socketio.run(app, host='0.0.0.0', port=port, debug=debug, allow_unsafe_werkzeug=True)

@@ -3,6 +3,17 @@
 # ============================================================================
 # Generates three-address code (TAC) from a GAL token stream.
 #
+# IMPORTANT: ICG output is DISPLAY-ONLY. The interpreter (GALinterpreter.py)
+# does NOT consume this output — it walks the AST directly. This module
+# exists so the IDE can show students what intermediate code their GAL
+# program would compile to. Pipeline position:
+#
+#   lex -> parse -> AST -> semantic -> THIS FILE (display) -> interpret(AST)
+#                                       \________________/
+#                                        parallel pass; not on runtime path
+#
+# Called from server.py /api/icg endpoint.
+#
 # The output is a list of TAC instructions (quad-like) that can be further
 # optimised or translated to target code.
 #
@@ -987,13 +998,23 @@ class ICGenerator:
 
     def _term(self) -> str:
         """<term> → <factor> <term_next>"""
-        left = self._factor()
+        left = self._power()
         while self._peek().type in ("*", "/", "%"):
             op = self._advance().type
-            right = self._factor()
+            right = self._power()
             tmp = self._new_temp()
             self._emit(op, left, right, tmp)
             left = tmp
+        return left
+
+    def _power(self) -> str:
+        left = self._factor()
+        if self._peek().type == "**":
+            op = self._advance().type
+            right = self._power()
+            tmp = self._new_temp()
+            self._emit(op, left, right, tmp)
+            return tmp
         return left
 
     def _factor(self) -> str:

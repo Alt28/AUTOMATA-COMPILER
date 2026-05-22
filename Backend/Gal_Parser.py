@@ -1,3 +1,20 @@
+# ============================================================================
+# GAL LL(1) PARSER - Table-driven syntax analysis + AST construction
+# ============================================================================
+# This is the syntax-analysis stage of the compiler. It consumes the token
+# stream from the lexer and validates it against the GAL grammar (defined
+# in cfg.py). The parser is LL(1) — it picks a production using one token
+# of lookahead via the precomputed PREDICT sets.
+#
+# Pipeline position:
+#   lex -> THIS FILE (parse + build AST) -> semantic -> ICG -> interpret
+#
+# The parser exposes two entry points:
+#   parse(tokens)            : syntax-only check, returns (success, errors)
+#   parse_and_build(tokens)  : syntax + AST construction (delegates to
+#                              GALsemantic.build_ast), returns dict with
+#                              ast/errors/symbol_table/error_stage
+# ============================================================================
 
 from __future__ import annotations
 
@@ -12,6 +29,11 @@ from GALsemantic import (
 )
 
 
+# ============================================================================
+# TOKEN VIEW HELPERS - The parser accepts tokens as either Token objects
+# or dicts (e.g. when reloaded from JSON). _TokView gives a uniform shape
+# so the parsing loop doesn't have to handle both cases.
+# ============================================================================
 @dataclass(frozen=True)
 class _TokView:
     """Lightweight view to normalize token access."""
@@ -24,12 +46,14 @@ class _TokView:
 def _as_tok(token: Any) -> _TokView:
     """Normalize token objects/dicts to a common view."""
     if isinstance(token, Mapping):
+        # Dict-shaped token (came from a JSON request body)
         return _TokView(
             type=str(token.get("type", "")),
             value=str(token.get("value", "")),
             line=int(token.get("line", 0) or 0),
             col=int(token.get("col", 0) or 0),
         )
+    # Token object (the lexer's normal output)
     return _TokView(
         type=str(getattr(token, "type", "")),
         value=str(getattr(token, "value", "")),
@@ -38,6 +62,9 @@ def _as_tok(token: Any) -> _TokView:
     )
 
 
+# ============================================================================
+# LL1Parser - The table-driven LL(1) parser
+# ============================================================================
 class LL1Parser:
     def __init__(
         self,
@@ -72,6 +99,13 @@ class LL1Parser:
         
         self.parsing_table: Dict[str, Dict[str, List[str]]] = self.construct_parsing_table()
 
+    # ========================================================================
+    # PARSING TABLE CONSTRUCTION
+    # Builds the LL(1) parsing table from the CFG + PREDICT sets.
+    # Layout: table[non_terminal][lookahead_token] = production_to_apply.
+    # Raises ValueError if the grammar isn't LL(1) (two productions claim
+    # the same lookahead) — this is the compile-time correctness check.
+    # ========================================================================
     def construct_parsing_table(self) -> Dict[str, Dict[str, List[str]]]:
         """Build LL(1) parsing table using provided PREDICT sets."""
         table: Dict[str, Dict[str, List[str]]] = {}
@@ -82,6 +116,8 @@ class LL1Parser:
                 key = (non_terminal, tuple(production))
                 terms = self.predict_sets.get(key, set())
                 for terminal in terms:
+                    # An LL(1) conflict means the grammar can't be parsed
+                    # with one token of lookahead — fix the grammar first.
                     if terminal in row and row[terminal] != production:
                         raise ValueError(
                             f"LL(1) conflict at {non_terminal} with lookahead {terminal}: "
@@ -91,6 +127,13 @@ class LL1Parser:
             table[non_terminal] = row
         return table
 
+
+    # ========================================================================
+    # TOKEN NORMALIZATION HELPERS - Bridge between lexer and grammar
+    # The lexer emits some token types that don't match the CFG terminal
+    # names (e.g. 'dbllit' from lexer vs 'dblit' in cfg.py). The alias map
+    # papers over those differences in one place.
+    # ========================================================================
     def _normalize_token_type(self, token_type: str) -> str:
         """Map lexer token types into the terminal names used by the CFG."""
         return self.token_type_alias.get(token_type, token_type)
@@ -129,6 +172,13 @@ class LL1Parser:
         'EOF': 'end of file',
     }
 
+    # ========================================================================
+    # ERROR-MESSAGE HELPERS
+    # When the parser hits a token that doesn't match any production, we
+    # build a friendly "Expected: X, Y, Z" string from the parsing-table
+    # row. _generate_helpful_error adds context-aware hints (e.g. "did you
+    # mean '==' instead of '='?").
+    # ========================================================================
     def _format_expected(self, expected: Set[str], non_terminal: Optional[str] = None) -> str:
         """Return a human-readable string listing the expected terminals.
 
@@ -157,6 +207,13 @@ class LL1Parser:
             return 'nothing'
         return f"Expected: {', '.join(parts)}"
 
+    # ========================================================================
+    # _GENERATE_HELPFUL_ERROR - The big one
+    # When a token doesn't match, this method inspects context (previous
+    # tokens, the non-terminal we're inside, common typos like '==='/' &&&')
+    # and produces a SPECIFIC error rather than a generic "Expected: ..."
+    # message. This is what makes GAL's error messages friendly.
+    # ========================================================================
     def _generate_helpful_error(
         self,
         non_terminal: str,
@@ -728,6 +785,15 @@ class LL1Parser:
         # Default message with helpful context
         return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
 
+    # ========================================================================
+    # parse() - LL(1) SYNTAX VALIDATION (no AST built)
+    # The classic table-driven LL(1) algorithm: maintain a parse stack
+    # initialized with the start symbol, then for each input token either
+    # 'match' a terminal (pop stack + advance input) or 'expand' a
+    # non-terminal (look up table[NT][lookahead], push the production
+    # backwards onto the stack). Returns (success, error_messages_list).
+    # Used by /api/parse for syntax-only checking.
+    # ========================================================================
     def parse(self, tokens: Sequence[Any]) -> Tuple[bool, List[str]]:
         """Parse tokens according to the supplied CFG/PREDICT sets.
 
@@ -1394,8 +1460,15 @@ class LL1Parser:
         
         return True, []
 
-    # ── AST Construction ─────────────────────────────────────────────
-
+    # ========================================================================
+    # parse_and_build() - SYNTAX + AST CONSTRUCTION (full parser entry)
+    # First runs the LL(1) check; if it passes, delegates to
+    # GALsemantic.build_ast which walks the same token stream and
+    # constructs the AST. Some semantic errors (undeclared variables,
+    # duplicate functions) are caught during AST construction and reported
+    # with error_stage='semantic' so the IDE can label them correctly.
+    # Used by /api/semantic, /api/icg, /api/run, and Socket.IO 'run_code'.
+    # ========================================================================
     def parse_and_build(self, tokens: Sequence[Any]):
         """Validate syntax with LL(1) grammar, then build AST.
 

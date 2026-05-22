@@ -1,7 +1,26 @@
+# ============================================================================
+# GAL CONTEXT-FREE GRAMMAR + PARSE TABLE
+# ============================================================================
+# This file contains the grammar that defines GAL syntax and the helpers
+# that build the LL(1) parse table from it. Three artifacts are exported:
+#
+#   cfg           : Dict[non_terminal -> List[List[symbol]]] productions
+#   first_sets    : Dict[non_terminal -> Set[terminal]] FIRST sets
+#   predict_sets  : Dict[(non_terminal, production) -> Set[terminal]]
+#
+# The parser (Gal_Parser.LL1Parser) consumes these to drive its table-
+# driven LL(1) algorithm. λ (lambda) denotes the empty production.
+#
+# To add or change grammar rules:
+#   1. Edit the cfg dict at the bottom of this file
+#   2. Run this module — FIRST/FOLLOW/PREDICT are recomputed automatically
+#   3. The parser will detect any LL(1) conflict at startup
+# ============================================================================
+
 import sys
 from collections import defaultdict
 
-# Set UTF-8 encoding for Windows console
+# Set UTF-8 encoding for Windows console (so λ prints correctly during dev)
 if sys.platform == 'win32':
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -168,7 +187,7 @@ def compute_predict(cfg, first, follow):
             predict[key] = first_set
             # If production can derive epsilon, add FOLLOW(lhs)
             if epsilon in first_set:
-                predict[key] |= follow[lhs]
+                predict[key] |= follow[lhs] 
 
     return predict
 
@@ -703,7 +722,8 @@ cfg = {
     # 3. Relational (>, <, >=, <=, ==, !=)
     # 4. Arithmetic (+, -)
     # 5. Term (*, /, %)
-    # 6. Factor (literals, variables, function calls, parentheses)
+    # 6. Power (**)
+    # 7. Factor (literals, variables, function calls, parentheses)
     
     # Level 1: Logical OR (lowest precedence)
     # Example: a || b || c
@@ -769,17 +789,28 @@ cfg = {
     # Level 5: Term (multiplication/division/modulo)
     # Example: a * b / c % d
     "<term>": [
-        ["<factor>", "<term_next>"],
+        ["<power>", "<term_next>"],
     ],
 
     "<term_next>": [
-        ["*", "<factor>", "<term_next>"],  # Multiplication
-        ["/", "<factor>", "<term_next>"],  # Division
-        ["%", "<factor>", "<term_next>"],  # Modulo
+        ["*", "<power>", "<term_next>"],  # Multiplication
+        ["/", "<power>", "<term_next>"],  # Division
+        ["%", "<power>", "<term_next>"],  # Modulo
         [EPSILON],                          # End
     ],
 
-    # Level 6: Factor (highest precedence - literals, variables, etc.)
+    # Level 6: Power (right-associative exponentiation)
+    # Example: a ** b ** c
+    "<power>": [
+        ["<factor>", "<power_next>"],
+    ],
+
+    "<power_next>": [
+        ["**", "<power>"],  # Exponentiation
+        [EPSILON],           # End
+    ],
+
+    # Level 7: Factor (highest precedence - literals, variables, etc.)
     "<factor>": [
         ["(", "<paren_expr>"],           # Cast or parenthesized expression
         ["<unary_op>", "<factor>"],      # Unary operation (e.g., ~x, !flag)

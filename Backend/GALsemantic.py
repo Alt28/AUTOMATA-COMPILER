@@ -1,6 +1,32 @@
+# ============================================================================
+# GAL SEMANTIC ANALYZER + AST BUILDER
+# ============================================================================
+# This file does THREE jobs:
+#   1. Defines all AST node classes (ProgramNode, FunctionDeclarationNode,
+#      etc.) that the rest of the compiler consumes.
+#   2. Provides the SymbolTable used to track declarations across scopes.
+#   3. Provides build_ast(tokens) which walks the token stream and
+#      constructs the AST — and ALSO performs many semantic checks during
+#      construction (undeclared variables, duplicate functions, type
+#      mismatches in expressions). A separate ASTValidator does an extra
+#      tree-walking pass for checks that need the full AST visible.
+#
+# Pipeline position:
+#   lex -> parse -> THIS FILE (build AST + check semantics) -> ICG -> run
+#
+# Two entry points:
+#   build_ast(tokens)      : called by Gal_Parser.parse_and_build
+#   validate_ast(ast, st)  : called by server.py for the final tree pass
+#   analyze_semantics(toks): legacy one-shot entry (lex+parse already done)
+# ============================================================================
+
 import re
 
-##### ERROR ######
+
+# ============================================================================
+# ERROR CLASS - Raised whenever the analyzer detects a semantic problem.
+# Includes the source line so the IDE can highlight the right location.
+# ============================================================================
 class SemanticError(Exception):
     def __init__(self, message,  line):
         super().__init__(message)
@@ -10,14 +36,28 @@ class SemanticError(Exception):
         return self.message
 
 
-##### SEMANTIC ANALYZER #####
+# ============================================================================
+# SEMANTIC ANALYZER (legacy placeholder)
+# This class is a vestige of an earlier design. The actual semantic checks
+# happen inside the parse_* functions below and inside ASTValidator at the
+# bottom of this file. Kept for backward compatibility.
+# ============================================================================
 class SemanticAnalyzer:
     def __init__(self, symbol_table):
         self.symbol_table = symbol_table
         self.visited_nodes = set()
 
 
-##### AST NODES #####
+# ============================================================================
+# AST NODE CLASSES
+# Each node has:
+#   - node_type   : a string label (e.g. "Program", "VariableDeclaration")
+#   - value       : the node's primary data (function name, operator, etc.)
+#   - children    : list of child ASTNodes
+#   - line        : source line for error reporting
+#   - parent      : back-pointer for traversals (set by add_child)
+# Subclasses below define convenient constructors for each AST shape.
+# ============================================================================
 class ASTNode:
     def __init__(self, node_type, value=None, line=None):
         self.node_type = node_type  # Type of node (e.g., 'VariableDeclaration', 'BinaryOp')
@@ -236,7 +276,13 @@ class BundleDefinitionNode(ASTNode):
         self.members = members  # dict: {member_name: member_type}
 
 
-###### SYMBOL TABLE ######
+# ============================================================================
+# SYMBOL TABLE - Tracks declarations during AST construction
+# Stores variables, functions, and bundle (struct) types. Maintains a
+# scope stack so the parser can detect 'undeclared' / 'redeclared' errors
+# during build_ast. After AST construction the table is passed to
+# ASTValidator for the second-pass checks (function arity, return types).
+# ============================================================================
 
 class SymbolTable:
     def __init__(self):
@@ -347,9 +393,17 @@ symbol_table = SymbolTable()
 semantic_analyzer = SemanticAnalyzer(symbol_table)
 context_stack = []
 
-#######################
-###### BUILD AST ######
-#######################
+# ============================================================================
+# BUILD AST - Main entry point for AST construction
+# ============================================================================
+# Walks the token stream produced by the lexer (after parser validation)
+# and constructs a tree of ASTNode objects. While walking it also performs
+# many semantic checks via the parse_* helpers below (undeclared variables,
+# duplicate functions, type mismatches in expressions, etc.).
+#
+# Called by Gal_Parser.parse_and_build right after LL(1) syntax validation.
+# Returns the root ProgramNode. Errors are raised as SemanticError.
+# ============================================================================
 
 def build_ast(tokens):
     """Constructs an AST from the token list after LL(1) parsing."""
@@ -423,7 +477,7 @@ def build_ast(tokens):
                     root.add_child(node)
 
             else: 
-                raise SemanticError(f"Syntax Error: Expected data type for function declaration after 'pollinate'.", tokens[index].line)
+                raise SemanticError(f"Semantic Error: Expected data type for function declaration after 'pollinate'.", tokens[index].line)
 
         elif token.value == "fertile":
             node, index = parse_fertile(tokens, index)
@@ -523,7 +577,7 @@ def parse_functionOrVariable(tokens, index):
             node, index = parse_variable(tokens, index, id_name, id_type) 
         
         else:
-            error = f"Syntax Error: Invalid function or variable declaration."
+            error = f"Semantic Error: Invalid function or variable declaration."
             raise SemanticError(error, line)
         
         node.line = line
@@ -590,6 +644,12 @@ def _all_paths_return(node):
 
     return False
 
+# ============================================================================
+# DECLARATION PARSERS - parse_function, parse_variable
+# These build the AST nodes for top-level declarations and register them
+# in the symbol table. parse_function handles both root() and pollinate
+# functions; parse_variable handles seed/tree/leaf/branch/vine declarations.
+# ============================================================================
 def parse_function(tokens, index, func_name, func_type):
     line = tokens[index].line
 
@@ -612,17 +672,17 @@ def parse_function(tokens, index, func_name, func_type):
         if tokens[index].type == "(":
             index += 1
             if tokens[index].type != ")":
-                raise SemanticError(f"Syntax Error: {func_name}() should not have parameters.", line)
+                raise SemanticError(f"Semantic Error: {func_name}() should not have parameters.", line)
             index += 1
         elif func_name == "root":
-            raise SemanticError("Syntax Error: Missing () for root function declaration.", line)
+            raise SemanticError("Semantic Error: Missing () for root function declaration.", line)
 
         params_node = ASTNode("Parameters")
         func_node = FunctionDeclarationNode(func_type, func_name, params_node)
 
     else:
         if tokens[index].type != "(":
-            error = f"Syntax Error: Missing () for function declaration."
+            error = f"Semantic Error: Missing () for function declaration."
             raise SemanticError(error, line)
 
         params_node = ASTNode("Parameters")
@@ -645,7 +705,7 @@ def parse_function(tokens, index, func_name, func_type):
                     if tokens[index].type == "[":
                         index += 1  # skip '['
                         if tokens[index].type != "]":
-                            raise SemanticError(f"Syntax Error: Expected ']' after '[' in array parameter.", line)
+                            raise SemanticError(f"Semantic Error: Expected ']' after '[' in array parameter.", line)
                         index += 1  # skip ']'
                         is_list = True
                         param_node.add_child(ASTNode("ArrayParam", "true"))
@@ -659,7 +719,7 @@ def parse_function(tokens, index, func_name, func_type):
                         index += 1
 
                 else:
-                    error = f"Syntax Error: Invalid parameter declaration."
+                    error = f"Semantic Error: Invalid parameter declaration."
                     raise SemanticError(error, line)
 
             elif tokens[index].type == "id" and tokens[index].value in symbol_table.bundle_types:
@@ -680,7 +740,7 @@ def parse_function(tokens, index, func_name, func_type):
                     if tokens[index].type == ",":
                         index += 1
                 else:
-                    error = f"Syntax Error: Invalid parameter declaration."
+                    error = f"Semantic Error: Invalid parameter declaration."
                     raise SemanticError(error, line)
 
             else:
@@ -710,16 +770,16 @@ def parse_function(tokens, index, func_name, func_type):
         # All functions (including root) must end with reclaim;
         if not has_any_return:
             if func_name == "root":
-                raise SemanticError(f"Syntax Error: root() must end with 'reclaim;'.", line)
+                raise SemanticError(f"Semantic Error: root() must end with 'reclaim;'.", line)
             elif func_type == "empty":
-                raise SemanticError(f"Syntax Error: Function '{func_name}' must end with 'reclaim;'.", line)
+                raise SemanticError(f"Semantic Error: Function '{func_name}' must end with 'reclaim;'.", line)
 
         index += 1
         func_node.add_child(block_node)
         symbol_table.exit_scope()
         symbol_table.current_func_name = None
     else:
-        error = f"Syntax Error: Function body must be enclosed in curly braces."
+        error = f"Semantic Error: Function body must be enclosed in curly braces."
         raise SemanticError(error, line)
 
     return func_node, index
@@ -769,7 +829,7 @@ def parse_variable(tokens, index, var_name, var_type):
                 water_line = tokens[index].line
                 index += 1  # skip 'water'
                 if tokens[index].type != "(":
-                    raise SemanticError(f"Syntax Error: Expected '(' after water.", water_line)
+                    raise SemanticError(f"Semantic Error: Expected '(' after water.", water_line)
                 index += 1  # skip '('
                 water_type = None
                 if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
@@ -874,6 +934,13 @@ def _skip_semicolons(tokens, index):
     return index
 
 
+# ============================================================================
+# STATEMENT PARSER - The big dispatch
+# Walks one statement at a time inside a function body. Recognizes every
+# statement form: variable declaration, assignment, function call,
+# spring/bud/wither, grow/cultivate/tend, harvest, plant, water,
+# reclaim, prune, skip. Returns (ast_node, new_index).
+# ============================================================================
 def parse_statement(tokens, index, func_type = None):
     token = tokens[index]
 
@@ -1630,6 +1697,18 @@ def parse_expression_leaf(tokens, index):
     return left_node, index 
 
 
+# ============================================================================
+# EXPRESSION PARSER - Operator-precedence climbing
+# Standard precedence ladder built from these layered functions:
+#   parse_expression    : + - `      (lowest precedence)
+#   parse_term          : * / %
+#   parse_power         : **         (right-associative)
+#   parse_unary         : ~ ! ++ --
+#   parse_factor        : literals, identifiers, function calls,
+#                          parenthesized expressions     (highest)
+# Each layer calls the next-higher-precedence layer for its operands.
+# All return (ast_node, new_index, inferred_type).
+# ============================================================================
 def parse_expression(tokens, index):
     """Parses an expression with +, -, and ` (string concat).
     Returns (node, index, type_str)."""
@@ -1679,7 +1758,7 @@ def parse_expression(tokens, index):
 def parse_term(tokens, index):
     """Parses multiplication, division, and modulus with type checking.
     Returns (node, index, type_str)."""
-    left_node, index, left_type = parse_unary(tokens, index)
+    left_node, index, left_type = parse_power(tokens, index)
 
     while tokens[index].type in {"*", "/", "%"}:
         op = tokens[index].value
@@ -1702,7 +1781,7 @@ def parse_term(tokens, index):
                 )
 
         index += 1
-        right_node, index, right_type = parse_unary(tokens, index)
+        right_node, index, right_type = parse_power(tokens, index)
 
         # Validate right operand is numeric
         if right_type not in {"seed", "tree"}:
@@ -1727,6 +1806,36 @@ def parse_term(tokens, index):
             
         left_node = BinaryOpNode(left_node, op, right_node)
         # Promote to tree if either operand is tree
+        if left_type == "tree" or right_type == "tree":
+            left_type = "tree"
+
+    return left_node, index, left_type
+
+def parse_power(tokens, index):
+    """Parses right-associative exponentiation (**).
+    Returns (node, index, type_str)."""
+    left_node, index, left_type = parse_unary(tokens, index)
+
+    if tokens[index].type == "**":
+        op = tokens[index].value
+        token = tokens[index]
+
+        if left_type not in {"seed", "tree"}:
+            raise SemanticError(
+                f"Semantic Error: Cannot use '{op}' on type '{left_type}'. Expected 'seed' or 'tree'.",
+                token.line,
+            )
+
+        index += 1
+        right_node, index, right_type = parse_power(tokens, index)
+
+        if right_type not in {"seed", "tree"}:
+            raise SemanticError(
+                f"Semantic Error: Cannot use '{op}' on type '{right_type}'. Expected 'seed' or 'tree'.",
+                token.line,
+            )
+
+        left_node = BinaryOpNode(left_node, op, right_node, line=token.line)
         if left_type == "tree" or right_type == "tree":
             left_type = "tree"
 
@@ -2228,7 +2337,7 @@ def parse_operand(tokens, index):
 
         if is_list and tokens[index + 1].type != "[":
             # Check if this is an array <op> array case (e.g., x = a + b)
-            if tokens[index + 1].type in {"+", "-", "*", "/", "%", "==", "!=", ">", "<", ">=", "<="}:
+            if tokens[index + 1].type in {"+", "-", "*", "/", "%", "**", "==", "!=", ">", "<", ">=", "<="}:
                 op_token = tokens[index + 1]
                 if index + 2 < len(tokens) and tokens[index + 2].type == "id":
                     rhs_info = symbol_table.lookup_variable(tokens[index + 2].value)
@@ -2818,6 +2927,12 @@ def parse_fertile(tokens, index):
 
     return FertileDeclarationNode(var_type, var_name, value_node, line=line), index
 
+# ============================================================================
+# CONTROL-FLOW PARSERS - parse_if / parse_for / parse_while / parse_do /
+# parse_switch. Each builds the matching AST node (IfStatementNode,
+# ForLoopNode, etc.) and recursively parses the body via parse_statement.
+# Conditions must evaluate to a branch (boolean) — checked here.
+# ============================================================================
 def parse_if(tokens, index, func_type):
     line = tokens[index].line
     index += 1  # Move past "spring"
@@ -3591,6 +3706,12 @@ def is_inside_loop_or_switch_stack():
     return any(ctx in {"WhileNode", "DoWhileNode", "SwitchNode", "ForNode"} for ctx in context_stack)
 
 
+# ============================================================================
+# analyze_semantics() - LEGACY ONE-SHOT ENTRY POINT
+# Older API that does build_ast in one call. The current pipeline uses
+# the two-step parse_and_build + validate_ast instead so the IDE can
+# distinguish 'syntax' from 'semantic' error stages.
+# ============================================================================
 def analyze_semantics(tokens):
     """
     Legacy API — builds AST from tokens and validates in one pass.
@@ -3870,6 +3991,11 @@ class ASTValidator:
             self._walk(child)
 
 
+# ============================================================================
+# validate_ast() - PUBLIC SEMANTIC-ANALYSIS ENTRY POINT
+# Used by server.py after parse_and_build succeeds. Wraps ASTValidator.
+# Returns a dict with success/errors/warnings/symbol_table/ast.
+# ============================================================================
 def validate_ast(ast, symbol_table_data):
     """Public API: validate an already-built AST.
 
