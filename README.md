@@ -34,12 +34,42 @@ https://clarkoer-gal.hf.space/
 
 ## Running the Compiler
 
-1. **Start the server:**
+### Option A: one-command start on Windows
+
+PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+Command Prompt:
+
+```bat
+start.bat
+```
+
+The script creates `.venv`, installs `requirements.txt`, and starts the server.
+
+### Option B: manual start
+
+1. **Create and activate a virtual environment:**
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+2. **Install dependencies:**
+   ```powershell
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
+
+3. **Start the server:**
    ```powershell
    python Backend/server.py
    ```
 
-2. **Open your browser:**
+4. **Open your browser:**
    ```
    http://localhost:5000
    ```
