@@ -1,32 +1,28 @@
 # ============================================================================
-# GAL LL(1) PARSER - Table-driven syntax analysis + AST construction
+# LL(1) PARSER - Table-driven syntax analysis
 # ============================================================================
-# This is the syntax-analysis stage of the compiler. It consumes the token
-# stream from the lexer and validates it against the GAL grammar (defined
-# in cfg.py). The parser is LL(1) — it picks a production using one token
-# of lookahead via the precomputed PREDICT sets.
-#
+# Extracted from Backend/Gal_Parser.py during the modular restructure.
 # Pipeline position:
-#   lex -> THIS FILE (parse + build AST) -> semantic -> ICG -> interpret
+#   lex -> THIS FILE (parse + delegate to builder) -> semantic -> ICG -> interpret
 #
 # The parser exposes two entry points:
 #   parse(tokens)            : syntax-only check, returns (success, errors)
 #   parse_and_build(tokens)  : syntax + AST construction (delegates to
-#                              GALsemantic.build_ast), returns dict with
-#                              ast/errors/symbol_table/error_stage
+#                              parser.builder.build_ast)
 # ============================================================================
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
-# AST builder imports — the parser builds the AST after LL(1) validation
-from GALsemantic import (
+# AST builder imports — the parser builds the AST after LL(1) validation.
+# After the restructure, build_ast lives in parser/builder.py (a sibling),
+# not in GALsemantic.py.
+from .builder import (
     build_ast as _build_ast,
     symbol_table as _builder_st,
-    SemanticError as _SemanticError,
 )
+from semantic.errors import SemanticError as _SemanticError
 
 
 # ============================================================================

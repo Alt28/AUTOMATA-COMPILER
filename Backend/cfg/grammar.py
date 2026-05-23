@@ -1,22 +1,12 @@
 # ============================================================================
-# GAL CONTEXT-FREE GRAMMAR + PARSE TABLE
+# CFG GRAMMAR + FIRST/FOLLOW/PREDICT - the static parse table source
 # ============================================================================
-# This file contains the grammar that defines GAL syntax and the helpers
-# that build the LL(1) parse table from it. Three artifacts are exported:
-#
-#   cfg           : Dict[non_terminal -> List[List[symbol]]] productions
-#   first_sets    : Dict[non_terminal -> Set[terminal]] FIRST sets
+# Extracted from Backend/cfg.py during the modular restructure.
+# Exports three artifacts consumed by parser/parser.py:
+#   cfg           : Dict[non_terminal -> List[List[symbol]]]
+#   first_sets    : Dict[non_terminal -> Set[terminal]]
 #   predict_sets  : Dict[(non_terminal, production) -> Set[terminal]]
-#
-# The parser (Gal_Parser.LL1Parser) consumes these to drive its table-
-# driven LL(1) algorithm. λ (lambda) denotes the empty production.
-#
-# To add or change grammar rules:
-#   1. Edit the cfg dict at the bottom of this file
-#   2. Run this module — FIRST/FOLLOW/PREDICT are recomputed automatically
-#   3. The parser will detect any LL(1) conflict at startup
 # ============================================================================
-
 import sys
 from collections import defaultdict
 

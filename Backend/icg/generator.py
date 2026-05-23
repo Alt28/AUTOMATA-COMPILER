@@ -1,49 +1,20 @@
 # ============================================================================
-# GAL LANGUAGE – INTERMEDIATE CODE GENERATOR (ICG)
+# ICG GENERATOR - Three-Address Code (TAC) generator (display-only)
 # ============================================================================
-# Generates three-address code (TAC) from a GAL token stream.
-#
-# IMPORTANT: ICG output is DISPLAY-ONLY. The interpreter (GALinterpreter.py)
-# does NOT consume this output — it walks the AST directly. This module
-# exists so the IDE can show students what intermediate code their GAL
-# program would compile to. Pipeline position:
-#
+# Extracted from Backend/icg.py during the modular restructure.
+# Pipeline position:
 #   lex -> parse -> AST -> semantic -> THIS FILE (display) -> interpret(AST)
 #                                       \________________/
 #                                        parallel pass; not on runtime path
-#
-# Called from server.py /api/icg endpoint.
-#
-# The output is a list of TAC instructions (quad-like) that can be further
-# optimised or translated to target code.
-#
-# TAC instruction format:
-#   (op, arg1, arg2, result)
-#
-# Examples:
-#   ('+',  'a', 'b', 't0')     →  t0 = a + b
-#   ('=',  '5', None, 'x')     →  x = 5
-#   ('LABEL', None, None, 'L0') → L0:
-#   ('IF',  't0', None, 'L1')   → if t0 goto L1
-#   ('GOTO', None, None, 'L2')  → goto L2
-#   ('PARAM', 'x', None, None)  → param x
-#   ('CALL', 'func', '2', 't1') → t1 = call func, 2
-#   ('RETURN', 'x', None, None) → return x
-#   ('PRINT', 'x', None, None)  → print x
-#   ('READ', None, None, 'x')   → read x
+# The output is a list of quad-like TAC instructions for IDE display.
+# The interpreter walks the AST directly and does NOT consume this output.
 # ============================================================================
-
 from __future__ import annotations
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
 
-
-# ---------------------------------------------------------------------------
-# Token view helper (same normalisation used by the parser)
-# ---------------------------------------------------------------------------
-
-@dataclass(frozen=True)
+@dataclass
 class _Tok:
     type: str
     value: str

@@ -1,0 +1,18 @@
+{
+  "python.analysis.extraPaths": ["Backend"],
+  "python.analysis.autoImportCompletions": false,
+  "python.analysis.importFormat": "absolute",
+  "python.analysis.fixAll": [],
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never",
+    "source.fixAll": "never"
+  },
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "never",
+      "source.fixAll": "never"
+    },
+    "editor.formatOnSave": false
+  },
+  "files.autoSave": "off"
+}

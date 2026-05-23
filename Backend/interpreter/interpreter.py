@@ -1,4 +1,12 @@
 # ============================================================================
+# INTERPRETER - Tree-walking executor for the validated AST
+# ============================================================================
+# Extracted from Backend/GALinterpreter.py during the modular restructure.
+# Pipeline position:
+#   lex -> parse -> AST -> semantic -> ICG (display) -> THIS FILE (execute)
+# ============================================================================
+
+# ============================================================================
 # GAL INTERPRETER - Tree-walking executor for the semantic AST
 # ============================================================================
 # This is the runtime engine of the GAL compiler. It walks the AST produced
@@ -19,11 +27,7 @@
 # IMPORTS - AST node classes from the semantic analyzer + concurrency
 # primitives for cooperative input-waiting.
 # ============================================================================
-from GALsemantic import (ProgramNode, VariableDeclarationNode, AssignmentNode, BinaryOpNode, FunctionDeclarationNode,
-                          FunctionCallNode, IfStatementNode, ForLoopNode, WhileLoopNode, PrintNode, UnaryOpNode,
-                          FertileDeclarationNode, ReturnNode,  SwitchNode, ContinueNode, BreakNode, ListNode, TaperNode,
-                          TSNode, SoilNode, BloomNode, AppendNode, InsertNode, RemoveNode, CastNode, ListAccessNode, DoWhileLoopNode,
-                          MemberAccessNode, BundleDefinitionNode, ArrayMemberAccessNode)
+from shared.ast_nodes import *  # AST node classes
 
 import threading
 import sys
@@ -43,51 +47,17 @@ except ImportError:
 
 
 # ============================================================================
-# EXCEPTION CLASSES - Used to short-circuit AST traversal for special cases:
-#   - SemanticError      : A semantic-level error that escaped to runtime
-#   - ReturnValue        : reclaim <value> uses exception unwinding to bubble
-#                          a return value up through nested function calls
-#   - _CancelledError    : raised when the user starts a new run while an
-#                          old interpreter is still executing
-#   - InterpreterError   : standard runtime error (division by zero, etc.)
-#   - InterpreterInputRequest : raised when the program calls water() to
-#                               request input from the client
+# EXCEPTION CLASSES - All extracted to errors.py during the restructure.
+# Re-exported here so existing `from GALinterpreter import InterpreterError, ...`
+# imports keep working unchanged.
 # ============================================================================
-class SemanticError(Exception):
-    def __init__(self, message,  line):
-        super().__init__(message)
-        self.message = f"Ln {line} {message}"
-
-    def __str__(self):
-        return self.message
-
-class ReturnValue(Exception):
-    """Raised by 'reclaim <expr>;' to unwind out of a function with a value."""
-    def __init__(self, value):
-        self.value = value
-
-class _CancelledError(Exception):
-    """Raised when an interpreter is cancelled mid-execution."""
-    pass
-
-class InterpreterError(Exception):
-    """All runtime errors raised by the interpreter inherit from this."""
-    def __init__(self, message, line):
-        super().__init__(message)
-        if line is not None:
-            self.message = f"Ln {line} {message}"
-
-        else:
-            self.message = message
-
-    def __str__(self):
-        return self.message
-
-class InterpreterInputRequest(Exception):
-    """Carries a prompt up the call stack when water() needs input."""
-    def __init__(self, prompt, line):
-        self.prompt = prompt
-        self.line = line
+from semantic.errors import SemanticError  # noqa: F401 - some runtime checks raise it
+from interpreter.errors import (  # noqa: F401 - runtime-specific error classes
+    ReturnValue,
+    _CancelledError,
+    InterpreterError,
+    InterpreterInputRequest,
+)
 
 # ============================================================================
 # INTERPRETER CLASS - Tree-walks the AST and executes each node

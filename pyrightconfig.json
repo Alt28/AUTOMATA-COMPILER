@@ -1,0 +1,18 @@
+{
+  "extraPaths": ["Backend"],
+  "include": ["Backend", "tests"],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/node_modules",
+    "UI",
+    "Docus & mps",
+    "gal-mpnet-finetuned"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportPossiblyUnboundVariable": "none",
+  "reportOptionalMemberAccess": "none",
+  "pythonVersion": "3.13"
+}

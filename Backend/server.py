@@ -32,12 +32,13 @@ from flask_socketio import SocketIO, emit
 import os
 from google import genai                                       # AI chat helper (optional)
 from lexer import lex, get_token_description                   # Stage 1: Lexical
-from Gal_Parser import LL1Parser                               # Stage 2: Syntax (LL(1))
+from parser import LL1Parser                                   # Stage 2: Syntax (LL(1))
 from cfg import cfg, first_sets, predict_sets                  # Grammar + parse table
-from GALsemantic import analyze_semantics, validate_ast        # Stage 3: Semantic
+from parser.builder import analyze_semantics                   # Stage 3a: legacy entry
+from semantic import validate_ast                              # Stage 3b: Semantic validator
 from icg import generate_icg                                   # Stage 4: ICG (display)
-from GALinterpreter import Interpreter, InterpreterError, _CancelledError  # Stage 5: Run
-from gal_fallback import fallback_reply                        # Rule-based AI fallback
+from interpreter import Interpreter, InterpreterError, _CancelledError      # Stage 5: Run
+from ai import fallback_reply                                  # Rule-based AI fallback
 
 
 # ============================================================================
@@ -665,7 +666,7 @@ def handle_capture_input(data):
 # ============================================================================
 
 # Load the system prompt that teaches Gemini how to talk about GAL
-_prompt_path = os.path.join(os.path.dirname(__file__), 'gal_prompt.txt')
+_prompt_path = os.path.join(os.path.dirname(__file__), 'ai', 'prompt.txt')
 with open(_prompt_path, 'r', encoding='utf-8') as _f:
     GAL_SYSTEM_PROMPT = _f.read()
 
@@ -720,7 +721,7 @@ def chat_endpoint():
 
         # Try multiple models in case one has quota available
         models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']
-        last_error = None
+        last_error: Exception = RuntimeError("No Gemini models were available to try")
         for model_name in models_to_try:
             try:
                 response = client.models.generate_content(
