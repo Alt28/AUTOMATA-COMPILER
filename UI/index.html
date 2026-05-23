@@ -50,7 +50,7 @@
                     🪏 <span class="chat-btn-text">Ask</span>
                 </button>
                 <div class="run-dropdown">
-                    <button class="btn btn-primary ide-run-btn" onclick="runCode()">
+                    <button id="btn-run" class="btn btn-primary ide-run-btn" onclick="runCode()" title="Run">
                         <span class="ide-run-icon">▶</span> <span id="run-mode-text">Run</span>
                     </button>
                     <button class="btn btn-dropdown-toggle" onclick="toggleRunDropdown(event)">▼</button>
@@ -274,7 +274,43 @@
           }, 500);
           setTimeout(function() { clearInterval(_rc); }, 30000);
 
+          // ── Disable Run button when editor is empty ─────────────────────
+          // Polls until Monaco is ready, then hooks onDidChangeModelContent
+          // to toggle the btn-run disabled state based on whether the
+          // editor has any non-whitespace content.
+          function updateRunBtnState() {
+            var btn = document.getElementById('btn-run');
+            if (!btn) return;
+            var code = '';
+            try { code = monaco.editor.getModels()[0].getValue(); } catch(e) { return; }
+            var isEmpty = (code || '').trim() === '';
+            btn.disabled = isEmpty;
+            btn.title = isEmpty ? 'Editor is empty — nothing to run' : 'Run';
+            btn.style.opacity = isEmpty ? '0.45' : '';
+            btn.style.cursor = isEmpty ? 'not-allowed' : '';
+          }
+          var _btnWatch = setInterval(function() {
+            try {
+              var model = monaco.editor.getModels()[0];
+              if (!model) return;
+              clearInterval(_btnWatch);
+              model.onDidChangeContent(updateRunBtnState);
+              updateRunBtnState();   // initial state
+            } catch(e) { /* monaco not ready yet */ }
+          }, 200);
+          setTimeout(function() { clearInterval(_btnWatch); }, 30000);
+
           async function inlineRunCode() {
+            // Safety net: even if the disabled state desyncs, refuse to run on empty input.
+            try {
+              var _src = monaco.editor.getModels()[0].getValue();
+              if (!_src || _src.trim() === '') {
+                var t = window._galTerm;
+                if (t) { t.write('\x1b[2J\x1b[3J\x1b[H'); t.write('\x1b[33mEditor is empty — nothing to run.\x1b[0m\r\n'); }
+                return;
+              }
+            } catch(e) { /* fall through to normal flow */ }
+
             var modeEl = document.getElementById('run-mode-text');
             var modeText = modeEl ? modeEl.textContent : '';
             var term = window._galTerm;
