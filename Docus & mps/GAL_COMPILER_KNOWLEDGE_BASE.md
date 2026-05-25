@@ -157,11 +157,11 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ### 3.1 Program Structure
 
 ```
-<program> → <global_declaration> <function_definition> root ( ) { <statement> }
+<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
 
 <global_declaration> → <declaration> <global_declaration> | λ
 
-<function_definition> → pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition> | λ
+<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition> | λ
 
 <return_type> → <data_type> | empty
 ```
@@ -170,6 +170,10 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 
 ```
 <declaration> → <const_dec> | <var_dec> | <bundle_declaration>
+
+<local_declaration> → <var_dec> <local_declaration>
+                    | <const_dec> <local_declaration>
+                    | λ
 
 <data_type> → seed | tree | leaf | branch | vine
 
@@ -215,7 +219,6 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
             | <conditional_stmt> <statement>
             | <loop_stmt> <statement>
             | <switch_stmt> <statement>
-            | <declaration> <statement>
             | reclaim <return_expr> ; <statement>
             | λ
 
@@ -244,6 +247,8 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 <pre_update> → ++ id | -- id
 ```
 
+Local declarations must appear before executable statements in each block.
+
 ### 3.6 I/O Statements
 
 ```
@@ -257,10 +262,10 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ### 3.7 Conditional Statement
 
 ```
-<conditional_stmt> → spring ( <expression> ) { <statement> } <else_chain>
+<conditional_stmt> → spring ( <expression> ) { <local_declaration> <statement> } <else_chain>
 
-<else_chain> → bud ( <expression> ) { <statement> } <else_chain>
-             | wither { <statement> }
+<else_chain> → bud ( <expression> ) { <local_declaration> <statement> } <else_chain>
+             | wither { <local_declaration> <statement> }
              | λ
 ```
 
@@ -269,9 +274,9 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ```
 <loop_stmt> → <while_stmt> | <for_stmt> | <do_while_stmt>
 
-<while_stmt> → grow ( <expression> ) { <statement> }
+<while_stmt> → grow ( <expression> ) { <local_declaration> <statement> }
 
-<for_stmt> → cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> }
+<for_stmt> → cultivate ( <for_init> ; <expression> ; <for_update> ) { <local_declaration> <statement> }
 
 <for_init> → <data_type> id = <expression> | id = <expression>
 
@@ -281,7 +286,7 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 
 <for_update_tail> → , id <update_op> <for_update_tail> | λ
 
-<do_while_stmt> → tend { <statement> } grow ( <expression> ) ;
+<do_while_stmt> → tend { <local_declaration> <statement> } grow ( <expression> ) ;
 ```
 
 ### 3.9 Switch Statement
@@ -289,9 +294,9 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ```
 <switch_stmt> → harvest ( <expression> ) { <case_list> <default_case> }
 
-<case_list> → variety <const_value> : <statement> <case_list> | λ
+<case_list> → variety <const_value> : <local_declaration> <statement> <case_list> | λ
 
-<default_case> → soil : <statement> | λ
+<default_case> → soil : <local_declaration> <statement> | λ
 ```
 
 ### 3.10 Expressions (operator precedence, lowest → highest)

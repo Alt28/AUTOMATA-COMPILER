@@ -4,6 +4,8 @@
 > **Language:** GAL (Garden Abstraction Language)  
 > **Date Range:** March 7 – April 8, 2026  
 
+> **CFG notice (May 25, 2026):** The embedded CFG/FIRST/FOLLOW/PREDICT pages below are a historical extract. The active compiler now uses declaration-first blocks with `<local_declaration>` before `<statement>`. Use `cfg to predict - SYSTEM ALIGNED.pdf` or `system_cfg_first_follow_predict_current.txt` for the current grammar tables.
+
 ---
 
 ## GAL Keyword Quick Reference

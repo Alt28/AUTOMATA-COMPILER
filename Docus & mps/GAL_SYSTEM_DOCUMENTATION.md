@@ -340,7 +340,7 @@ These sets are computed automatically by `compute_first()`, `compute_follow()`, 
 #### 3.4.1 Program Structure
 
 ```
-<program> → <global_declaration> <function_definition> root ( ) { <statement> }
+<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
 ```
 
 Every GAL program must have a `root()` function as its entry point (equivalent to `main()` in C).
@@ -390,6 +390,16 @@ Multiple variables can be declared in one statement: `seed x = 1, y = 2, z;`
 
 Example: `fertile seed MAX = 100;`
 
+#### 3.4.5.1 Local Declarations
+
+```
+<local_declaration> → <var_dec> ; <local_declaration>
+                    | <const_dec> ; <local_declaration>
+                    | λ
+```
+
+Local declarations form the prefix of a function or nested block. After an executable statement begins in that block, another local declaration is a syntax error.
+
 #### 3.4.6 Array Declarations
 
 ```
@@ -437,7 +447,7 @@ bundle Person {
 #### 3.4.9 Function Definition
 
 ```
-<function_definition> → pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition>
+<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition>
                        | λ
 
 <return_type> → <data_type> | empty | id
@@ -470,11 +480,9 @@ pollinate seed add(seed a, seed b) {
               | <switch_stmt>
               | <control_stmt>
               | reclaim <reclaim_value>
-              | <var_dec> ;
-              | <const_dec> ;
 ```
 
-Declarations and statements can be **interleaved** (like C99), not just at the beginning of a block.
+GrowALanguage uses a declaration-first block style: all local variables, arrays, constants, and bundle variables in a block must be declared before its executable statements.
 
 #### 3.4.11 Assignment Statements
 
@@ -505,12 +513,12 @@ Declarations and statements can be **interleaved** (like C99), not just at the b
 #### 3.4.13 Conditional Statements (if / else-if / else)
 
 ```
-<conditional_stmt> → spring ( <expression> ) { <statement> } <elseif_chain> <else_opt>
+<conditional_stmt> → spring ( <expression> ) { <local_declaration> <statement> } <elseif_chain> <else_opt>
 
-<elseif_chain> → bud ( <expression> ) { <statement> } <elseif_chain>
+<elseif_chain> → bud ( <expression> ) { <local_declaration> <statement> } <elseif_chain>
                | λ
 
-<else_opt> → wither { <statement> }
+<else_opt> → wither { <local_declaration> <statement> }
            | λ
 ```
 
@@ -531,12 +539,12 @@ wither {
 
 **While loop:**
 ```
-grow ( <expression> ) { <statement> }
+grow ( <expression> ) { <local_declaration> <statement> }
 ```
 
 **For loop:**
 ```
-cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> }
+cultivate ( <for_init> ; <expression> ; <for_update> ) { <local_declaration> <statement> }
 
 <for_init> → <data_type> id <array_dec> <var_value>
            | id <id_next> <assign_op> <expression>
@@ -550,7 +558,7 @@ cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> }
 
 **Do-while loop:**
 ```
-tend { <statement> } grow ( <expression> ) ;
+tend { <local_declaration> <statement> } grow ( <expression> ) ;
 ```
 
 Examples:
@@ -567,12 +575,12 @@ tend { plant("at least once"); } grow (frost);
 ```
 <switch_stmt> → harvest ( <expression> ) { <case_list> <default_opt> }
 
-<case_list> → variety <case_literal> : <case_statements> <case_list>
+<case_list> → variety <case_literal> : <local_declaration> <case_statements> <case_list>
             | λ
 
 <case_literal> → intlit | chrlit | stringlit | sunshine | frost
 
-<default_opt> → soil : <case_statements> | λ
+<default_opt> → soil : <local_declaration> <case_statements> | λ
 ```
 
 Example:
@@ -1165,7 +1173,7 @@ The AI chat assistant uses a hybrid approach to help users understand errors:
 4. All code must be inside functions or global declarations.
 5. Statements end with semicolons (`;`).
 6. Blocks are delimited by `{ }`.
-7. Declarations and statements can be interleaved within blocks (C99-style).
+7. Local declarations must appear before executable statements in each block (declaration-first C style).
 
 ### 10.2 Limits & Constraints
 

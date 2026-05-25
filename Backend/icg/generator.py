@@ -219,7 +219,7 @@ class ICGenerator:
         return self.code, self.errors
 
     def _program(self):
-        """<program> -> <global_declaration> <function_definition> root ( ) { <declaration> <statement> reclaim ; }"""
+        """<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }"""
         self._global_declaration()
         self._function_definition()
 
@@ -301,7 +301,7 @@ class ICGenerator:
     # ======================================================================
 
     def _declaration(self):
-        """<declaration> → <var_dec> ; <declaration> | <const_dec> ; <declaration> | λ"""
+        """Consume the <local_declaration> prefix of a block."""
         while True:
             tok = self._peek()
             if self._is_data_type(tok) or tok.type == "bundle":
@@ -523,11 +523,10 @@ class ICGenerator:
     # ======================================================================
 
     def _statement(self):
-        """<statement> → <simple_stmt> <statement> | λ
-        Also handles inline declarations gracefully for robustness."""
+        """Consume executable statements; syntax validation enforces declaration order."""
         while self._peek().type not in ("}", "EOF", "reclaim", "variety", "soil", "prune"):
             tok = self._peek()
-            # Handle inline variable declarations (data types appearing mid-block)
+            # Nested blocks expose their valid declaration prefix here.
             if self._is_data_type(tok) or tok.type == "bundle" or tok.type == "fertile":
                 if tok.type == "fertile":
                     self._const_dec()
@@ -870,7 +869,8 @@ class ICGenerator:
             self._emit("IFFALSE", cmp_tmp, None, next_label)
             self._emit("LABEL", None, None, body_label)
 
-            # case body statements
+            # case-local declarations, followed by executable case statements
+            self._declaration()
             self._case_statements()
 
             # prune ;
@@ -899,10 +899,11 @@ class ICGenerator:
                 break
 
     def _default_opt(self, end_label: str):
-        """soil : <case_statements> | λ"""
+        """soil : <local_declaration> <case_statements> | epsilon"""
         if self._peek().type == "soil":
             self._advance()
             self._expect(":")
+            self._declaration()
             self._case_statements()
 
     # -- control (break, continue) ------------------------------------------

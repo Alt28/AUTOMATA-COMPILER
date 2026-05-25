@@ -184,6 +184,13 @@ _ERROR_PATTERNS = [
          '// BAD:  spring (x > 0) { }\n// GOOD: spring (x > 0) { plant("yes"); }',
      )),
 
+    (_re.compile(r"Local declarations must appear first in the block", _re.I),
+     _parser_err(
+         "A local declaration appears after executable code in the same block.",
+         "GrowALanguage uses declaration-first C-style blocks: declare local variables, arrays, constants, and bundle variables before statements in that block.",
+         '// BAD:  plant("start"); seed x = 5;\n// GOOD: seed x = 5; plant("start");',
+     )),
+
     (_re.compile(r"Unreachable code after 'reclaim'", _re.I),
      _parser_err(
          "Code appears after a `reclaim` (return) statement.",

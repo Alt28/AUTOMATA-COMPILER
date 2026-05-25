@@ -33,6 +33,17 @@ PROGRAMS = [
      ['a=5 b=5 c=7']),
     ('switch',  'root() { seed x = 2; harvest(x) { variety 1: { plant("one"); prune; } variety 2: { plant("two"); prune; } soil: { plant("other"); } } reclaim; }',
      ['two']),
+    ('declfirst', 'root() { seed num = 5; plant("begin"); num += 2; plant("num={}", num); reclaim; }',
+     ['begin', 'num=7']),
+]
+
+REJECTED_PROGRAMS = [
+    ('late_decl', 'root() { plant("begin"); seed num = 5; reclaim; }',
+     'Local declarations must appear first in the block.'),
+    ('late_nested', 'root() { branch ok = sunshine; spring (ok) { plant("begin"); seed num = 5; } reclaim; }',
+     'Local declarations must appear first in the block.'),
+    ('late_case', 'root() { seed n = 1; harvest (n) { variety 1: plant("begin"); seed late = 5; prune; } reclaim; }',
+     'Local declarations must appear first in the block.'),
 ]
 
 
@@ -58,9 +69,21 @@ def run():
             if c.outputs == expected: ok += 1
         except Exception as e:
             print(f'{name:10s} RUN FAIL  {e}')
+
+    reject_ok = 0
+    for name, src, expected_error in REJECTED_PROGRAMS:
+        tokens, lex_errs = lex(src)
+        if lex_errs:
+            print(f'{name:10s} LEX FAIL  {lex_errs[:1]}'); continue
+        pr = parser.parse_and_build(tokens)
+        message = pr.get('errors', [''])[0] if not pr['success'] else ''
+        status = 'OK' if expected_error in message else f'WRONG (expected rejection containing {expected_error!r})'
+        print(f'{name:10s} {status:30s} got {message!r}')
+        if expected_error in message:
+            reject_ok += 1
     print()
-    print(f'PASS: {ok}/{len(PROGRAMS)}')
-    return ok == len(PROGRAMS)
+    print(f'PASS: {ok}/{len(PROGRAMS)} valid, {reject_ok}/{len(REJECTED_PROGRAMS)} rejected')
+    return ok == len(PROGRAMS) and reject_ok == len(REJECTED_PROGRAMS)
 
 
 if __name__ == '__main__':

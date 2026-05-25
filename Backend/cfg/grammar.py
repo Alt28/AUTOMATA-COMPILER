@@ -204,7 +204,8 @@ cfg = {
             "(",
             ")",
             "{",
-            "<statement>",            # Declarations and statements (can be interleaved like C99)
+            "<local_declaration>",    # Old-style C local declarations must come first
+            "<statement>",            # Executable statements after declarations
             "}",
         ]
     ],
@@ -226,9 +227,9 @@ cfg = {
 
     # ===== LOCAL DECLARATIONS =====
     # Variables and constants declared inside functions
-    "<declaration>": [
-        ["<var_dec>", ";", "<declaration>"],   # Variable declaration
-        ["<const_dec>", ";", "<declaration>"], # Constant declaration
+    "<local_declaration>": [
+        ["<var_dec>", ";", "<local_declaration>"],   # Variable/array/bundle-variable declaration
+        ["<const_dec>", ";", "<local_declaration>"], # Constant declaration
         [EPSILON],  # Can be empty (no local declarations)
     ],
 
@@ -353,7 +354,8 @@ cfg = {
             "<parameters>",        # Parameter list
             ")",
             "{",
-            "<statement>",         # Declarations and statements (can be interleaved like C99)
+            "<local_declaration>", # Old-style C local declarations must come first
+            "<statement>",         # Executable statements after declarations
             "}",
             "<function_definition>",  # Multiple functions (recursive definition)
         ],
@@ -404,7 +406,8 @@ cfg = {
     ],
 
     # ===== STATEMENTS =====
-    # A sequence of statements (zero or more)
+    # A sequence of executable statements (zero or more).
+    # Local declarations are parsed before this sequence in every block.
     "<statement>": [
         ["<simple_stmt>", "<statement>"],  # One statement followed by more
         [EPSILON],                         # No more statements (end of block)
@@ -420,8 +423,6 @@ cfg = {
         ["<switch_stmt>"],        # harvest (switch)
         ["<control_stmt>"],       # prune (break), skip (continue)
         ["reclaim", "<reclaim_value>"],  # Early return: reclaim x; or reclaim;
-        ["<var_dec>", ";"],       # Variable declaration (includes bundle vars, like C99)
-        ["<const_dec>", ";"],     # Constant declaration inside blocks
     ],
 
     # After seeing id, determine what kind of statement it is
@@ -551,6 +552,7 @@ cfg = {
             "<expression>",        # condition
             ")",
             "{",
+            "<local_declaration>", # Declarations before executable statements
             "<statement>",         # if body
             "}",
             "<elseif_chain>",      # else-if chain (optional)
@@ -565,6 +567,7 @@ cfg = {
             "<expression>",        # condition
             ")",
             "{",
+            "<local_declaration>", # Declarations before executable statements
             "<statement>",         # else-if body
             "}",
             "<elseif_chain>",      # More else-ifs
@@ -573,7 +576,7 @@ cfg = {
     ],
 
     "<else_opt>": [
-        ["wither", "{", "<statement>", "}"],  # else clause
+        ["wither", "{", "<local_declaration>", "<statement>", "}"],  # else clause
         [EPSILON],                             # No else
     ],
 
@@ -583,7 +586,7 @@ cfg = {
     # tend = do-while loop
     "<loop_stmt>": [
         # While loop: grow (x < 10) { ... }
-        ["grow", "(", "<expression>", ")", "{", "<statement>", "}"],
+        ["grow", "(", "<expression>", ")", "{", "<local_declaration>", "<statement>", "}"],
         
         # For loop: cultivate (seed i = 0; i < 10; i++) { ... }
         [
@@ -596,12 +599,13 @@ cfg = {
             "<for_update>",        # Update
             ")",
             "{",
+            "<local_declaration>",
             "<statement>",
             "}",
         ],
         
         # Do-while: tend { statements } grow ( condition );
-        ["tend", "{", "<statement>", "}", "grow", "(", "<expression>", ")", ";"],
+        ["tend", "{", "<local_declaration>", "<statement>", "}", "grow", "(", "<expression>", ")", ";"],
     ],
 
     "<for_init>": [
@@ -651,7 +655,8 @@ cfg = {
             "variety",             # case keyword
             "<case_literal>",      # case value (literal only, no expressions)
             ":",
-            "<case_statements>",   # zero or more statements (including prune)
+            "<local_declaration>", # Declarations must precede executable case statements
+            "<case_statements>",   # zero or more executable statements (including prune)
             "<case_list>",         # More cases
         ],
         [EPSILON],  # No more cases
@@ -667,29 +672,28 @@ cfg = {
         ["frost"],                       # Boolean false
     ],
 
-    # Statements inside a case - recursive list of statements
+    # Executable statements inside a case - recursive list of statements
     "<case_statements>": [
         ["<case_statement>", "<case_statements>"],  # One statement, then more
         [EPSILON],                                  # No more statements (stops at variety/soil/})
     ],
     
-    # Any statement type is allowed in a case body
+    # Executable statement types allowed in a case body
     "<case_statement>": [
         ["id", "<id_stmt>"],              # Assignment/increment/function call
         ["<inc_dec_op>", "id", ";"],      # Prefix increment/decrement: ++x; --x;
-        ["<var_dec>", ";"],               # Variable declarations inside case
         ["<io_stmt>"],                    # water() or plant()
         ["<conditional_stmt>"],           # spring (if), bud (else-if), wither (else)
         ["<loop_stmt>"],                  # grow (while), cultivate (for), tend (do-while)
         ["<switch_stmt>"],                # harvest (nested switch)
-        ["{", "<case_statements>", "}"],  # Block: { ... }
+        ["{", "<local_declaration>", "<statement>", "}"],  # Nested block
         ["prune", ";"],                   # prune (break)
         ["skip", ";"],                    # skip (continue)
         ["reclaim", "<reclaim_value>"],   # Early return: reclaim x; or reclaim;
     ],
 
     "<default_opt>": [
-        ["soil", ":", "<case_statements>"],  # default case
+        ["soil", ":", "<local_declaration>", "<case_statements>"],  # default case
         [EPSILON],                            # No default
     ],
 

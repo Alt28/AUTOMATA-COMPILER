@@ -1,13 +1,13 @@
-<program> -> <global_declaration> <function_definition> root ( ) { <statement> }
+<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
 <global_declaration> -> bundle id <bundle_or_var> <global_declaration>
 <global_declaration> -> <data_type> id <array_dec> <var_value> ; <global_declaration>
 <global_declaration> -> fertile <data_type> id = <init_val> <const_next> ; <global_declaration>
 <global_declaration> -> λ
 <bundle_or_var> -> { <bundle_members> } ;
 <bundle_or_var> -> <bundle_mem_dec> ;
-<declaration> -> <var_dec> ; <declaration>
-<declaration> -> <const_dec> ; <declaration>
-<declaration> -> λ
+<local_declaration> -> <var_dec> ; <local_declaration>
+<local_declaration> -> <const_dec> ; <local_declaration>
+<local_declaration> -> λ
 <data_type> -> seed
 <data_type> -> tree
 <data_type> -> leaf
@@ -45,7 +45,7 @@
 <bundle_members> -> <data_type> id ; <bundle_members>
 <bundle_members> -> id id ; <bundle_members>
 <bundle_members> -> λ
-<function_definition> -> pollinate <return_type> id ( <parameters> ) { <statement> } <function_definition>
+<function_definition> -> pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition>
 <function_definition> -> λ
 <return_type> -> <data_type>
 <return_type> -> empty
@@ -72,8 +72,6 @@
 <simple_stmt> -> <switch_stmt>
 <simple_stmt> -> <control_stmt>
 <simple_stmt> -> reclaim <reclaim_value>
-<simple_stmt> -> <var_dec> ;
-<simple_stmt> -> <const_dec> ;
 <id_stmt> -> <id_next> <assign_op> <assign_rhs> ;
 <id_stmt> -> <inc_dec_op> ;
 <id_stmt> -> ( <arguments> ) ;
@@ -109,14 +107,14 @@
 <arguments> -> λ
 <arg_next> -> , <expression> <arg_next>
 <arg_next> -> λ
-<conditional_stmt> -> spring ( <expression> ) { <statement> } <elseif_chain> <else_opt>
-<elseif_chain> -> bud ( <expression> ) { <statement> } <elseif_chain>
+<conditional_stmt> -> spring ( <expression> ) { <local_declaration> <statement> } <elseif_chain> <else_opt>
+<elseif_chain> -> bud ( <expression> ) { <local_declaration> <statement> } <elseif_chain>
 <elseif_chain> -> λ
-<else_opt> -> wither { <statement> }
+<else_opt> -> wither { <local_declaration> <statement> }
 <else_opt> -> λ
-<loop_stmt> -> grow ( <expression> ) { <statement> }
-<loop_stmt> -> cultivate ( <for_init> ; <expression> ; <for_update> ) { <statement> }
-<loop_stmt> -> tend { <statement> } grow ( <expression> ) ;
+<loop_stmt> -> grow ( <expression> ) { <local_declaration> <statement> }
+<loop_stmt> -> cultivate ( <for_init> ; <expression> ; <for_update> ) { <local_declaration> <statement> }
+<loop_stmt> -> tend { <local_declaration> <statement> } grow ( <expression> ) ;
 <for_init> -> <data_type> id <array_dec> <var_value>
 <for_init> -> id <id_next> <assign_op> <expression>
 <for_init> -> λ
@@ -128,7 +126,7 @@
 <inc_dec_op> -> ++
 <inc_dec_op> -> --
 <switch_stmt> -> harvest ( <expression> ) { <case_list> <default_opt> }
-<case_list> -> variety <case_literal> : <case_statements> <case_list>
+<case_list> -> variety <case_literal> : <local_declaration> <case_statements> <case_list>
 <case_list> -> λ
 <case_literal> -> intlit
 <case_literal> -> dblit
@@ -140,21 +138,23 @@
 <case_statements> -> λ
 <case_statement> -> id <id_stmt>
 <case_statement> -> <inc_dec_op> id ;
-<case_statement> -> <var_dec> ;
 <case_statement> -> <io_stmt>
 <case_statement> -> <conditional_stmt>
 <case_statement> -> <loop_stmt>
 <case_statement> -> <switch_stmt>
-<case_statement> -> { <case_statements> }
+<case_statement> -> { <local_declaration> <statement> }
 <case_statement> -> prune ;
 <case_statement> -> skip ;
 <case_statement> -> reclaim <reclaim_value>
-<default_opt> -> soil : <case_statements>
+<default_opt> -> soil : <local_declaration> <case_statements>
 <default_opt> -> λ
 <control_stmt> -> prune ;
 <control_stmt> -> skip ;
 <function_call> -> id ( <arguments> ) ;
-<expression> -> <logic_or>
+<expression> -> <assignment_expression>
+<assignment_expression> -> <logic_or> <assignment_expression_next>
+<assignment_expression_next> -> <assign_op> <assignment_expression>
+<assignment_expression_next> -> λ
 <logic_or> -> <logic_and> <logic_or_next>
 <logic_or_next> -> || <logic_and> <logic_or_next>
 <logic_or_next> -> λ
@@ -175,11 +175,14 @@
 <arithmetic_next> -> - <term> <arithmetic_next>
 <arithmetic_next> -> ` <term> <arithmetic_next>
 <arithmetic_next> -> λ
-<term> -> <factor> <term_next>
-<term_next> -> * <factor> <term_next>
-<term_next> -> / <factor> <term_next>
-<term_next> -> % <factor> <term_next>
+<term> -> <power> <term_next>
+<term_next> -> * <power> <term_next>
+<term_next> -> / <power> <term_next>
+<term_next> -> % <power> <term_next>
 <term_next> -> λ
+<power> -> <factor> <power_next>
+<power_next> -> ** <power>
+<power_next> -> λ
 <factor> -> ( <paren_expr>
 <factor> -> <unary_op> <factor>
 <factor> -> id <factor_id_next>

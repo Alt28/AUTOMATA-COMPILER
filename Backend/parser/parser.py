@@ -699,11 +699,11 @@ class LL1Parser:
             # Fallback message
             return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
         
-        # Check for declaration keyword appearing after statements
-        # (Now allowed inside blocks like C99, so this check only applies to non-terminal '<declaration>')
-        data_type_keywords = {'seed', 'tree', 'leaf', 'vine', 'branch'}
-        if token_type in data_type_keywords and non_terminal == '<declaration>' and '}' in expected:
-            return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. Declarations must appear before all statements. {self._format_expected(expected, non_terminal)}"
+        # A declaration token reaching the executable list means that this
+        # block already contains executable code.
+        declaration_keywords = {'seed', 'tree', 'leaf', 'vine', 'branch', 'bundle', 'fertile'}
+        if token_type in declaration_keywords and non_terminal in {'<statement>', '<case_statements>'}:
+            return f"SYNTAX error line {line} col {col} Unexpected local declaration '{token_value}' after an executable statement. Local declarations must appear first in the block. {self._format_expected(expected, non_terminal)}"
 
         # Check for missing closing braces
         if '}' in expected and token_type in statement_starters:

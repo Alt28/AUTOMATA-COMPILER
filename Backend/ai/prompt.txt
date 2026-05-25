@@ -29,7 +29,7 @@ Multiple variables on one line (comma-separated):
 ```
 seed x = 1, y = 2, z;
 ```
-Variables can be declared inside functions (not just at the top — anywhere before use, like C99).
+Variables may be declared inside functions, but local declarations must appear at the beginning of each block before executable statements (declaration-first C style).
 
 ### Global Declarations
 Variables, constants, and bundles can be declared **outside** of functions at global scope:
