@@ -319,13 +319,10 @@ class LL1Parser:
             # Otherwise, it's an unmatched closing parenthesis
             return f"SYNTAX error line {line} col {col} Unexpected token ')' - no matching '(' found in expression. {self._format_expected(expected, non_terminal)}"
         
-        # Check for assignment operators in expression context
+        # Explain assignment operators that occur where no valid assignment can start.
         assignment_operators = {'+=', '-=', '*=', '/=', '%='}
         if token_type in assignment_operators:
-            # Assignment operators should not appear in expression contexts
-            # They're only valid as part of assignment statements
-            base_op = token_value[0]  # Get the base operator ('+' from '+=', etc.)
-            return f"SYNTAX error line {line} col {col} Assignment operator '{token_value}' cannot be used in expression context. Use '{base_op}' for the operation in expressions. {self._format_expected(expected, non_terminal)}"
+            return f"SYNTAX error line {line} col {col} Assignment operator '{token_value}' must follow a modifiable assignment target. {self._format_expected(expected, non_terminal)}"
         
         # Check for '=' after binary operator (likely space in compound assignment like 'a + = 2')
         if token_type == '=':
@@ -590,8 +587,8 @@ class LL1Parser:
                             return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}' operator - binary operators cannot start an expression. {self._format_expected(expected, non_terminal)}"
                         return f"SYNTAX error line {line} col {col} Missing value after '{prev_tok.value}' operator. {self._format_expected(expected, non_terminal)}"
             
-            # Don't report misleading "missing parenthesis" for assignment operators
-            # This likely indicates an invalid chained assignment
+            # Don't report a misleading "missing parenthesis" message for a
+            # misplaced assignment operator.
             if token_type in {'=', '+=', '-=', '*=', '/=', '%='}:
                 return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
             
@@ -1157,8 +1154,8 @@ class LL1Parser:
                     error_msg = f"SYNTAX error line {line} col {tok.col} expected 'prune;' before closing '}}'. Each case must end with 'prune;'. {self._format_expected(expected)}"
                 return False, [error_msg]
             elif top == '(' and token_type != '(':
-                # Don't give misleading "missing opening parenthesis" error for assignment operators
-                # This happens when there's a chained assignment which is not supported
+                # Don't give a misleading "missing opening parenthesis" message
+                # when an assignment operator is misplaced.
                 if token_type in {'=', '+=', '-=', '*=', '/=', '%='}:
                     error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. {self._format_expected(expected, top)}"
                 elif index > 0:

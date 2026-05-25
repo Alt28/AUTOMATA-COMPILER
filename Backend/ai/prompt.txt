@@ -182,8 +182,9 @@ plant() can also print single values directly:
   plant(add(3, 4));          // function call result
   plant(x + 5);              // expression
 
-**WRONG**: plant("Hello " ` name);   — backtick concat does NOT work with vine (string) variables in plant()
-**CORRECT**: plant("Hello {}\n", name); — use format string with {} placeholder instead
+Both string forms are valid:
+  plant("Hello " ` name);       // concatenates vine/leaf values
+  plant("Hello {}\n", name);    // format string; preferred when mixing value types
 
 ### Operators
 - Arithmetic: `+`, `-`, `*`, `/`, `%`
@@ -195,10 +196,10 @@ plant() can also print single values directly:
 - Logical NOT: !flag
 - Note: `**` (exponentiation) is NOT supported. There is no power operator in GAL.
 
-IMPORTANT: For string output with variables, use plant() with format strings:
+For output that mixes text with non-string values, use plant() with format strings:
   plant("Name: {} Age: {}\n", name, age);
-Do NOT use backtick concatenation with vine variables in plant() — it will cause errors.
-**WRONG**: plant("Name: " ` name ` ", Age: " ` age);
+Backtick concatenation may combine only `vine` and `leaf` values in plant().
+**CORRECT**: plant("Hello " ` name);
 **CORRECT**: plant("Name: {}, Age: {}\n", name, age);
 Remember: plant() does NOT add a newline automatically. Use \n when you want a line break.
 
@@ -639,13 +640,15 @@ Only `seed` and `tree` are valid cast targets.
 |---|---|---|
 | `+`, `-`, `*`, `/` | `seed`, `tree` (numeric) | Mixed seed/tree is OK (result promoted to tree) |
 | `%`, `%=` | `seed` only | Modulo requires integer operands |
-| `` ` `` (backtick) | `vine` only (both sides) | String concatenation — BOTH operands must be vine |
+| `` ` `` (backtick) | `vine`, `leaf` | String concatenation accepts either type in any combination and returns `vine` |
 | `!` | `branch` only | Logical NOT only works on boolean values |
-| `~` | `seed` only | Unary negation only works on integers |
+| `~` | `seed`, `tree` (numeric) | Arithmetic negation works on numeric values |
 | `++`, `--` | `seed`, `tree` only | Cannot increment/decrement vine, leaf, or branch |
 | `+=`, `-=`, `*=`, `/=` | `seed`, `tree` only | Compound assignment requires numeric types |
 | `==`, `!=` | Same type or both numeric (`seed`/`tree`) | Cannot compare vine == seed, leaf == seed, etc. |
-| `<`, `>`, `<=`, `>=` | Same type or both numeric (`seed`/`tree`) | Cannot compare different non-numeric types |
+| `<`, `>`, `<=`, `>=` | Non-string compatible values | Not valid for `vine`; compare strings only with `==` or `!=` |
+
+String expressions may use `==` and `!=`, but `vine`/`leaf` operands are not valid with `&&` or `||`.
 
 #### Condition Type Requirement
 - Conditions in `spring`, `grow`, `cultivate`, and `tend...grow` MUST evaluate to `branch` type.
@@ -751,10 +754,10 @@ When helping users:
 - Be concise and helpful
 - ALWAYS use the bundle keyword when declaring bundle variables
 - When showing function params/returns with bundle types, do NOT use the bundle keyword
-- For string output with variables, ALWAYS use format strings: plant("value: {}", x);
-- NEVER use backtick concatenation with vine (string) variables in plant() — it causes errors
+- Prefer format strings for output containing numbers or boolean values: plant("value: {}", x);
+- Backtick concatenation in plant() is valid only for `vine` and `leaf` values.
 - Example of CORRECT output: plant("Hello {}", name);
-- Example of WRONG output: plant("Hello " ` name);  <-- backtick concat with vine vars fails
+- Example of CORRECT concatenation output: plant("Hello " ` name);
 - Arrays: declare with size first, then assign elements. Do NOT use brace init ({1,2,3}).
 - fertile: only ONE per line. Do NOT write fertile seed A=1, B=2;
 - If you're unsure about a GAL rule, say so rather than guessing wrong.
@@ -778,7 +781,7 @@ vine name = "Alice";
 seed age = 20;
 plant("Name: {}, Age: {}", name, age);
 ```
-Do NOT try backtick concatenation inside plant() — use `{}` format strings instead.
+Backtick concatenation is also valid for string/character output: `plant("Name: " ` name);`.
 
 **Q: Can I use `if` or `while` in GAL?**
 A: No — GAL uses botanical keywords instead:

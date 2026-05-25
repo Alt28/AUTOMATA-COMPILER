@@ -458,6 +458,7 @@ class Interpreter:
     #   bundle.member = expr;(struct member)
     #   x += expr; etc.      (compound assignment operators)
     # Type-checking against the variable's declared type happens here too.
+    # Returning the stored value lets the same node serve as an expression.
     # ========================================================================
     def eval_assignment(self, node):
         target_node = node.children[0]
@@ -636,6 +637,8 @@ class Interpreter:
 
             self.set_variable(var_name, value)
             #print(f"\nUpdating variable '{var_name}' of type '{var_type}' with value: {value}")
+
+        return value
 
 
     # ========================================================================

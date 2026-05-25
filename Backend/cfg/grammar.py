@@ -707,21 +707,32 @@ cfg = {
 
     # ===== EXPRESSIONS =====
     # Expressions follow operator precedence (lowest to highest):
-    # 1. Logical OR (||)
-    # 2. Logical AND (&&)
-    # 3. Relational (>, <, >=, <=, ==, !=)
-    # 4. Arithmetic (+, -)
-    # 5. Term (*, /, %)
-    # 6. Power (**)
-    # 7. Factor (literals, variables, function calls, parentheses)
-    
-    # Level 1: Logical OR (lowest precedence)
-    # Example: a || b || c
+    # 1. Assignment (=, +=, -=, *=, /=, %=), right-associative
+    # 2. Logical OR (||)
+    # 3. Logical AND (&&)
+    # 4. Relational (>, <, >=, <=, ==, !=)
+    # 5. Arithmetic (+, -)
+    # 6. Term (*, /, %)
+    # 7. Power (**)
+    # 8. Factor (literals, variables, function calls, parentheses)
+
+    # Level 1: Assignment expression (lowest precedence).
+    # Semantic analysis verifies that the left side is assignable.
+    # Examples: a = 5, total += amount, a = b = 10
     "<expression>": [
-        ["<logic_or>"],
+        ["<assignment_expression>"],
     ],
 
-    # Level 1: Logical OR
+    "<assignment_expression>": [
+        ["<logic_or>", "<assignment_expression_next>"],
+    ],
+
+    "<assignment_expression_next>": [
+        ["<assign_op>", "<assignment_expression>"],  # Right-associative assignment
+        [EPSILON],                                     # Ordinary expression
+    ],
+
+    # Level 2: Logical OR
     # Example: a || b || c
     "<logic_or>": [
         ["<logic_and>", "<logic_or_next>"],
@@ -772,9 +783,14 @@ cfg = {
     "<arithmetic_next>": [
         ["+", "<term>", "<arithmetic_next>"],  # Addition
         ["-", "<term>", "<arithmetic_next>"],  # Subtraction
-        ["`", "<term>", "<arithmetic_next>"],  # String concatenation
+        ["`", "<term>", "<arithmetic_next>"],  # String concatenation: vine/leaf operands produce vine
         [EPSILON],                              # End
     ],
+
+    # String-expression type rules are enforced during semantic analysis:
+    #   vine/leaf ` vine/leaf -> vine
+    #   vine == vine and vine != vine -> branch
+    #   vine cannot be used with <, >, <=, >=, &&, or ||
 
     # Level 5: Term (multiplication/division/modulo)
     # Example: a * b / c % d
@@ -823,7 +839,7 @@ cfg = {
     
     # Unary operators
     "<unary_op>": [
-        ["~"],   # Bitwise NOT / Negation
+        ["~"],   # Arithmetic negation
         ["!"],   # Logical NOT
     ],
 

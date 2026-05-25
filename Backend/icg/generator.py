@@ -920,8 +920,20 @@ class ICGenerator:
     # ======================================================================
 
     def _expression(self) -> str:
-        """<expression> → <logic_or>"""
-        return self._logic_or()
+        """Parse assignment as the lowest-precedence, right-associative expression."""
+        left = self._logic_or()
+        if self._peek().type not in ASSIGN_OPS:
+            return left
+
+        op_tok = self._advance()
+        right = self._expression()
+        if op_tok.type == "=":
+            self._emit("=", right, None, left)
+        else:
+            tmp = self._new_temp()
+            self._emit(op_tok.type[0], left, right, tmp)
+            self._emit("=", tmp, None, left)
+        return left
 
     def _logic_or(self) -> str:
         """<logic_or> → <logic_and> <logic_or_next>"""
@@ -1039,6 +1051,9 @@ class ICGenerator:
                     tmp = self._new_temp()
                     self._emit("*", idx, idx2, tmp)
                     idx = tmp
+                location = f"{id_tok.value}[{idx}]"
+                if self._peek().type in ASSIGN_OPS:
+                    return location
                 tmp = self._new_temp()
                 self._emit("ARRAY_LOAD", id_tok.value, idx, tmp)
                 return tmp
@@ -1052,6 +1067,9 @@ class ICGenerator:
                     self._advance()
                     m2 = self._expect("id")
                     chain = f"{chain}.{m2.value}"
+                location = f"{id_tok.value}.{chain}"
+                if self._peek().type in ASSIGN_OPS:
+                    return location
                 tmp = self._new_temp()
                 self._emit("STRUCT_LOAD", id_tok.value, chain, tmp)
                 return tmp

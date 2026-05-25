@@ -913,9 +913,9 @@ plant(num);                  // print a single value
 ```
 Use `{}` as placeholders (like Python's `.format()`).
 
-Do NOT use backtick concat with variables in plant():
-- `plant("Hello {}", name);` is CORRECT
-- Use format strings with `{}` placeholder instead"""),
+Backtick concatenation may join `vine` and `leaf` values in plant():
+- `plant("Hello {}", name);` is valid formatting
+- `plant("Hello " ` name);` is valid string concatenation"""),
 
     # ── 13. Bundles (structs) ─────────────────────────────────────
     ([
@@ -1253,12 +1253,10 @@ plant("She said \\"hi\\"");
 ```
 vine first = "Hello";
 vine second = "World";
-vine result = first ` " " ` second;  // "Hello World"
+leaf mark = '!';
+vine result = first ` " " ` second ` mark;  // "Hello World!"
 ```
-The `+` operator also works for concatenation when at least one operand is a string:
-```
-vine msg = "Age: " + (vine)25;  // "Age: 25"
-```
+Only `vine` and `leaf` operands may be joined with backtick; `+` is numeric, not string concatenation.
 For output, prefer format strings:
 ```
 plant("{} {}", first, second);  // cleaner

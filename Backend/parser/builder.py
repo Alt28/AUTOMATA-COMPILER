@@ -17,6 +17,7 @@
 #   This is more correct than the original layout where GALsemantic.py was
 #   doing both jobs.
 # ============================================================================
+import copy
 import re
 
 # Shared types & constants
@@ -1136,16 +1137,7 @@ def parse_expression_type(tokens, index, var_type):
     if var_type not in {"seed", "tree", "vine", "leaf", "branch"} and var_type not in symbol_table.bundle_types:
         raise SemanticError("Semantic Error: Invalid type for assignment.", line)
 
-    # --- parse the full expression (same logic as parse_expression_branch
-    #     but we keep the inferred type from parse_equality) ---
-    node, index, expr_type = parse_equality(tokens, index)
-
-    while tokens[index].type in {"&&", "||"}:
-        operator = tokens[index].value
-        index += 1
-        right_node, index, right_type = parse_equality(tokens, index)
-        node = BinaryOpNode(node, operator, right_node, line=line)
-        expr_type = "branch"
+    node, index, expr_type = parse_assignment_expression(tokens, index)
 
     # --- type-mismatch guard ---
     if expr_type is None:
@@ -1366,21 +1358,21 @@ def parse_expression(tokens, index):
         token = tokens[index]
 
         if op == "`":
-            # Backtick: both operands must be vine
-            if left_type != "vine":
+            # Backtick joins vines and leaves; the resulting string is a vine.
+            if left_type not in {"vine", "leaf"}:
                 raise SemanticError(
-                    f"Semantic Error: Cannot concatenate — left operand is of type '{left_type}', expected 'vine'.",
+                    f"Semantic Error: Cannot concatenate - left operand is of type '{left_type}', expected 'vine' or 'leaf'.",
                     token.line,
                 )
             index += 1
             right_node, index, right_type = parse_term(tokens, index)
-            if right_type != "vine":
+            if right_type not in {"vine", "leaf"}:
                 raise SemanticError(
-                    f"Semantic Error: Cannot concatenate — right operand is of type '{right_type}', expected 'vine'.",
+                    f"Semantic Error: Cannot concatenate - right operand is of type '{right_type}', expected 'vine' or 'leaf'.",
                     token.line,
                 )
             left_node = BinaryOpNode(left_node, op, right_node)
-            # result is still vine
+            left_type = "vine"
         else:
             # + or -: both operands must be numeric (seed or tree)
             if left_type not in {"seed", "tree"}:
@@ -1500,9 +1492,9 @@ def parse_unary(tokens, index):
                 f"Semantic Error: Cannot use '{op}' on type '{operand_type}'. Expected 'seed' or 'tree'.",
                 tokens[index - 1].line,
             )
-        if op == "~" and operand_type != "seed":
+        if op == "~" and operand_type not in {"seed", "tree"}:
             raise SemanticError(
-                f"Semantic Error: Bitwise NOT '~' requires 'seed' (integer) operand, got '{operand_type}'.",
+                f"Semantic Error: Arithmetic negation '~' requires a numeric 'seed' or 'tree' operand, got '{operand_type}'.",
                 tokens[index - 1].line,
             )
         return UnaryOpNode(op, operand, position="pre", line=tokens[index].line), index, operand_type
@@ -1745,7 +1737,80 @@ def parse_factor(tokens, index):
         raise SemanticError(error, token.line)
 
 
+def _assignment_root_name(node):
+    """Return the declared root variable of an assignable AST node."""
+    if node.node_type in {"Identifier", "Value", "Object", "ListName"}:
+        if isinstance(node.value, ASTNode):
+            return _assignment_root_name(node.value)
+        return node.value
+    if node.node_type in {"ListAccess", "MemberAccess", "ArrayMemberAccess"}:
+        return _assignment_root_name(node.children[0])
+    return None
+
+
+def _assignment_target(node, line):
+    """Validate and normalize an assignment-expression left-hand side."""
+    root_name = _assignment_root_name(node)
+    valid_node_types = {"Value", "Identifier", "ListAccess", "MemberAccess", "ArrayMemberAccess"}
+    var_info = symbol_table.lookup_variable(root_name) if root_name is not None else None
+
+    if node.node_type not in valid_node_types or isinstance(var_info, str) or var_info is None:
+        raise SemanticError(
+            "Semantic Error: Left-hand side of assignment expression must be a modifiable variable, list element, or bundle member.",
+            line,
+        )
+    if var_info.get("is_fertile", False):
+        raise SemanticError(
+            f"Semantic Error: Variable '{root_name}' is declared as fertile and cannot be re-assigned a value.",
+            line,
+        )
+
+    if node.node_type == "Value":
+        node = ASTNode("Identifier", node.value, line=line)
+    return node
+
+
+def parse_assignment_expression(tokens, index):
+    """Parse right-associative assignments and infer their stored value type."""
+    line = tokens[index].line
+    left_node, index, left_type = parse_logical_expression(tokens, index)
+    if tokens[index].type not in {"=", "+=", "-=", "*=", "/=", "%="}:
+        return left_node, index, left_type
+
+    operator = tokens[index].type
+    target = _assignment_target(left_node, line)
+    index += 1
+    right_node, index, right_type = parse_assignment_expression(tokens, index)
+
+    if operator == "=":
+        if not _types_compatible(left_type, right_type):
+            raise SemanticError(
+                f"Semantic Error: Type mismatch - cannot assign '{right_type}' value to '{left_type}' variable.",
+                line,
+            )
+        value_node = right_node
+    else:
+        if left_type not in {"seed", "tree"} or right_type not in {"seed", "tree"}:
+            raise SemanticError(
+                f"Semantic Error: Compound assignment '{operator}' requires numeric 'seed' or 'tree' operands.",
+                line,
+            )
+        if operator == "%=" and left_type != "seed":
+            raise SemanticError(
+                "Semantic Error: Modulo assignment '%=' requires a 'seed' (integer) left-hand side.",
+                line,
+            )
+        value_node = BinaryOpNode(copy.deepcopy(target), operator[0], right_node, line=line)
+
+    return AssignmentNode(target, value_node, line=line), index, left_type
+
+
 def parse_expression_branch(tokens, index):
+    """Parse the full expression form used by conditions and parentheses."""
+    return parse_assignment_expression(tokens, index)
+
+
+def parse_logical_expression(tokens, index):
     """Parses logical expressions with &&/|| operators for branch type."""
     line = tokens[index].line
     left_node, index, left_type = parse_equality(tokens, index)
@@ -1755,8 +1820,12 @@ def parse_expression_branch(tokens, index):
         operator = tokens[index].value
         index += 1
         right_node, index, right_type = parse_equality(tokens, index)
-        
-        
+
+        if left_type in {"vine", "leaf"} or right_type in {"vine", "leaf"}:
+            raise SemanticError(
+                f"Semantic Error: Logical operator '{operator}' is not valid for string or leaf operands.",
+                line,
+            )
 
         left_node = BinaryOpNode(left_node, operator, right_node, line=line)
         left_type = "branch"
@@ -1813,6 +1882,12 @@ def parse_relational(tokens, index):
         operator = tokens[index].type
         index += 1
         right_node, index, right_type = parse_expression(tokens, index)
+
+        if left_type == "vine" or right_type == "vine":
+            raise SemanticError(
+                f"Semantic Error: Relational operator '{operator}' is not valid for string operands. Use '==' or '!='.",
+                line,
+            )
 
         # ── type guard: relational operators require compatible types ──
         if left_type and right_type:
@@ -2319,8 +2394,8 @@ def parse_print(tokens, index):
                 expr_node, index, _ = parse_expression(tokens, index)
                 args.append(expr_node)
 
-            elif arg_info["type"] in {"leaf"} and tokens[index + 1].type == "+":
-                expr_node, index = parse_string_concatenation(tokens, index)
+            elif arg_info["type"] in {"vine", "leaf"} and tokens[index + 1].type == "`":
+                expr_node, index, _ = parse_expression_branch(tokens, index)
                 args.append(expr_node)
             
             elif arg_info["type"] in {"seed", "tree"}:
@@ -2435,6 +2510,10 @@ def parse_print(tokens, index):
             elif arg_info["type"] in {"seed", "tree"}:
                 arg_node, index, _ = parse_expression_branch(tokens, index)
                 actual_args.append(arg_node)
+
+            elif arg_info["type"] in {"vine", "leaf"} and tokens[index + 1].type == "`":
+                arg_node, index, _ = parse_expression_branch(tokens, index)
+                actual_args.append(arg_node)
                 
             else:
                 actual_args.append(ASTNode("Value", arg_name, line=line))
@@ -2499,18 +2578,18 @@ def parse_string_concatenation(tokens, index):
     left_node = ASTNode("FormattedString", tokens[index].value, line=line)
     index += 1
 
-    while index < len(tokens) and tokens[index].type in {"+", "`"}:
+    while index < len(tokens) and tokens[index].type == "`":
         concat_op = tokens[index].value
         index += 1
-        if tokens[index].type not in {"stringlit", "id"}:
-            raise SemanticError(f"Semantic Error: Only values of type vine can be concatenated in plant().", line)
+        if tokens[index].type not in {"stringlit", "chrlit", "id"}:
+            raise SemanticError(f"Semantic Error: Only values of type vine or leaf can be concatenated in plant().", line)
 
         if tokens[index].type == "id":
             var_name = tokens[index].value
             var_info = symbol_table.lookup_variable(var_name)
             if isinstance(var_info, str):
                 raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
-            if var_info["type"] != "leaf":
+            if var_info["type"] not in {"vine", "leaf"}:
                 raise SemanticError(f"Semantic Error: Variable '{var_name}' with type {var_info['type']} cannot be concatenated in plant().", line)
 
         format_string = tokens[index].value
@@ -2523,7 +2602,12 @@ def parse_string_concatenation(tokens, index):
                 raise SemanticError(f"Syntax Error: Placeholders {{}} must be adjacent within the string literal.", line)
         
         placeholder_count += raw_string.count("{}")
-        right_node = ASTNode("FormattedString", tokens[index].value, line=line)
+        if tokens[index].type == "id":
+            right_node = ASTNode("Identifier", tokens[index].value, line=line)
+        elif tokens[index].type == "chrlit":
+            right_node = ASTNode("Value", tokens[index].value, line=line)
+        else:
+            right_node = ASTNode("FormattedString", tokens[index].value, line=line)
         index += 1
 
         left_node = BinaryOpNode(left_node, concat_op, right_node, line=line)

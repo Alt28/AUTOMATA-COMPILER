@@ -768,8 +768,9 @@ class Lexer:
                         tokens.append(Token(TT_INTEGERLIT, ident_str, line, pos.col))
                         continue
 
-                # ~ not followed by a digit: emit as negate operator
-                elif self.current_char is None or self.current_char in ALPHANUM + ' \t\n':
+                # ~ not followed by a digit: emit as the arithmetic-negation operator.
+                # Permit a directly grouped operand, such as ~(x + 1).
+                elif self.current_char is None or self.current_char in ALPHANUM + '( \t\n':
                     tokens.append(Token(TT_NEGATIVE, ident_str, line, pos.col))
                     continue
                 else:
