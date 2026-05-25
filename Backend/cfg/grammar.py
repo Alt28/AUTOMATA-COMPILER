@@ -331,10 +331,6 @@ cfg = {
     #              seed age;
     #              branch name;
     #          }
-    "<bundle_declaration>": [
-        ["bundle", "id", "{", "<bundle_members>", "}"],
-    ],
-
     "<bundle_members>": [
         ["<data_type>", "id", ";", "<bundle_members>"],  # Primitive member fields
         ["id", "id", ";", "<bundle_members>"],            # Nested bundle member: Address addr;
@@ -395,11 +391,6 @@ cfg = {
     # ===== RETURN STATEMENT =====
     # Examples: reclaim x + y;
     #           reclaim;  (for empty functions)
-    "<reclaim_opt>": [
-        ["reclaim", "<reclaim_value>"],  # Return statement
-        [EPSILON],                        # No return (optional in some cases)
-    ],
-
     "<reclaim_value>": [
         ["<expression>", ";"],  # Return with value
         [";"],                  # Return without value
@@ -437,10 +428,6 @@ cfg = {
     #           arr[0] = 5;
     #           person.age = 25;
     #           total += 5;
-    "<assignment_stmt>": [
-        ["<value>", "<assign_op>", "<assign_rhs>", ";"],
-    ],
-
     # Assignment right-hand side: either water() input or a regular expression
     "<assign_rhs>": [
         ["water", "(", "<water_arg>", ")"],  # Input: x = water(seed);
@@ -455,11 +442,6 @@ cfg = {
         ["*="],  # Multiply and assign
         ["/="],  # Divide and assign
         ["%="],  # Modulo and assign
-    ],
-
-    # Left-hand side of assignment (variable, array element, or struct member)
-    "<value>": [
-        ["id", "<id_next>"],  # Variable name with optional array/struct access
     ],
 
     "<id_next>": [
@@ -626,10 +608,6 @@ cfg = {
 
     # ===== UNARY STATEMENTS =====
     # Examples: x++;  y--;
-    "<unary_stmt>": [
-        ["id", "<inc_dec_op>", ";"],
-    ],
-
     "<inc_dec_op>": [
         ["++"],  # Increment
         ["--"],  # Decrement
@@ -705,10 +683,6 @@ cfg = {
 
     # ===== FUNCTION CALL =====
     # Example: myFunc(x, y, z);
-    "<function_call>": [
-        ["id", "(", "<arguments>", ")", ";"],
-    ],
-
     # ===== EXPRESSIONS =====
     # Expressions follow operator precedence (lowest to highest):
     # 1. Assignment (=, +=, -=, *=, /=, %=), right-associative
