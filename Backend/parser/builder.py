@@ -650,11 +650,11 @@ def parse_statement(tokens, index, func_type = None):
                                 value_node, index = parse_expression_type(tokens, index, member_type)
                                 assign_node = AssignmentNode(target, value_node, line=line)
                                 assignments_node.add_child(assign_node)
-                            elif tokens[index].type in {"+=", "-=", "*=", "/=", "%="}:
+                            elif tokens[index].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
                                 if member_type not in {"seed", "tree"}:
                                     raise SemanticError(f"Semantic Error: Compound assignment '{tokens[index].value}' is not valid for '{member_type}' member '{member_name}'.", line)
                                 compound_op = tokens[index].value
-                                base_op = compound_op[0]
+                                base_op = compound_op[:-1]
                                 index += 1
                                 rhs_node, index = parse_expression_type(tokens, index, member_type)
                                 value_node = BinaryOpNode(target, base_op, rhs_node, line=line)
@@ -744,12 +744,12 @@ def parse_statement(tokens, index, func_type = None):
                             value_node, index = parse_expression_type(tokens, index, member_type)
                         assign_node = AssignmentNode(target, value_node, line=line)
                         assignments_node.add_child(assign_node)
-                    elif tokens[index].type in {"+=", "-=", "*=", "/=", "%="}:
+                    elif tokens[index].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
                         # Compound assignment on bundle member: p.age += 1
                         if member_type not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Compound assignment '{tokens[index].value}' is not valid for '{member_type}' member '{member_name}'.", line)
                         compound_op = tokens[index].value
-                        base_op = compound_op[0]
+                        base_op = compound_op[:-1]
                         index += 1  # skip compound op
                         rhs_node, index = parse_expression_type(tokens, index, member_type)
                         value_node = BinaryOpNode(target, base_op, rhs_node, line=line)
@@ -788,10 +788,10 @@ def parse_statement(tokens, index, func_type = None):
                     index += 2
                     assignments_node.add_child(UnaryOpNode(operator, operand, "post", line=line))
 
-                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%="}:
+                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
                     # Compound assignment: x += 5  =>  x = x + 5
                     compound_op = tokens[index + 1].value  # e.g. '+='
-                    base_op = compound_op[0]  # e.g. '+'
+                    base_op = compound_op[:-1]  # e.g. "+" from "+=", "**" from "**="
                     cur_var_name = tokens[index].value
                     cur_var_info = symbol_table.lookup_variable(cur_var_name)
                     if isinstance(cur_var_info, str):
@@ -2944,10 +2944,10 @@ def parse_update(tokens, index):
                     node, index = parse_assignment(tokens, index, var_name, error['type'])
                     assignments_node.add_child(node)
 
-                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%="}:
+                elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
                     # Compound assignment in for-loop update: i += 2
                     compound_op = tokens[index + 1].value
-                    base_op = compound_op[0]
+                    base_op = compound_op[:-1]
                     cur_var_name = tokens[index].value
                     cur_var_info = symbol_table.lookup_variable(cur_var_name)
                     if isinstance(cur_var_info, str):

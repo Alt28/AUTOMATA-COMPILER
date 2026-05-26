@@ -41,6 +41,7 @@ TT_MINUSEQ = '-='           # Subtract and assign operator
 TT_MULTIEQ = '*='           # Multiply and assign operator
 TT_DIVEQ = '/='             # Divide and assign operator
 TT_MODEQ = '%='             # Modulo and assign operator
+TT_EXPEQ = '**='            # Exponent and assign operator (x **= 2 → x = x ** 2)
 TT_CONCAT = '`'             # String concatenation operator
 TT_LPAREN = '('             # Left parenthesis
 TT_RPAREN = ')'             # Right parenthesis

@@ -642,18 +642,11 @@ class LL1Parser:
                     
                     # If previous token was an identifier, check context
                     if prev_tok.type == 'id':
-                        # Check if current token is '**' followed by '=' (invalid **= operator)
-                        if token_type == '**':
-                            # Look ahead to see if next token is '='
-                            next_index = index + 1
-                            while next_index < len(toks) and toks[next_index].type in self.skip_token_types:
-                                next_index += 1
-                            
-                            if next_index < len(toks) and toks[next_index].type == '=':
-                                return f"SYNTAX error line {line} col {col} Unexpected operator sequence '**' followed by '='. GAL does not support '**', '**=', or exponentiation operators. {self._format_expected(expected, non_terminal)}"
-                            else:
-                                return f"SYNTAX error line {line} col {col} Unexpected operator '**' after identifier '{prev_tok.value}'. GAL does not support '**' or exponentiation operators. {self._format_expected(expected, non_terminal)}"
-                        
+                        # NOTE: GAL does support '**' (exponentiation) and '**=' (exponent-assign).
+                        # The old heuristic here used to reject both — removed when those operators
+                        # were enabled. A spaced '** =' is still invalid (lexer treats them as
+                        # two tokens) — fall through to the generic compound-assign hint below.
+
                         # Check if current token is a binary operator followed by '=' (spaced compound assignment)
                         compound_op_bases = {'+', '-', '*', '/', '%'}
                         if token_type in compound_op_bases:

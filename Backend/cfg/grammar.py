@@ -460,12 +460,13 @@ cfg = {
 
     # Assignment operators
     "<assign_op>": [
-        ["="],   # Simple assignment
-        ["+="],  # Add and assign
-        ["-="],  # Subtract and assign
-        ["*="],  # Multiply and assign
-        ["/="],  # Divide and assign
-        ["%="],  # Modulo and assign
+        ["="],    # Simple assignment
+        ["+="],   # Add and assign
+        ["-="],   # Subtract and assign
+        ["*="],   # Multiply and assign
+        ["/="],   # Divide and assign
+        ["%="],   # Modulo and assign
+        ["**="],  # Exponent and assign (x **= 2  →  x = x ** 2)
     ],
 
     "<id_next>": [

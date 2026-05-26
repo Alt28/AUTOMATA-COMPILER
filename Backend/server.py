@@ -777,7 +777,7 @@ def chat_clear_endpoint():
 # ============================================================================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('DEBUG', 'False') != 'True'
+    debug = os.environ.get('DEBUG', 'False') == 'True'
 
     print("Starting GAL Compiler Server...")
     print(f"Server running at http://0.0.0.0:{port}")

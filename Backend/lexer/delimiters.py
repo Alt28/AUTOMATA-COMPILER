@@ -19,8 +19,8 @@ ALPHANUM = ALPHA + ZERODIGIT + '_'                  # Identifier characters
 # --- DELIMITER SETS ---
 # Delimiters are characters that can legally appear AFTER certain tokens.
 # Different token types have different valid delimiters to ensure proper syntax.
-space_delim = {' ', '\t', '\n'}                                                                 # after 'seed', 'tree', 'leaf'
-delim2 = {';', ':'}                                                                             # after 'soil' (default case)
+space_delim = {' ', '\t', '\n'}                                                    
+delim2 = {':'}                                                                             # after 'soil' (default case)
 delim3 = {'{'}                                                                                  # after 'tend', 'wither'
 delim4 = {':', '('}                                                                             # after 'bud', 'cultivate', 'harvest'
 delim5 = {'('}                                                                                  # after keywords requiring (
@@ -29,7 +29,7 @@ delim7 = {'('}                                                                  
 delim8 = {';'}                                                                                  # after statements needing ;
 delim9 = set(ALPHA + '(' + ',' + ';' + ')')                                                     # function-related contexts
 delim10 = {';', ')'}                                                                            # closing statements
-delim11 = {'\n'}                                                                                # newline-only
+delim11 = set([LOW_ALPHA, ZERODIGIT, ']', '~'])                                                      # newline-only
 delim12 = set(ALPHA + ZERODIGIT + ']' + '~')                                                    # array/negation contexts
 delim13 = {';', ')', '['}                                                                       # mixed statement endings
 delim14 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')                                              # before literals/blocks
@@ -42,7 +42,8 @@ delim20 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')                              
 delim21 = set(DIGIT)                                                                            # digit delimiters
 delim22 = {',', ';', '(', ')', '{', '[', ']'}                                                   # punctuation contexts
 delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'} # after literals
-delim24 = set(ZERODIGIT + ALPHA + '~' + '(')                                                    # unary/function contexts
+delim24 = set(ZERODIGIT + ALPHA + '~!(' + "\"'" + ' \t\n')                                     # expression starts after + or +=
+delim25 = set(ALPHANUM + ';}) \t\n')                                                             # after prefix/postfix ++ or --
 idf_delim = {' ', ',', ';', '(', ')', '{', '}', '[', ']', ':', '+', '-', '*', '/', '%',
              '>', '<', '=', '\t', '\n', '.', '"', "'"}                                          # after identifiers
 whlnum_delim = {';', ' ', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<',
