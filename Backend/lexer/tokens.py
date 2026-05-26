@@ -67,7 +67,7 @@ TT_RSQBR = ']'                  # Right square bracket
 TT_NEGATIVE = '~'               # Unary negation operator
 TT_MEMBER = 'member'            # Member token for struct access
 TT_INTEGERLIT = 'intlit'        # Integer literal token (e.g., 42, 100)
-TT_DOUBLELIT = 'dbllit'         # Double/float literal token (e.g., 3.14, 2.5)
+TT_DOUBLELIT = 'dblit'         # Double/float literal token (e.g., 3.14, 2.5)
 TT_STRINGLIT = 'stringlit'      # String literal token (e.g., "hello")
 TT_CHARLIT = 'chrlit'           # Character literal token (e.g., 'a')
 TT_BOOLLIT_TRUE = 'sunshine'    # Boolean true literal
@@ -141,7 +141,7 @@ def get_token_description(token_type: str, value: str = '') -> str:
         # Identifiers and Literals
         'id': 'Identifier',
         'intlit': 'Integer Literal',
-        'dbllit': 'double Literal',
+        'dblit': 'double Literal',
         'stringlit': 'string',
         'chrlit': 'Character',
         'sunshine': 'Boolean True',
