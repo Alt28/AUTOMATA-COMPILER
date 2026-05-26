@@ -263,6 +263,7 @@ class ICGenerator:
                     self._advance()  # {
                     self._bundle_members()
                     self._expect("}")
+                    self._expect(";")
                 else:
                     # bundle variable: bundle Id varName ... ;
                     self._bundle_mem_dec()
@@ -424,21 +425,13 @@ class ICGenerator:
             self._expect(";")
 
     def _bundle_mem_dec(self):
-        """<bundle_mem_dec> → id <var_value_next> | , id <var_value_next> | λ"""
-        tok = self._peek()
-        if tok.type == "id":
-            id_tok = self._advance()
-            self._emit("DECLARE", "bundle", None, id_tok.value)
-            self._var_value_next_simple()
-        elif tok.type == ",":
-            self._advance()
-            id_tok = self._expect("id")
-            self._emit("DECLARE", "bundle", None, id_tok.value)
-            self._var_value_next_simple()
-
-    def _var_value_next_simple(self):
-        while self._match(","):
-            id_tok = self._expect("id")
+        """<bundle_mem_dec> → id <array_dec>"""
+        id_tok = self._expect("id")
+        arr_dims = self._array_dec()
+        if arr_dims:
+            for dim in arr_dims:
+                self._emit("ARRAY_DECLARE", "bundle", dim, id_tok.value)
+        else:
             self._emit("DECLARE", "bundle", None, id_tok.value)
 
     # ======================================================================

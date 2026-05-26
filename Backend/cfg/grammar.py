@@ -259,15 +259,14 @@ cfg = {
     # Examples: seed x = 5;
     #           tree arr[10];
     #           bundle Person p;
+    #           bundle Person group[2];
     "<var_dec>": [
         ["<data_type>", "id", "<array_dec>", "<var_value>"],  # Regular variable or array
         ["bundle", "id", "<bundle_mem_dec>"],                 # Struct variable
     ],
 
     "<bundle_mem_dec>": [
-        ["id", "<array_dec>", "<var_value_next>"],  # bundle Person p; or bundle Person p[2];
-        [",", "id", "<var_value_next>"],    # Multiple struct variables
-        [EPSILON],                           # Just declaration without initialization
+        ["id", "<array_dec>"],  # bundle Person p; or bundle Person p[2];
     ],
 
     "<var_value>": [

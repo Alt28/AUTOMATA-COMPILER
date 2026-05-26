@@ -35,6 +35,8 @@ PROGRAMS = [
      ['two']),
     ('declfirst', 'root() { seed num = 5; plant("begin"); num += 2; plant("num={}", num); reclaim; }',
      ['begin', 'num=7']),
+    ('bundlevar', 'bundle Student { seed age; }; root() { bundle Student student; student.age = 20; plant("age={}", student.age); reclaim; }',
+     ['age=20']),
 ]
 
 REJECTED_PROGRAMS = [
@@ -44,6 +46,12 @@ REJECTED_PROGRAMS = [
      'Local declarations must appear first in the block.'),
     ('late_case', 'root() { seed n = 1; harvest (n) { variety 1: plant("begin"); seed late = 5; prune; } reclaim; }',
      'Local declarations must appear first in the block.'),
+    ('bundle_no_var', 'bundle Student { seed age; }; root() { bundle Student; reclaim; }',
+     'Expected: id'),
+    ('bundle_leading_comma', 'bundle Student { seed age; }; root() { bundle Student, student; reclaim; }',
+     'Expected: id'),
+    ('bundle_multiple', 'bundle Student { seed age; }; root() { bundle Student first, second; reclaim; }',
+     "Expected: ';'"),
 ]
 
 
