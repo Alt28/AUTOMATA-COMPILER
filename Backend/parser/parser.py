@@ -531,7 +531,7 @@ class LL1Parser:
         
         # Check for missing reclaim statement
         if 'reclaim' in expected and token_type == '}':
-            return f"SYNTAX error line {line} col {col} expected 'reclaim' statement before closing '}}'. Functions must end with 'reclaim;'. {self._format_expected(expected, non_terminal)}"
+            return f"SYNTAX error line {line} col {col} expected 'reclaim;' before '}}'. All functions, including root(), must end with 'reclaim;'. {self._format_expected(expected, non_terminal)}"
         
         # Check for missing prune (break) in variety (case) statements
         if 'prune' in expected and token_type in {'variety', 'soil', '}'}:
@@ -702,7 +702,7 @@ class LL1Parser:
         # A declaration token reaching the executable list means that this
         # block already contains executable code.
         declaration_keywords = {'seed', 'tree', 'leaf', 'vine', 'branch', 'bundle', 'fertile'}
-        if token_type in declaration_keywords and non_terminal in {'<statement>', '<case_statements>'}:
+        if token_type in declaration_keywords and non_terminal in {'<body_statement>', '<statement>', '<case_statements>'}:
             return f"SYNTAX error line {line} col {col} Unexpected local declaration '{token_value}' after an executable statement. Local declarations must appear first in the block. {self._format_expected(expected, non_terminal)}"
 
         # Check for missing closing braces

@@ -233,65 +233,6 @@ def parse_functionOrVariable(tokens, index):
     
     return None, index
 
-def _contains_return(node):
-    """Recursively check if an AST node or any of its children contains a ReturnNode."""
-    if isinstance(node, ReturnNode):
-        return True
-    if hasattr(node, 'children'):
-        for child in node.children:
-            if _contains_return(child):
-                return True
-    return False
-
-def _all_paths_return(node):
-    """Check whether ALL code paths through this node guarantee a return.
-    
-    - A ReturnNode always returns.
-    - A Block guarantees return if any top-level statement in it guarantees return.
-    - An IfStatement guarantees return only if it has a wither (else) clause
-      AND every branch (spring body + all bud bodies + wither body) guarantees return.
-    - Loops (WhileLoop, DoWhileLoop, ForLoop) do NOT guarantee return because
-      their body may never execute.
-    - Everything else does not guarantee return.
-    """
-    if isinstance(node, ReturnNode):
-        return True
-
-    if node.node_type == "Block":
-        for child in node.children:
-            if _all_paths_return(child):
-                return True
-        return False
-
-    if isinstance(node, IfStatementNode):
-        # children[0] = Condition
-        # children[1] = Block (spring body)
-        # remaining children are ElseIfStatement or ElseStatement nodes
-        has_else = False
-        branches = []
-
-        for child in node.children:
-            if child.node_type == "Condition":
-                continue
-            elif child.node_type == "Block":
-                branches.append(child)
-            elif child.node_type == "ElseIfStatement":
-                # ElseIfStatement children: [Condition, Block]
-                for sub in child.children:
-                    if sub.node_type == "Block":
-                        branches.append(sub)
-            elif child.node_type == "ElseStatement":
-                has_else = True
-                for sub in child.children:
-                    if sub.node_type == "Block":
-                        branches.append(sub)
-
-        if not has_else:
-            return False
-        return all(_all_paths_return(b) for b in branches)
-
-    return False
-
 # ============================================================================
 # DECLARATION PARSERS - parse_function, parse_variable
 # These build the AST nodes for top-level declarations and register them
@@ -401,26 +342,11 @@ def parse_function(tokens, index, func_name, func_type):
     if tokens[index].type == "{":
         index += 1
         block_node = ASTNode("Block")
-        has_any_return = False
         
         while tokens[index].type != "}":
             stmt, index = parse_statement(tokens, index, func_type)
             if stmt:
                 block_node.add_child(stmt)
-                if _contains_return(stmt):
-                    has_any_return = True
-        
-        all_paths = _all_paths_return(block_node)
-
-        if (func_type != "empty" and not all_paths) and func_name not in {"root"}:
-            raise SemanticError(f"Semantic Error: Function '{func_name}' must return a value of type '{func_type}' on all code paths.", line)
-        
-        # All functions (including root) must end with reclaim;
-        if not has_any_return:
-            if func_name == "root":
-                raise SemanticError(f"Semantic Error: root() must end with 'reclaim;'.", line)
-            elif func_type == "empty":
-                raise SemanticError(f"Semantic Error: Function '{func_name}' must end with 'reclaim;'.", line)
 
         index += 1
         func_node.add_child(block_node)

@@ -205,7 +205,9 @@ cfg = {
             ")",
             "{",
             "<local_declaration>",    # Old-style C local declarations must come first
-            "<statement>",            # Executable statements after declarations
+            "<body_statement>",       # Executable statements before the required final return
+            "reclaim",                # root() must end with reclaim;
+            ";",
             "}",
         ]
     ],
@@ -350,7 +352,9 @@ cfg = {
             ")",
             "{",
             "<local_declaration>", # Old-style C local declarations must come first
-            "<statement>",         # Executable statements after declarations
+            "<body_statement>",    # Executable statements before the required final return
+            "reclaim",             # Every function must end with reclaim
+            "<reclaim_value>",     # Value validated against the declared return type
             "}",
             "<function_definition>",  # Multiple functions (recursive definition)
         ],
@@ -396,8 +400,25 @@ cfg = {
     ],
 
     # ===== STATEMENTS =====
+    # Function/root body statements before the required final reclaim.
+    # Nested blocks still use <statement>, where an early return is legal.
+    "<body_statement>": [
+        ["<non_reclaim_stmt>", "<body_statement>"],
+        [EPSILON],
+    ],
+
+    "<non_reclaim_stmt>": [
+        ["id", "<id_stmt>"],         # Assignment, unary, or function call
+        ["<inc_dec_op>", "id", ";"], # Prefix increment/decrement
+        ["<io_stmt>"],               # water() or plant()
+        ["<conditional_stmt>"],      # spring/bud/wither
+        ["<loop_stmt>"],             # grow/cultivate/tend
+        ["<switch_stmt>"],           # harvest
+        ["<control_stmt>"],          # prune/skip
+    ],
+
     # A sequence of executable statements (zero or more).
-    # Local declarations are parsed before this sequence in every block.
+    # Used for nested blocks, where early reclaim remains allowed.
     "<statement>": [
         ["<simple_stmt>", "<statement>"],  # One statement followed by more
         [EPSILON],                         # No more statements (end of block)
@@ -405,13 +426,7 @@ cfg = {
 
     # ===== TYPES OF STATEMENTS =====
     "<simple_stmt>": [
-        ["id", "<id_stmt>"],      # Starts with id: assignment, unary, or function call
-        ["<inc_dec_op>", "id", ";"],  # Prefix increment/decrement: ++x; --x;
-        ["<io_stmt>"],            # water() or plant()
-        ["<conditional_stmt>"],   # spring (if), wither (else), bud (else-if)
-        ["<loop_stmt>"],          # grow (while), cultivate (for), tend (do-while)
-        ["<switch_stmt>"],        # harvest (switch)
-        ["<control_stmt>"],       # prune (break), skip (continue)
+        ["<non_reclaim_stmt>"],           # Regular executable nested statement
         ["reclaim", "<reclaim_value>"],  # Early return: reclaim x; or reclaim;
     ],
 

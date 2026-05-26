@@ -1,4 +1,4 @@
-<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
+<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <body_statement> reclaim ; }
 <global_declaration> -> bundle id <bundle_or_var> <global_declaration>
 <global_declaration> -> <data_type> id <array_dec> <var_value> ; <global_declaration>
 <global_declaration> -> fertile <data_type> id = <init_val> <const_next> ; <global_declaration>
@@ -18,9 +18,7 @@
 <const_next> -> λ
 <var_dec> -> <data_type> id <array_dec> <var_value>
 <var_dec> -> bundle id <bundle_mem_dec>
-<bundle_mem_dec> -> id <array_dec> <var_value_next>
-<bundle_mem_dec> -> , id <var_value_next>
-<bundle_mem_dec> -> λ
+<bundle_mem_dec> -> id <array_dec>
 <var_value> -> = <init_val> <var_value_next>
 <var_value> -> <var_value_next>
 <var_value_next> -> , id <array_dec> <var_value>
@@ -41,11 +39,10 @@
 <init_vals_next> -> λ
 <init_val_item> -> { <init_vals> }
 <init_val_item> -> <expression>
-<bundle_declaration> -> bundle id { <bundle_members> }
 <bundle_members> -> <data_type> id ; <bundle_members>
 <bundle_members> -> id id ; <bundle_members>
 <bundle_members> -> λ
-<function_definition> -> pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition>
+<function_definition> -> pollinate <return_type> id ( <parameters> ) { <local_declaration> <body_statement> reclaim <reclaim_value> } <function_definition>
 <function_definition> -> λ
 <return_type> -> <data_type>
 <return_type> -> empty
@@ -58,24 +55,24 @@
 <param_array> -> [ ]
 <param_next> -> λ
 <param_next> -> , <param> <param_next>
-<reclaim_opt> -> reclaim <reclaim_value>
-<reclaim_opt> -> λ
 <reclaim_value> -> <expression> ;
 <reclaim_value> -> ;
+<body_statement> -> <non_reclaim_stmt> <body_statement>
+<body_statement> -> λ
+<non_reclaim_stmt> -> id <id_stmt>
+<non_reclaim_stmt> -> <inc_dec_op> id ;
+<non_reclaim_stmt> -> <io_stmt>
+<non_reclaim_stmt> -> <conditional_stmt>
+<non_reclaim_stmt> -> <loop_stmt>
+<non_reclaim_stmt> -> <switch_stmt>
+<non_reclaim_stmt> -> <control_stmt>
 <statement> -> <simple_stmt> <statement>
 <statement> -> λ
-<simple_stmt> -> id <id_stmt>
-<simple_stmt> -> <inc_dec_op> id ;
-<simple_stmt> -> <io_stmt>
-<simple_stmt> -> <conditional_stmt>
-<simple_stmt> -> <loop_stmt>
-<simple_stmt> -> <switch_stmt>
-<simple_stmt> -> <control_stmt>
+<simple_stmt> -> <non_reclaim_stmt>
 <simple_stmt> -> reclaim <reclaim_value>
 <id_stmt> -> <id_next> <assign_op> <assign_rhs> ;
 <id_stmt> -> <inc_dec_op> ;
 <id_stmt> -> ( <arguments> ) ;
-<assignment_stmt> -> <value> <assign_op> <assign_rhs> ;
 <assign_rhs> -> water ( <water_arg> )
 <assign_rhs> -> <expression>
 <assign_op> -> =
@@ -84,7 +81,6 @@
 <assign_op> -> *=
 <assign_op> -> /=
 <assign_op> -> %=
-<value> -> id <id_next>
 <id_next> -> <array_access> <post_array_access>
 <id_next> -> <struct_access>
 <id_next> -> λ
@@ -122,7 +118,6 @@
 <for_update> -> λ
 <for_update_type> -> <inc_dec_op>
 <for_update_type> -> <id_next> <assign_op> <expression>
-<unary_stmt> -> id <inc_dec_op> ;
 <inc_dec_op> -> ++
 <inc_dec_op> -> --
 <switch_stmt> -> harvest ( <expression> ) { <case_list> <default_opt> }
@@ -150,7 +145,6 @@
 <default_opt> -> λ
 <control_stmt> -> prune ;
 <control_stmt> -> skip ;
-<function_call> -> id ( <arguments> ) ;
 <expression> -> <assignment_expression>
 <assignment_expression> -> <logic_or> <assignment_expression_next>
 <assignment_expression_next> -> <assign_op> <assignment_expression>

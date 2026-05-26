@@ -219,7 +219,7 @@ class ICGenerator:
         return self.code, self.errors
 
     def _program(self):
-        """<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }"""
+        """<program> -> ... root ( ) { <local_declaration> <body_statement> reclaim ; }"""
         self._global_declaration()
         self._function_definition()
 
@@ -233,15 +233,9 @@ class ICGenerator:
         self._declaration()
         self._statement()
 
-        # reclaim ;
-        if self._peek().type == "reclaim":
-            self._advance()
-            if self._peek().type != ";":
-                val = self._expression()
-                self._emit("RETURN", val)
-            else:
-                self._emit("RETURN")
-            self._expect(";")
+        self._expect("reclaim")
+        self._expect(";")
+        self._emit("RETURN")
 
         self._expect("}")
         self._emit("ENDFUNC")
@@ -474,15 +468,13 @@ class ICGenerator:
             self._declaration()
             self._statement()
 
-            # optional reclaim
-            if self._peek().type == "reclaim":
-                self._advance()
-                if self._peek().type == ";":
-                    self._emit("RETURN")
-                else:
-                    val = self._expression()
-                    self._emit("RETURN", val)
-                self._expect(";")
+            self._expect("reclaim")
+            if self._peek().type == ";":
+                self._emit("RETURN")
+            else:
+                val = self._expression()
+                self._emit("RETURN", val)
+            self._expect(";")
 
             self._expect("}")
             self._emit("ENDFUNC")
@@ -515,10 +507,16 @@ class ICGenerator:
     # STATEMENTS
     # ======================================================================
 
-    def _statement(self):
-        """Consume executable statements; syntax validation enforces declaration order."""
-        while self._peek().type not in ("}", "EOF", "reclaim", "variety", "soil", "prune"):
+    def _statement(self, allow_reclaim: bool = False):
+        """Consume executable statements; a function's final reclaim is consumed separately."""
+        stopping_tokens = {"}", "EOF", "variety", "soil", "prune"}
+        while self._peek().type not in stopping_tokens:
             tok = self._peek()
+            if tok.type == "reclaim":
+                if not allow_reclaim:
+                    return
+                self._return_stmt()
+                continue
             # Nested blocks expose their valid declaration prefix here.
             if self._is_data_type(tok) or tok.type == "bundle" or tok.type == "fertile":
                 if tok.type == "fertile":
@@ -529,6 +527,14 @@ class ICGenerator:
                     self._expect(";")
                 continue
             self._simple_stmt()
+
+    def _return_stmt(self):
+        self._expect("reclaim")
+        if self._peek().type == ";":
+            self._emit("RETURN")
+        else:
+            self._emit("RETURN", self._expression())
+        self._expect(";")
 
     def _simple_stmt(self):
         """Dispatch on the first token."""
@@ -663,7 +669,7 @@ class ICGenerator:
         self._emit("IFFALSE", cond, None, false_label)
 
         self._expect("{")
-        self._statement()
+        self._statement(allow_reclaim=True)
         self._expect("}")
 
         self._emit("GOTO", None, None, end_label)
@@ -676,7 +682,7 @@ class ICGenerator:
         if self._peek().type == "wither":
             self._advance()
             self._expect("{")
-            self._statement()
+            self._statement(allow_reclaim=True)
             self._expect("}")
 
         self._emit("LABEL", None, None, end_label)
@@ -693,7 +699,7 @@ class ICGenerator:
             self._emit("IFFALSE", cond, None, next_label)
 
             self._expect("{")
-            self._statement()
+            self._statement(allow_reclaim=True)
             self._expect("}")
 
             self._emit("GOTO", None, None, end_label)
@@ -725,7 +731,7 @@ class ICGenerator:
         self._emit("IFFALSE", cond, None, end_label)
 
         self._expect("{")
-        self._statement()
+        self._statement(allow_reclaim=True)
         self._expect("}")
 
         self._emit("GOTO", None, None, start_label)
@@ -761,7 +767,7 @@ class ICGenerator:
 
         self._expect(")")
         self._expect("{")
-        self._statement()
+        self._statement(allow_reclaim=True)
         self._expect("}")
 
         # emit update
@@ -819,7 +825,7 @@ class ICGenerator:
         start_label = self._new_label()
         self._emit("LABEL", None, None, start_label)
 
-        self._statement()
+        self._statement(allow_reclaim=True)
         self._expect("}")
 
         self._expect("grow")
@@ -888,6 +894,8 @@ class ICGenerator:
                 self._advance()
                 self._expect(";")
                 # skip = continue, emit as nop in switch context
+            elif tok.type == "reclaim":
+                self._return_stmt()
             else:
                 break
 

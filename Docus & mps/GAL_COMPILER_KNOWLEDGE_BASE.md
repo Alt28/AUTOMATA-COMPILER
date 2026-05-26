@@ -157,11 +157,11 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ### 3.1 Program Structure
 
 ```
-<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
+<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <body_statement> reclaim ; }
 
 <global_declaration> → <declaration> <global_declaration> | λ
 
-<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition> | λ
+<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <body_statement> reclaim <reclaim_value> } <function_definition> | λ
 
 <return_type> → <data_type> | empty
 ```
@@ -215,18 +215,20 @@ Epsilon is represented as `λ`. Terminals are in **single quotes** or **lowercas
 ### 3.5 Statements
 
 ```
-<statement> → <simple_stmt> ; <statement>
-            | <conditional_stmt> <statement>
-            | <loop_stmt> <statement>
-            | <switch_stmt> <statement>
-            | reclaim <return_expr> ; <statement>
+<body_statement> → <non_reclaim_stmt> <body_statement> | λ
+
+<non_reclaim_stmt> → <io_stmt>
+                   | <id_stmt>
+                   | <conditional_stmt>
+                   | <loop_stmt>
+                   | <switch_stmt>
+                   | <control_stmt>
+
+<statement> → <simple_stmt> <statement>
             | λ
 
-<simple_stmt> → <io_stmt>
-              | <id_stmt>
-              | prune
-              | skip
-              | <pre_update>
+<simple_stmt> → <non_reclaim_stmt>
+              | reclaim <reclaim_value>
 
 <id_stmt> → id <id_stmt_tail>
 
@@ -457,6 +459,7 @@ Type-to-literal mappings enforced:
 |---------|-------|
 | Empty block `{}` | `"SYNTAX error line L col C Empty block. Expected at least one statement inside braces."` |
 | Code after `reclaim` | `"SYNTAX error line L col C Unreachable code after 'reclaim'. Statements after a return will never execute."` |
+| Missing final `reclaim` | `"SYNTAX error line L col C expected 'reclaim;' before '}'. All functions, including root(), must end with 'reclaim;'."` |
 | Chained `++`/`--` | `"SYNTAX error line L col C Unexpected token 'X' after 'Y'. Increment/decrement operators cannot be chained."` |
 | Binary op after `++`/`--` | `"SYNTAX error line L col C Unexpected binary operator 'X' after unary operator 'Y'. Increment/decrement must be standalone statements."` |
 | Missing return type | `"SYNTAX error line L col C Missing return type after 'pollinate'. '{name}' was parsed as the return type, not the function name."` |
@@ -529,8 +532,6 @@ Semantic Error: {message}
 | Non-empty function missing return expr | `"Semantic Error: Function expects to return a '{type}' value, but 'reclaim' has no return expression."` |
 | Return type mismatch | `"Semantic Error: Function '{name}' returns '{actual}', but expected '{expected}'."` |
 | Variable type doesn't match return | `"Semantic Error: Variable '{name}' is of type '{var_type}'. Expected return value: '{func_type}'."` |
-| Not all paths return | `"Semantic Error: Function '{name}' must return a value on all code paths."` |
-| All functions must end with reclaim | `"Semantic Error: Function '{name}' must end with 'reclaim'."` |
 | `water()` used as expression | `"Semantic Error: 'water()' is an I/O statement, not a value expression."` |
 
 ### 5.6 Control Flow Rules

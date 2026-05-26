@@ -340,10 +340,10 @@ These sets are computed automatically by `compute_first()`, `compute_follow()`, 
 #### 3.4.1 Program Structure
 
 ```
-<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }
+<program> → <global_declaration> <function_definition> root ( ) { <local_declaration> <body_statement> reclaim ; }
 ```
 
-Every GAL program must have a `root()` function as its entry point (equivalent to `main()` in C).
+Every GAL program must have a `root()` function as its entry point (equivalent to `main()` in C). Its final `reclaim;` is required by the CFG, so a missing return is a syntax error.
 
 #### 3.4.2 Global Declarations
 
@@ -365,6 +365,8 @@ Every GAL program must have a `root()` function as its entry point (equivalent t
 ```
 <var_dec> → <data_type> id <array_dec> <var_value>
           | bundle id <bundle_mem_dec>
+
+<bundle_mem_dec> → id <array_dec>
 
 <var_value> → = <init_val> <var_value_next>
             | <var_value_next>
@@ -429,7 +431,8 @@ Example: `seed arr[] = {1, 2, 3};` or nested: `seed m[][] = {{1, 2}, {3, 4}};`
 #### 3.4.8 Bundle (Struct) Definition
 
 ```
-<bundle_declaration> → bundle id { <bundle_members> }
+<bundle_or_var> → { <bundle_members> } ;
+                | <bundle_mem_dec> ;
 
 <bundle_members> → <data_type> id ; <bundle_members>
                  | id id ; <bundle_members>
@@ -447,7 +450,7 @@ bundle Person {
 #### 3.4.9 Function Definition
 
 ```
-<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition>
+<function_definition> → pollinate <return_type> id ( <parameters> ) { <local_declaration> <body_statement> reclaim <reclaim_value> } <function_definition>
                        | λ
 
 <return_type> → <data_type> | empty | id
@@ -469,18 +472,25 @@ pollinate seed add(seed a, seed b) {
 #### 3.4.10 Statements
 
 ```
+<body_statement> → <non_reclaim_stmt> <body_statement>
+                 | λ
+
+<non_reclaim_stmt> → id <id_stmt>
+                   | <inc_dec_op> id ;
+                   | <io_stmt>
+                   | <conditional_stmt>
+                   | <loop_stmt>
+                   | <switch_stmt>
+                   | <control_stmt>
+
 <statement> → <simple_stmt> <statement>
             | λ
 
-<simple_stmt> → id <id_stmt>
-              | <inc_dec_op> id ;
-              | <io_stmt>
-              | <conditional_stmt>
-              | <loop_stmt>
-              | <switch_stmt>
-              | <control_stmt>
+<simple_stmt> → <non_reclaim_stmt>
               | reclaim <reclaim_value>
 ```
+
+`<body_statement>` is used directly inside `root()` and `pollinate` bodies so their required final `reclaim` is reserved by syntax. Nested blocks use `<statement>` and may use an early `reclaim`; the containing function must still end with its final required `reclaim`.
 
 GrowALanguage uses a declaration-first block style: all local variables, arrays, constants, and bundle variables in a block must be declared before its executable statements.
 
@@ -843,8 +853,6 @@ GAL has a **static type system** with 5 primitive types:
 | `empty` functions must not return a value | `empty function must not return any value.` |
 | Non-`empty` functions must return a value | `Function expects to return a '{type}' value.` |
 | Return type must match function declaration | `Function '{name}' returns '{actual}', but expected '{expected}'.` |
-| All code paths must return a value | `Function '{name}' must return a value on all code paths.` |
-| Functions must end with `reclaim` | `Function '{name}' must end with 'reclaim'.` |
 | `water()` cannot be used as an expression value | `'water()' is an I/O statement, not a value expression.` |
 
 #### 5.4.4 Control Flow Rules
@@ -1308,6 +1316,7 @@ The AI chat assistant uses a hybrid approach to help users understand errors:
 | S11 | `Type mismatch in declaration` | Wrong literal type |
 | S12 | `Empty character literal.` | `''` |
 | S13 | `Invalid character literal: '{value}'.` | `'abc'` |
+| S14 | `expected 'reclaim;' before '}'` | Function or `root()` is missing its required final return |
 
 ### 13.3 Semantic Errors
 

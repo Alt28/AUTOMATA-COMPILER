@@ -191,6 +191,13 @@ _ERROR_PATTERNS = [
          '// BAD:  plant("start"); seed x = 5;\n// GOOD: seed x = 5; plant("start");',
      )),
 
+    (_re.compile(r"expected 'reclaim;' before", _re.I),
+     _parser_err(
+         "The function is missing its required final `reclaim` statement.",
+         "The CFG requires every function, including `root()`, to end with `reclaim;`.",
+         'root() {\n    plant("Done");\n    reclaim;\n}',
+     )),
+
     (_re.compile(r"Unreachable code after 'reclaim'", _re.I),
      _parser_err(
          "Code appears after a `reclaim` (return) statement.",
@@ -306,20 +313,6 @@ _ERROR_PATTERNS = [
          "A function declared as `empty` (void) is returning a value.",
          "Empty functions must use `reclaim;` without a value.",
          "pollinate empty greet() {\n    plant(\"Hello!\");\n    reclaim;  // No value after reclaim\n}",
-     )),
-
-    (_re.compile(r"Function '(\w+)' must end with 'reclaim'", _re.I),
-     lambda m: _semantic_err(
-         f"Function `{m.group(1)}` is missing a `reclaim` statement.",
-         "All functions must end with `reclaim`.",
-         f"pollinate seed {m.group(1)}(seed x) {{\n    // ... your code ...\n    reclaim x;  // Must end with reclaim\n}}",
-     )),
-
-    (_re.compile(r"must return a value on all code paths", _re.I),
-     _semantic_err(
-         "Not all code paths return a value.",
-         "Non-empty functions must return a value on every execution path.",
-         "pollinate seed abs(seed x) {\n    spring (x >= 0) {\n        reclaim x;\n    } wither {\n        reclaim ~x;  // Both paths return\n    }\n}",
      )),
 
     (_re.compile(r"'prune' used outside a loop or switch", _re.I),
@@ -1446,8 +1439,8 @@ pollinate empty sayHi() {          // returns nothing
 
 **Rules:**
 - `empty` functions must use `reclaim;` (no value)
-- Non-empty functions must `reclaim` a value on **all** code paths
-- All functions must end with `reclaim`"""),
+- Non-empty functions must provide a value in their required final `reclaim`
+- The CFG requires every function to end with `reclaim`"""),
 
     # ── 30. Recursive functions ───────────────────────────────────
     ([

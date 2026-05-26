@@ -37,6 +37,8 @@ PROGRAMS = [
      ['begin', 'num=7']),
     ('bundlevar', 'bundle Student { seed age; }; root() { bundle Student student; student.age = 20; plant("age={}", student.age); reclaim; }',
      ['age=20']),
+    ('nestedreturn', 'root() { branch stop = frost; spring (stop) { reclaim; } plant("continued"); reclaim; }',
+     ['continued']),
 ]
 
 REJECTED_PROGRAMS = [
@@ -52,6 +54,12 @@ REJECTED_PROGRAMS = [
      'Expected: id'),
     ('bundle_multiple', 'bundle Student { seed age; }; root() { bundle Student first, second; reclaim; }',
      "Expected: ';'"),
+    ('missing_root_reclaim', 'root() { }',
+     "expected 'reclaim;' before '}'"),
+    ('missing_final_reclaim', 'root() { branch stop = sunshine; spring (stop) { reclaim; } }',
+     "expected 'reclaim;' before '}'"),
+    ('missing_function_reclaim', 'pollinate empty greet() { plant("hi"); } root() { reclaim; }',
+     "expected 'reclaim;' before '}'"),
 ]
 
 

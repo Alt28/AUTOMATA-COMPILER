@@ -414,7 +414,7 @@ Note: The backtick `` ` `` is the string concatenation operator and has the same
 | `Missing return type after 'pollinate'` | Function declaration missing type | Add `seed`, `tree`, `empty`, etc. after `pollinate` |
 | `Missing ';' after 'reclaim'` | Forgot semicolon after return | Add `;` after `reclaim` or `reclaim <value>` |
 | `Unexpected token after 'reclaim'. Expected: '}'.` | Code after return statement | Remove unreachable code after `reclaim;` |
-| `expected 'reclaim' statement before closing '}'` | Function doesn't end with return | Add `reclaim;` (or `reclaim <value>;`) before `}` |
+| `expected 'reclaim;' before '}'` | Function does not end with its required final return | Add `reclaim;` (or `reclaim <value>;` for a value-returning function) before `}` |
 | `Missing '(' after 'spring'` | Forgot parentheses after keyword | Add `(condition)` after `spring`, `grow`, etc. |
 | `Empty block after 'spring' statement` | Empty body in if/while/for | Add at least one statement inside `{ }` |
 | `Array size must be a constant integer literal, not a variable` | Used variable as array size | Use a literal number: `seed arr[5];` not `seed arr[n];` |
@@ -661,8 +661,8 @@ String expressions may use `==` and `!=`, but `vine`/`leaf` operands are not val
 
 ### Function Rules
 - **`root()` cannot have parameters**: `root(seed x)` is a semantic error.
-- **All functions must end with `reclaim;`**: Even `empty` (void) functions and `root()` require a `reclaim;` statement as the last statement.
-- **Non-empty functions must return on ALL code paths**: If a function has `spring`/`wither` branches, every branch must end with `reclaim`.
+- **All functions must end with `reclaim;` by CFG syntax**: Even `empty` (void) functions and `root()` require a final `reclaim;` statement.
+- **Nested early returns are allowed only in addition to the final return**: For example, a `spring` block may contain `reclaim`, but the containing function must still finish with `reclaim`.
 - **Functions must be declared before they are called**: Forward declarations are NOT supported.
 
 ### `water()` (Input) Detailed Rules
@@ -790,5 +790,5 @@ A: No — GAL uses botanical keywords instead:
 - `cultivate` = for
 - `tend...grow` = do-while
 
-**Q: Why do I get "expected 'reclaim' statement before closing '}'"?**
-A: Every function in GAL — including `root()` and `empty` (void) functions — must end with a `reclaim;` statement. Add `reclaim;` as the last line before the closing `}`.
+**Q: Why do I get "expected 'reclaim;' before '}'"?**
+A: The CFG requires every function in GAL — including `root()` and `empty` (void) functions — to end with a final `reclaim;` statement. Add `reclaim;` as the last line before the closing `}`.

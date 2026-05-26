@@ -5,13 +5,13 @@ Shows which terminals can appear first in each non-terminal
 
 First(<program>) = { branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
 First(<global_declaration>) = { branch, bundle, fertile, leaf, seed, tree, vine, λ }
-First(<bundle_or_var>) = { ,, ;, id, { }
+First(<bundle_or_var>) = { id, { }
 First(<local_declaration>) = { branch, bundle, fertile, leaf, seed, tree, vine, λ }
 First(<data_type>) = { branch, leaf, seed, tree, vine }
 First(<const_dec>) = { fertile }
 First(<const_next>) = { ,, λ }
 First(<var_dec>) = { branch, bundle, leaf, seed, tree, vine }
-First(<bundle_mem_dec>) = { ,, id, λ }
+First(<bundle_mem_dec>) = { id }
 First(<var_value>) = { ,, =, λ }
 First(<var_value_next>) = { ,, λ }
 First(<init_val>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, {, ~, λ }
@@ -21,7 +21,6 @@ First(<array_init_opt>) = { {, λ }
 First(<init_vals>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, {, ~, λ }
 First(<init_vals_next>) = { ,, λ }
 First(<init_val_item>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, {, ~ }
-First(<bundle_declaration>) = { bundle }
 First(<bundle_members>) = { branch, id, leaf, seed, tree, vine, λ }
 First(<function_definition>) = { pollinate, λ }
 First(<return_type>) = { branch, empty, id, leaf, seed, tree, vine }
@@ -29,15 +28,14 @@ First(<parameters>) = { branch, id, leaf, seed, tree, vine, λ }
 First(<param>) = { branch, id, leaf, seed, tree, vine }
 First(<param_array>) = { [, λ }
 First(<param_next>) = { ,, λ }
-First(<reclaim_opt>) = { reclaim, λ }
 First(<reclaim_value>) = { !, (, ;, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
+First(<body_statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, skip, spring, tend, water, λ }
+First(<non_reclaim_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, skip, spring, tend, water }
 First(<statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water, λ }
 First(<simple_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water }
 First(<id_stmt>) = { %=, (, *=, ++, +=, --, -=, ., /=, =, [ }
-First(<assignment_stmt>) = { id }
 First(<assign_rhs>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, ~ }
 First(<assign_op>) = { %=, *=, +=, -=, /=, = }
-First(<value>) = { id }
 First(<id_next>) = { ., [, λ }
 First(<array_access>) = { [ }
 First(<array_access_more>) = { [, λ }
@@ -56,7 +54,6 @@ First(<loop_stmt>) = { cultivate, grow, tend }
 First(<for_init>) = { branch, id, leaf, seed, tree, vine, λ }
 First(<for_update>) = { id, λ }
 First(<for_update_type>) = { %=, *=, ++, +=, --, -=, ., /=, =, [ }
-First(<unary_stmt>) = { id }
 First(<inc_dec_op>) = { ++, -- }
 First(<switch_stmt>) = { harvest }
 First(<case_list>) = { variety, λ }
@@ -65,7 +62,6 @@ First(<case_statements>) = { ++, --, cultivate, grow, harvest, id, plant, prune,
 First(<case_statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water, { }
 First(<default_opt>) = { soil, λ }
 First(<control_stmt>) = { prune, skip }
-First(<function_call>) = { id }
 First(<expression>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 First(<assignment_expression>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 First(<assignment_expression_next>) = { %=, *=, +=, -=, /=, =, λ }
@@ -90,7 +86,7 @@ First(<factor_id_next>) = { (, ., [, λ }
 ================================================================================
 FOLLOW SETS
 ================================================================================
-Shows which terminals can immediately follow each non-terminal
+Shows which terminals can appear after each non-terminal
 
 Follow(<program>) = { EOF }
 Follow(<global_declaration>) = { pollinate, root }
@@ -110,7 +106,6 @@ Follow(<array_init_opt>) = { ,, ; }
 Follow(<init_vals>) = { } }
 Follow(<init_vals_next>) = { } }
 Follow(<init_val_item>) = { ,, } }
-Follow(<bundle_declaration>) = {  }
 Follow(<bundle_members>) = { } }
 Follow(<function_definition>) = { root }
 Follow(<return_type>) = { id }
@@ -118,15 +113,14 @@ Follow(<parameters>) = { ) }
 Follow(<param>) = { ), , }
 Follow(<param_array>) = { ), , }
 Follow(<param_next>) = { ) }
-Follow(<reclaim_opt>) = {  }
 Follow(<reclaim_value>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, soil, spring, tend, variety, water, {, } }
+Follow(<body_statement>) = { reclaim }
+Follow(<non_reclaim_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water, } }
 Follow(<statement>) = { } }
 Follow(<simple_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water, } }
 Follow(<id_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, soil, spring, tend, variety, water, {, } }
-Follow(<assignment_stmt>) = {  }
 Follow(<assign_rhs>) = { ; }
 Follow(<assign_op>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, water, ~ }
-Follow(<value>) = { %=, *=, +=, -=, /=, = }
 Follow(<id_next>) = { %=, *=, +=, -=, /=, = }
 Follow(<array_access>) = { !=, %, %=, &&, ), *, **, *=, +, +=, ,, -, -=, ., /, /=, ;, <, <=, =, ==, >, >=, ], `, ||, } }
 Follow(<array_access_more>) = { !=, %, %=, &&, ), *, **, *=, +, +=, ,, -, -=, ., /, /=, ;, <, <=, =, ==, >, >=, ], `, ||, } }
@@ -145,7 +139,6 @@ Follow(<loop_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, recl
 Follow(<for_init>) = { ; }
 Follow(<for_update>) = { ) }
 Follow(<for_update_type>) = { ) }
-Follow(<unary_stmt>) = {  }
 Follow(<inc_dec_op>) = { ), ;, id }
 Follow(<switch_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, soil, spring, tend, variety, water, {, } }
 Follow(<case_list>) = { soil, } }
@@ -154,7 +147,6 @@ Follow(<case_statements>) = { soil, variety, } }
 Follow(<case_statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, soil, spring, tend, variety, water, {, } }
 Follow(<default_opt>) = { } }
 Follow(<control_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water, } }
-Follow(<function_call>) = {  }
 Follow(<expression>) = { ), ,, ;, ], } }
 Follow(<assignment_expression>) = { ), ,, ;, ], } }
 Follow(<assignment_expression_next>) = { ), ,, ;, ], } }
@@ -179,15 +171,15 @@ Follow(<factor_id_next>) = { !=, %, %=, &&, ), *, **, *=, +, +=, ,, -, -=, /, /=
 ================================================================================
 PREDICT SETS
 ================================================================================
-Shows which lookahead tokens select each grammar production
+Shows which terminal triggers each production rule
 
-Predict(<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <statement> }) = { branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
+Predict(<program> -> <global_declaration> <function_definition> root ( ) { <local_declaration> <body_statement> reclaim ; }) = { branch, bundle, fertile, leaf, pollinate, root, seed, tree, vine }
 Predict(<global_declaration> -> bundle id <bundle_or_var> <global_declaration>) = { bundle }
 Predict(<global_declaration> -> <data_type> id <array_dec> <var_value> ; <global_declaration>) = { branch, leaf, seed, tree, vine }
 Predict(<global_declaration> -> fertile <data_type> id = <init_val> <const_next> ; <global_declaration>) = { fertile }
 Predict(<global_declaration> -> λ) = { pollinate, root }
 Predict(<bundle_or_var> -> { <bundle_members> } ;) = { { }
-Predict(<bundle_or_var> -> <bundle_mem_dec> ;) = { ,, ;, id }
+Predict(<bundle_or_var> -> <bundle_mem_dec> ;) = { id }
 Predict(<local_declaration> -> <var_dec> ; <local_declaration>) = { branch, bundle, leaf, seed, tree, vine }
 Predict(<local_declaration> -> <const_dec> ; <local_declaration>) = { fertile }
 Predict(<local_declaration> -> λ) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, soil, spring, tend, variety, water, {, } }
@@ -201,9 +193,7 @@ Predict(<const_next> -> , id = <init_val> <const_next>) = { , }
 Predict(<const_next> -> λ) = { ; }
 Predict(<var_dec> -> <data_type> id <array_dec> <var_value>) = { branch, leaf, seed, tree, vine }
 Predict(<var_dec> -> bundle id <bundle_mem_dec>) = { bundle }
-Predict(<bundle_mem_dec> -> id <array_dec> <var_value_next>) = { id }
-Predict(<bundle_mem_dec> -> , id <var_value_next>) = { , }
-Predict(<bundle_mem_dec> -> λ) = { ; }
+Predict(<bundle_mem_dec> -> id <array_dec>) = { id }
 Predict(<var_value> -> = <init_val> <var_value_next>) = { = }
 Predict(<var_value> -> <var_value_next>) = { ,, ;, λ }
 Predict(<var_value_next> -> , id <array_dec> <var_value>) = { , }
@@ -224,11 +214,10 @@ Predict(<init_vals_next> -> , <init_val_item> <init_vals_next>) = { , }
 Predict(<init_vals_next> -> λ) = { } }
 Predict(<init_val_item> -> { <init_vals> }) = { { }
 Predict(<init_val_item> -> <expression>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
-Predict(<bundle_declaration> -> bundle id { <bundle_members> }) = { bundle }
 Predict(<bundle_members> -> <data_type> id ; <bundle_members>) = { branch, leaf, seed, tree, vine }
 Predict(<bundle_members> -> id id ; <bundle_members>) = { id }
 Predict(<bundle_members> -> λ) = { } }
-Predict(<function_definition> -> pollinate <return_type> id ( <parameters> ) { <local_declaration> <statement> } <function_definition>) = { pollinate }
+Predict(<function_definition> -> pollinate <return_type> id ( <parameters> ) { <local_declaration> <body_statement> reclaim <reclaim_value> } <function_definition>) = { pollinate }
 Predict(<function_definition> -> λ) = { root }
 Predict(<return_type> -> <data_type>) = { branch, leaf, seed, tree, vine }
 Predict(<return_type> -> empty) = { empty }
@@ -241,24 +230,24 @@ Predict(<param_array> -> λ) = { ), , }
 Predict(<param_array> -> [ ]) = { [ }
 Predict(<param_next> -> λ) = { ) }
 Predict(<param_next> -> , <param> <param_next>) = { , }
-Predict(<reclaim_opt> -> reclaim <reclaim_value>) = { reclaim }
-Predict(<reclaim_opt> -> λ) = {  }
 Predict(<reclaim_value> -> <expression> ;) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 Predict(<reclaim_value> -> ;) = { ; }
+Predict(<body_statement> -> <non_reclaim_stmt> <body_statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, skip, spring, tend, water }
+Predict(<body_statement> -> λ) = { reclaim }
+Predict(<non_reclaim_stmt> -> id <id_stmt>) = { id }
+Predict(<non_reclaim_stmt> -> <inc_dec_op> id ;) = { ++, -- }
+Predict(<non_reclaim_stmt> -> <io_stmt>) = { plant, water }
+Predict(<non_reclaim_stmt> -> <conditional_stmt>) = { spring }
+Predict(<non_reclaim_stmt> -> <loop_stmt>) = { cultivate, grow, tend }
+Predict(<non_reclaim_stmt> -> <switch_stmt>) = { harvest }
+Predict(<non_reclaim_stmt> -> <control_stmt>) = { prune, skip }
 Predict(<statement> -> <simple_stmt> <statement>) = { ++, --, cultivate, grow, harvest, id, plant, prune, reclaim, skip, spring, tend, water }
 Predict(<statement> -> λ) = { } }
-Predict(<simple_stmt> -> id <id_stmt>) = { id }
-Predict(<simple_stmt> -> <inc_dec_op> id ;) = { ++, -- }
-Predict(<simple_stmt> -> <io_stmt>) = { plant, water }
-Predict(<simple_stmt> -> <conditional_stmt>) = { spring }
-Predict(<simple_stmt> -> <loop_stmt>) = { cultivate, grow, tend }
-Predict(<simple_stmt> -> <switch_stmt>) = { harvest }
-Predict(<simple_stmt> -> <control_stmt>) = { prune, skip }
+Predict(<simple_stmt> -> <non_reclaim_stmt>) = { ++, --, cultivate, grow, harvest, id, plant, prune, skip, spring, tend, water }
 Predict(<simple_stmt> -> reclaim <reclaim_value>) = { reclaim }
 Predict(<id_stmt> -> <id_next> <assign_op> <assign_rhs> ;) = { %=, *=, +=, -=, ., /=, =, [ }
 Predict(<id_stmt> -> <inc_dec_op> ;) = { ++, -- }
 Predict(<id_stmt> -> ( <arguments> ) ;) = { ( }
-Predict(<assignment_stmt> -> <value> <assign_op> <assign_rhs> ;) = { id }
 Predict(<assign_rhs> -> water ( <water_arg> )) = { water }
 Predict(<assign_rhs> -> <expression>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 Predict(<assign_op> -> =) = { = }
@@ -267,7 +256,6 @@ Predict(<assign_op> -> -=) = { -= }
 Predict(<assign_op> -> *=) = { *= }
 Predict(<assign_op> -> /=) = { /= }
 Predict(<assign_op> -> %=) = { %= }
-Predict(<value> -> id <id_next>) = { id }
 Predict(<id_next> -> <array_access> <post_array_access>) = { [ }
 Predict(<id_next> -> <struct_access>) = { . }
 Predict(<id_next> -> λ) = { %=, *=, +=, -=, /=, = }
@@ -305,7 +293,6 @@ Predict(<for_update> -> id <for_update_type>) = { id }
 Predict(<for_update> -> λ) = { ) }
 Predict(<for_update_type> -> <inc_dec_op>) = { ++, -- }
 Predict(<for_update_type> -> <id_next> <assign_op> <expression>) = { %=, *=, +=, -=, ., /=, =, [ }
-Predict(<unary_stmt> -> id <inc_dec_op> ;) = { id }
 Predict(<inc_dec_op> -> ++) = { ++ }
 Predict(<inc_dec_op> -> --) = { -- }
 Predict(<switch_stmt> -> harvest ( <expression> ) { <case_list> <default_opt> }) = { harvest }
@@ -333,7 +320,6 @@ Predict(<default_opt> -> soil : <local_declaration> <case_statements>) = { soil 
 Predict(<default_opt> -> λ) = { } }
 Predict(<control_stmt> -> prune ;) = { prune }
 Predict(<control_stmt> -> skip ;) = { skip }
-Predict(<function_call> -> id ( <arguments> ) ;) = { id }
 Predict(<expression> -> <assignment_expression>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 Predict(<assignment_expression> -> <logic_or> <assignment_expression_next>) = { !, (, chrlit, dblit, frost, id, intlit, stringlit, sunshine, ~ }
 Predict(<assignment_expression_next> -> <assign_op> <assignment_expression>) = { %=, *=, +=, -=, /=, = }
