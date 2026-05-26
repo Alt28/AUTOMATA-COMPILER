@@ -755,6 +755,13 @@ def parse_statement(tokens, index, func_type = None):
                         value_node = BinaryOpNode(target, base_op, rhs_node, line=line)
                         assign_node = AssignmentNode(target, value_node, line=line)
                         assignments_node.add_child(assign_node)
+                    elif tokens[index].type in {"++", "--"}:
+                        # Postfix increment/decrement on bundle member: p.age++;
+                        if member_type not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot apply '{tokens[index].value}' to member '{member_name}' of type '{member_type}'.", line)
+                        operator = tokens[index].value
+                        index += 1  # skip ++/--
+                        assignments_node.add_child(UnaryOpNode(operator, target, "post", line=line))
                     else:
                         raise SemanticError(f"Semantic Error: Expected '=' after '{obj_name}.{member_name}'.", line)
 
@@ -826,14 +833,47 @@ def parse_statement(tokens, index, func_type = None):
                     var_info = symbol_table.lookup_variable(var_name)
                     if isinstance(var_info, str):
                         raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
-                    
-                    if var_info["type"] not in {"seed", "tree"}:
-                        raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
 
-                    operand = ASTNode("Identifier", tokens[index].value, line=line)
-                    index += 1
- 
-                    assignments_node.add_child(UnaryOpNode(operator, operand, "pre", line=line))
+                    # ++arr[i]; — prefix on indexed array element
+                    if tokens[index + 1].type == "[":
+                        if var_info["type"] not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
+                        list_access_node, index = parse_list_access(tokens, index)
+                        index += 1  # advance past the trailing ']'
+                        assignments_node.add_child(UnaryOpNode(operator, list_access_node, "pre", line=line))
+
+                    # ++obj.field; — prefix on bundle member
+                    elif tokens[index + 1].type == ".":
+                        obj_name = tokens[index].value
+                        if var_info["type"] not in symbol_table.bundle_types:
+                            raise SemanticError(f"Semantic Error: Variable '{obj_name}' is not a bundle type.", line)
+                        member_name = tokens[index + 2].value
+                        bundle_members = symbol_table.bundle_types[var_info["type"]]
+                        if member_name not in bundle_members:
+                            raise SemanticError(f"Semantic Error: Bundle type '{var_info['type']}' has no member '{member_name}'.", line)
+                        member_type = bundle_members[member_name]
+                        index += 3  # skip id, '.', member
+                        target = MemberAccessNode(obj_name, member_name, line=line)
+                        # nested member access: ++p.addr.zip
+                        while tokens[index].type == "." and member_type in symbol_table.bundle_types:
+                            next_member = tokens[index + 1].value
+                            nested_members = symbol_table.bundle_types[member_type]
+                            if next_member not in nested_members:
+                                raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", line)
+                            member_type = nested_members[next_member]
+                            target = MemberAccessNode(target, next_member, line=line)
+                            index += 2
+                        if member_type not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot apply '{operator}' to member '{member_name}' of type '{member_type}'.", line)
+                        assignments_node.add_child(UnaryOpNode(operator, target, "pre", line=line))
+
+                    # ++x; — prefix on plain identifier (original path)
+                    else:
+                        if var_info["type"] not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
+                        operand = ASTNode("Identifier", tokens[index].value, line=line)
+                        index += 1
+                        assignments_node.add_child(UnaryOpNode(operator, operand, "pre", line=line))
 
                 else:
                     raise SemanticError(f"Syntax Error: Expected identifier after '{operator}'.", line)
@@ -2364,7 +2404,6 @@ def parse_print(tokens, index):
 
 
         elif tokens[index].type == "id" and tokens[index + 1].type == "[":
-            print(tokens[index].type)
             start_index = index
             list_name = tokens[index].value
             list_info = symbol_table.lookup_variable(list_name)
@@ -2862,16 +2901,23 @@ def parse_update(tokens, index):
                         assignments_node.add_child(node)
 
                     elif tokens[index + 1].type == "[":
-                        
+
                         list_access_node, index = parse_list_access(tokens, index)
-                        
+
                         if tokens[index + 1].type == "=":
-                            index += 2 
+                            index += 2
                             value_node, index = parse_expression_type(tokens, index, var_type)
                             assign_node = AssignmentNode(list_access_node, value_node, line=tokens[index].line)
                             assignments_node.add_child(assign_node)
+                        elif tokens[index + 1].type in {"++", "--"}:
+                            # arr[i]++ in for-update (cultivate(...; ...; arr[i]++))
+                            if var_type not in {"seed", "tree"}:
+                                raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_type} in expression.", line)
+                            operator = tokens[index + 1].value
+                            index += 2  # past ']' and ++/--
+                            assignments_node.add_child(UnaryOpNode(operator, list_access_node, "post", line=line))
                         else:
-                            raise SemanticError("Semantic Error: Expected '=' after list access.", tokens[index + 1].line)
+                            raise SemanticError("Semantic Error: Expected '=' or '++'/'--' after list access.", tokens[index + 1].line)
 
 
                 elif tokens[index + 1].type in {"++", "--"}:
@@ -2943,14 +2989,47 @@ def parse_update(tokens, index):
                     var_info = symbol_table.lookup_variable(var_name)
                     if isinstance(var_info, str):
                         raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
-                    
-                    if var_info["type"] not in {"seed", "tree"}:
-                        raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
 
-                    operand = ASTNode("Identifier", tokens[index].value, line=line)
-                    index += 1
- 
-                    assignments_node.add_child(UnaryOpNode(operator, operand, "pre", line=line))
+                    # ++arr[i]; — prefix on indexed array element
+                    if tokens[index + 1].type == "[":
+                        if var_info["type"] not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
+                        list_access_node, index = parse_list_access(tokens, index)
+                        index += 1  # advance past the trailing ']'
+                        assignments_node.add_child(UnaryOpNode(operator, list_access_node, "pre", line=line))
+
+                    # ++obj.field; — prefix on bundle member
+                    elif tokens[index + 1].type == ".":
+                        obj_name = tokens[index].value
+                        if var_info["type"] not in symbol_table.bundle_types:
+                            raise SemanticError(f"Semantic Error: Variable '{obj_name}' is not a bundle type.", line)
+                        member_name = tokens[index + 2].value
+                        bundle_members = symbol_table.bundle_types[var_info["type"]]
+                        if member_name not in bundle_members:
+                            raise SemanticError(f"Semantic Error: Bundle type '{var_info['type']}' has no member '{member_name}'.", line)
+                        member_type = bundle_members[member_name]
+                        index += 3  # skip id, '.', member
+                        target = MemberAccessNode(obj_name, member_name, line=line)
+                        # nested member access: ++p.addr.zip
+                        while tokens[index].type == "." and member_type in symbol_table.bundle_types:
+                            next_member = tokens[index + 1].value
+                            nested_members = symbol_table.bundle_types[member_type]
+                            if next_member not in nested_members:
+                                raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", line)
+                            member_type = nested_members[next_member]
+                            target = MemberAccessNode(target, next_member, line=line)
+                            index += 2
+                        if member_type not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot apply '{operator}' to member '{member_name}' of type '{member_type}'.", line)
+                        assignments_node.add_child(UnaryOpNode(operator, target, "pre", line=line))
+
+                    # ++x; — prefix on plain identifier (original path)
+                    else:
+                        if var_info["type"] not in {"seed", "tree"}:
+                            raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
+                        operand = ASTNode("Identifier", tokens[index].value, line=line)
+                        index += 1
+                        assignments_node.add_child(UnaryOpNode(operator, operand, "pre", line=line))
 
                 else:
                     raise SemanticError(f"Syntax Error: Expected identifier after '{operator}'.", line)

@@ -1142,6 +1142,39 @@ class Interpreter:
     # list elements (arr[i]++).
     # ========================================================================
     def eval_unaryop(self, node):
+        # ++ / -- on a bundle member: ++p.age;  p.addr.zip--;
+        if isinstance(node.children[0], MemberAccessNode) and node.value in {"++", "--"}:
+            target = node.children[0]
+            # Walk the member chain to find the leaf bundle dict + final member name
+            chain = []
+            current = target
+            while isinstance(current, MemberAccessNode):
+                chain.append(current.children[1].value)
+                current = current.children[0]
+            chain.reverse()
+            # current is now an Object/Identifier node carrying the root variable name
+            obj_name = current.value
+            var_info = self.lookup_variable(obj_name)
+            if isinstance(var_info, str):
+                raise InterpreterError(var_info, node.line)
+            bundle_value = var_info["value"]
+            if not isinstance(bundle_value, dict):
+                raise InterpreterError(f"Runtime Error: Variable '{obj_name}' is not a bundle.", node.line)
+            # Navigate down to the parent dict (all but last member)
+            for member in chain[:-1]:
+                if member not in bundle_value:
+                    raise InterpreterError(f"Runtime Error: Bundle has no member '{member}'.", node.line)
+                bundle_value = bundle_value[member]
+                if not isinstance(bundle_value, dict):
+                    raise InterpreterError(f"Runtime Error: Member '{member}' is not a bundle.", node.line)
+            final_member = chain[-1]
+            if final_member not in bundle_value:
+                raise InterpreterError(f"Runtime Error: Bundle has no member '{final_member}'.", node.line)
+            original = bundle_value[final_member]
+            new_value = original + 1 if node.value == "++" else original - 1
+            bundle_value[final_member] = new_value
+            return original if node.position == "post" else new_value
+
         if not isinstance(node.children[0], ListAccessNode):
             operand_node = node.children[0]
             operand_name = operand_node.value

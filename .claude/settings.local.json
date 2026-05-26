@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/c/Users/clarence/Downloads/AUTOMATA-COMPILER-main \\(1\\)/AUTOMATA-COMPILER-main/my GAL code/Backend\" && grep -n \"UpdateNode\\\\|parse_update\\\\|inc_dec\\\\|increment\\\\|TT_INCREMENT\\\\|TT_DECREMENT\" parser/builder.py | head -30)",
+      "Read(//c/c/Users/clarence/Downloads/AUTOMATA-COMPILER-main \\(1\\)/AUTOMATA-COMPILER-main/my GAL code/Backend/parser/**)"
+    ]
+  }
+}

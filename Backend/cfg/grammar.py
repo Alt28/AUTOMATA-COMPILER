@@ -408,13 +408,13 @@ cfg = {
     ],
 
     "<non_reclaim_stmt>": [
-        ["id", "<id_stmt>"],         # Assignment, unary, or function call
-        ["<inc_dec_op>", "id", ";"], # Prefix increment/decrement
-        ["<io_stmt>"],               # water() or plant()
-        ["<conditional_stmt>"],      # spring/bud/wither
-        ["<loop_stmt>"],             # grow/cultivate/tend
-        ["<switch_stmt>"],           # harvest
-        ["<control_stmt>"],          # prune/skip
+        ["id", "<id_stmt>"],                     # Assignment, unary, or function call
+        ["<inc_dec_op>", "id", "<id_next>", ";"],# Prefix: ++x; ++arr[i]; ++obj.field;
+        ["<io_stmt>"],                           # water() or plant()
+        ["<conditional_stmt>"],                  # spring/bud/wither
+        ["<loop_stmt>"],                         # grow/cultivate/tend
+        ["<switch_stmt>"],                       # harvest
+        ["<control_stmt>"],                      # prune/skip
     ],
 
     # A sequence of executable statements (zero or more).
@@ -430,11 +430,21 @@ cfg = {
         ["reclaim", "<reclaim_value>"],  # Early return: reclaim x; or reclaim;
     ],
 
-    # After seeing id, determine what kind of statement it is
+    # After seeing id, determine what kind of statement it is.
+    # Left-factored so that <id_next> can be followed by either an assignment
+    # operator OR an inc/dec operator — this is what enables arr[i]++; and
+    # obj.field++; (and x++; via <id_next> -> epsilon).
     "<id_stmt>": [
-        ["<id_next>", "<assign_op>", "<assign_rhs>", ";"],  # Assignment: x = 5; or x = water(seed);
-        ["<inc_dec_op>", ";"],                              # Unary: x++;
-        ["(", "<arguments>", ")", ";"],                      # Function call: func();
+        ["<id_next>", "<id_stmt_tail>"],     # Assignment OR postfix inc/dec on id/arr[i]/obj.f
+        ["(", "<arguments>", ")", ";"],      # Function call: func();
+    ],
+
+    # Tail of <id_stmt>: the operator that follows the (possibly-indexed/
+    # member-accessed) target. Either '=' (or compound '+=' etc.) followed
+    # by an RHS, or a postfix '++' / '--'.
+    "<id_stmt_tail>": [
+        ["<assign_op>", "<assign_rhs>", ";"],  # x = 5;  arr[i] = 5;  obj.f += 2;
+        ["<inc_dec_op>", ";"],                  # x++;  arr[i]++;  obj.field--;
     ],
 
     # ===== ASSIGNMENT STATEMENTS =====
@@ -611,13 +621,16 @@ cfg = {
     ],
 
     "<for_update>": [
-        ["id", "<for_update_type>"],  # i++ or i = i + 1
-        [EPSILON],                     # Empty update
+        # Left-factored so <id_next> can be followed by EITHER an inc/dec
+        # operator OR an assignment operator. This is what lets
+        # cultivate(...; ...; arr[i]++) and obj.f += 2 work in for-updates.
+        ["id", "<id_next>", "<for_update_tail>"],
+        [EPSILON],                                    # Empty update
     ],
 
-    "<for_update_type>": [
-        ["<inc_dec_op>"],                            # i++ (no semicolon)
-        ["<id_next>", "<assign_op>", "<expression>"],  # i = i + 1 (no semicolon)
+    "<for_update_tail>": [
+        ["<inc_dec_op>"],                             # i++  arr[i]++  obj.f--
+        ["<assign_op>", "<expression>"],              # i = i + 1   obj.f += 2
     ],
 
     # ===== UNARY STATEMENTS =====
@@ -672,9 +685,9 @@ cfg = {
     
     # Executable statement types allowed in a case body
     "<case_statement>": [
-        ["id", "<id_stmt>"],              # Assignment/increment/function call
-        ["<inc_dec_op>", "id", ";"],      # Prefix increment/decrement: ++x; --x;
-        ["<io_stmt>"],                    # water() or plant()
+        ["id", "<id_stmt>"],                          # Assignment/increment/function call
+        ["<inc_dec_op>", "id", "<id_next>", ";"],     # Prefix: ++x; ++arr[i]; ++obj.f;
+        ["<io_stmt>"],                                # water() or plant()
         ["<conditional_stmt>"],           # spring (if), bud (else-if), wither (else)
         ["<loop_stmt>"],                  # grow (while), cultivate (for), tend (do-while)
         ["<switch_stmt>"],                # harvest (nested switch)

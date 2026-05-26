@@ -39,6 +39,21 @@ PROGRAMS = [
      ['age=20']),
     ('nestedreturn', 'root() { branch stop = frost; spring (stop) { reclaim; } plant("continued"); reclaim; }',
      ['continued']),
+    # ── increment/decrement on indexed/member operands (added by Part A) ──
+    ('arr_postfix', 'root() { seed arr[3]; arr[0] = 1; arr[0]++; plant("v={}", arr[0]); reclaim; }',
+     ['v=2']),
+    ('arr_prefix',  'root() { seed arr[3]; arr[0] = 5; ++arr[0]; plant("v={}", arr[0]); reclaim; }',
+     ['v=6']),
+    ('arr_postdec', 'root() { seed arr[3]; arr[0] = 7; arr[0]--; plant("v={}", arr[0]); reclaim; }',
+     ['v=6']),
+    ('struct_postinc', 'bundle P { seed a; }; root() { bundle P p; p.a = 1; p.a++; plant("v={}", p.a); reclaim; }',
+     ['v=2']),
+    ('struct_preinc',  'bundle P { seed a; }; root() { bundle P p; p.a = 5; ++p.a; plant("v={}", p.a); reclaim; }',
+     ['v=6']),
+    ('struct_postdec', 'bundle P { seed a; }; root() { bundle P p; p.a = 10; p.a--; plant("v={}", p.a); reclaim; }',
+     ['v=9']),
+    ('arr_in_loop', 'root() { seed arr[3]; arr[0]=0; arr[1]=0; arr[2]=0; cultivate(seed i = 0; i < 3; i++) { arr[i]++; } plant("a={} b={} c={}", arr[0], arr[1], arr[2]); reclaim; }',
+     ['a=1 b=1 c=1']),
 ]
 
 REJECTED_PROGRAMS = [
