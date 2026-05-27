@@ -44,6 +44,7 @@ delim22 = {',', ';', '(', ')', '{', '[', ']'}                                   
 delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'} # after literals
 delim24 = set(ZERODIGIT + ALPHA + '~!(' + "\"'" + ' \t\n')                                     # expression starts after + or +=
 delim25 = set(ALPHANUM + ';}) \t\n')                                                             # after prefix/postfix ++ or --
+delim26 = {'(', '['} | set(ALPHA) | {' ', '\t', '\n'}                                            # { (, alphabet, [, whitespace }
 idf_delim = {' ', ',', ';', '(', ')', '{', '}', '[', ']', ':', '+', '-', '*', '/', '%',
              '>', '<', '=', '\t', '\n', '.', '"', "'"}                                          # after identifiers
 whlnum_delim = {';', ' ', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<',

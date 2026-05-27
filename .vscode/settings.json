@@ -1,8 +1,11 @@
 {
+  // ─── Pylance / Python analysis ───────────────────────────────────────
   "python.analysis.extraPaths": ["Backend"],
   "python.analysis.autoImportCompletions": false,
   "python.analysis.importFormat": "absolute",
   "python.analysis.fixAll": [],
+
+  // ─── Never auto-modify code on save ──────────────────────────────────
   "editor.codeActionsOnSave": {
     "source.organizeImports": "never",
     "source.fixAll": "never"
@@ -14,5 +17,28 @@
     },
     "editor.formatOnSave": false
   },
-  "files.autoSave": "off"
+
+  // ─── Buffer / disk sync (the actual fix for "I can't see delim26") ───
+  // 1. Don't auto-save the buffer over disk — prevents the stale-overwrite trap.
+  "files.autoSave": "off",
+  // 2. Don't restore unsaved buffer state across VSCode restarts. Each session
+  //    starts fresh from disk; no phantom "unsaved changes" preventing reload.
+  "files.hotExit": "off",
+  // 3. Use a polling watcher (slower CPU but more reliable on Windows). The
+  //    default native watcher sometimes misses changes when files are edited
+  //    by external tools — polling guarantees the buffer notices.
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/.git/**": true,
+    "**/node_modules/**": true
+  },
+  // 4. Tell VSCode to act faster on detected file changes.
+  "files.simpleDialog.enable": true,
+  // 5. When file changes externally and there are NO unsaved buffer changes,
+  //    VSCode auto-reloads (default). With hotExit off + autoSave off, there
+  //    should never be phantom unsaved changes blocking the reload.
+
+  // ─── Convenience ─────────────────────────────────────────────────────
+  // Show a clear modified indicator so you can spot when buffer ≠ disk.
+  "workbench.editor.highlightModifiedTabs": true
 }
