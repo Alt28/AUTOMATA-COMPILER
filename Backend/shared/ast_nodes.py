@@ -130,10 +130,10 @@ class BreakNode(ASTNode):
         super().__init__("Break", line=line)
 
 class ListNode(ASTNode):
-    def __init__(self, line=None, elements = None):
+    def __init__(self, line=None, elements=None):
         super().__init__("List", line=line)
-        self.elements = elements
-        for element in elements:
+        self.elements = elements or []
+        for element in self.elements:
             self.add_child(element)
 
 class TaperNode(ASTNode):

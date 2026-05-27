@@ -531,8 +531,8 @@ def parse_statement(tokens, index, func_type = None):
             if isinstance(error, str):
                 error = symbol_table.lookup_function(func_name)
                 raise SemanticError(error, token.line)
-            func_type = symbol_table.lookup_function(func_name)["return_type"]
-            func_params = symbol_table.lookup_function(func_name)["params"]
+            func_type = symbol_table.lookup_function(func_name)["return_type"]  # type: ignore
+            func_params = symbol_table.lookup_function(func_name)["params"]  # type: ignore
             func_call_node, index = parse_function_call(tokens, index, func_name, func_type, func_params)
             return func_call_node, index
         
@@ -1038,8 +1038,8 @@ def parse_expression_vine(tokens, index):
     if tokens[index].type == "id" and tokens[index + 1].type == "(":
         func_name = tokens[index].value
         func_info = symbol_table.lookup_function(func_name)
-        func_return_type = func_info["return_type"]
-        func_params = func_info["params"]
+        func_return_type = func_info["return_type"]  # type: ignore
+        func_params = func_info["params"]  # type: ignore
         
         if func_return_type not in {"vine"}:
             error = f"Semantic Error: Cannot use function '{func_name}' of type {func_return_type}. Expected valid vine value."
@@ -1294,7 +1294,7 @@ def parse_term(tokens, index):
 
         if op in {"/", "%"} and isinstance(right_node, ASTNode) and right_node.node_type == "Value":
             try:
-                if float(right_node.value) == 0:
+                if float(right_node.value) == 0:  # type: ignore
                     raise SemanticError(f"Semantic Error: Division or modulus by zero is undefined.", token.line)
             except ValueError:
                 pass
