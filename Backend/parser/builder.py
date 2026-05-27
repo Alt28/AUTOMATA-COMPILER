@@ -404,15 +404,24 @@ def parse_variable(tokens, index, var_name, var_type):
             if tokens[index].type == "=":
                 index += 1
                 if tokens[index].type == "{":
-                    index += 1
-                    elements = []
-                    while tokens[index].type != "}":
-                        expr, index = parse_expression_type(tokens, index, var_type)
-                        elements.append(expr)
-                        if tokens[index].type == ",":
-                            index += 1
-                    index += 1
-                    value_node = ListNode(elements=elements, line=line)
+                    def parse_init_braces(idx):
+                        if tokens[idx].type != "{":
+                            raise SemanticError(f"Syntax Error: Expected '{{' in array initialization.", tokens[idx].line)
+                        idx += 1
+                        items = []
+                        while tokens[idx].type != "}":
+                            if tokens[idx].type == "{":
+                                inner_node, idx = parse_init_braces(idx)
+                                items.append(inner_node)
+                            else:
+                                expr, idx = parse_expression_type(tokens, idx, var_type)
+                                items.append(expr)
+                            if tokens[idx].type == ",":
+                                idx += 1
+                        idx += 1
+                        return ListNode(elements=items, line=line), idx
+
+                    value_node, index = parse_init_braces(index)
                     var_node.children[-1] = value_node
                 else:
                     raise SemanticError(f"Syntax Error: Expected '{{' after '=' in array initialization.", line)

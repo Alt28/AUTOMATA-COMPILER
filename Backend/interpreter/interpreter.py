@@ -235,20 +235,24 @@ class Interpreter:
 
         if value_node:
             if value_node.node_type == "List":
-                value = []
                 if var_type in self.bundle_types:
-                    for _ in value_node.children:
-                        value.append(self._build_bundle_defaults(var_type))
+                    value = [self._build_bundle_defaults(var_type) for _ in value_node.children]
                 else:
-                    for val in value_node.children:
-                        item = self.interpret(val)
-                        if var_type == "seed":
-                            if isinstance(item, float):
-                                item = int(item)
-                        elif var_type == "tree":
-                            item = float(item)
-                        value.append(item)
-                
+                    def materialize(list_node):
+                        result = []
+                        for child in list_node.children:
+                            if isinstance(child, ListNode):
+                                result.append(materialize(child))
+                            else:
+                                item = self.interpret(child)
+                                if var_type == "seed" and isinstance(item, float):
+                                    item = int(item)
+                                elif var_type == "tree":
+                                    item = float(item)
+                                result.append(item)
+                        return result
+                    value = materialize(value_node)
+
                 is_list = True
 
             else:
