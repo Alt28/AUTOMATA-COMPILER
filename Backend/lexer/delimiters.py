@@ -1,59 +1,59 @@
-# ============================================================================
-# DELIMITER SETS - Character sets used by the lexer's FSM
-# ============================================================================
-# Each delim* set names the characters that may legally appear AFTER a
-# specific token type. The lexer consults these to enforce GAL's strict
-# delimiter rules and reject ambiguous trailing characters.
-# ============================================================================
+ZERO = '0'
+DIGIT = '123456789'
+ZERODIGIT = ZERO + DIGIT
 
-# --- CHARACTER CLASSES ---
-ZERO = '0'                                          # Zero digit (special case for leading zeros)
-DIGIT = '123456789'                                 # Non-zero digits
-ZERODIGIT = ZERO + DIGIT                            # All digits (0-9)
+LOW_ALPHA = 'abcdefghijklmnopqrstuvwxyz'
+UPPER_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ALPHA = LOW_ALPHA + UPPER_ALPHA
+ALPHANUM = ALPHA + ZERODIGIT + '_'
 
-LOW_ALPHA = 'abcdefghijklmnopqrstuvwxyz'            # Lowercase letters
-UPPER_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'          # Uppercase letters
-ALPHA = LOW_ALPHA + UPPER_ALPHA                     # All letters
-ALPHANUM = ALPHA + ZERODIGIT + '_'                  # Identifier characters
+WHITESPACE = ' \t\n'
+EOF = None
 
-# --- DELIMITER SETS ---
-# Delimiters are characters that can legally appear AFTER certain tokens.
-# Different token types have different valid delimiters to ensure proper syntax.
+statement_end_delim = set(ALPHA + WHITESPACE + '}') | {EOF}
+open_paren_delim = set(ALPHA + ZERODIGIT + '"' + "'" + '~' + '!' + '(' + ')')
+close_paren_delim = set(WHITESPACE) | {';', '{', ')', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', ']'}
+open_bracket_delim = set(ALPHA + ZERODIGIT + '~' + '!' + '(' + '"' + "'")
+close_bracket_delim = {';', ',', ')', ']', '[', '.', '=', '+', '-', '*', '/', '%', '>', '<', '!', '&', '|'}
+block_start_delim = set(ALPHA + WHITESPACE + '}/')
+block_end_delim = set(ALPHA + WHITESPACE + '};')
+case_colon_delim = set(ALPHA + WHITESPACE + '}/')
+after_comma_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '"' + "'" + '~' + '!' + '(' + '{')
 space_delim = {' ', '\t', '\n'}
 period_delim = {'.'}
 underscore_delim = {'_'}
 open_brack_delim = {'['}
 close_brack_delim = {']'}
 comma_delim = {','}
-delim1 = {'}'}                                                                        # after 'soil' for decimal literals                                                    
-delim2 = {':'}                                                                             # after 'soil' (default case)
-delim3 = {'{'}                                                                                  # after 'tend', 'wither'
-delim4 = {':', '('}                                                                             # after 'bud', 'cultivate', 'harvest'
-delim5 = {'('}                                                                                  # after keywords requiring (
-delim6 = {';', ',', '=', '>', '<', '!', '}', ')', '('}                                          # after 'spring', 'plant', 'water'
-delim7 = {'('}                                                                                  # after 'root'
-delim8 = {';'}                                                                                  # after statements needing ;
-delim9 = set(ALPHA + '(' + ',' + ';' + ')')                                                     # function-related contexts
-delim10 = {';', ')'}                                                                            # closing statements
-delim11 = set([LOW_ALPHA, ZERODIGIT, ']', '~'])                                                      # newline-only
-delim12 = set(ALPHA + ZERODIGIT + ']' + '~')                                                    # array/negation contexts
-delim13 = {';', ')', '['}                                                                       # mixed statement endings
-delim14 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')                                              # before literals/blocks
-delim15 = {'\n', ';', '}', ','}                                                                 # multi-context endings
-delim16 = set(ALPHANUM + ')' + '"' + '!' + '(' + '[' + '\'')                                    # expression contexts
-delim17 = {'}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}                # operator contexts
-delim18 = {';', '{', ')', '&', '|', '+', '-', '*', '/', '%'}                                    # logical/arithmetic contexts
-delim19 = {';', ',', '}', ')', '=', '>', '<', '!'}                                              # comparison contexts
-delim20 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')                                              # before string/char literals
-delim21 = set(DIGIT)                                                                            # digit delimiters
-delim22 = {',', ';', '(', ')', '{', '[', ']'}                                                   # punctuation contexts
-delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'} # after literals
-delim24 = set(ZERODIGIT + ALPHA + '~' + '(')                                                    # unary/function contexts
-delim25 = set(ALPHANUM + ';) \t\n')                                                             # after prefix/postfix ++ or --
+delim1 = {'}'}
+delim2 = {':'}
+delim3 = {'{'}
+delim4 = {':', '('}
+delim5 = {'('}
+delim6 = {';', ',', '=', '>', '<', '!', '}', ')', '('}
+delim7 = {'('}
+delim8 = {';'}
+delim9 = set(ALPHA + '(' + ',' + ';' + ')')
+delim10 = {';', ')'}
+delim11 = set([LOW_ALPHA, ZERODIGIT, ']', '~'])
+delim12 = set(ALPHA + ZERODIGIT + ']' + '~')
+delim13 = {';', ')', '['}
+delim14 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
+delim15 = {'\n', ';', '}', ','}
+delim16 = set(ALPHANUM + ')' + '"' + '!' + '(' + '[' + '\'')
+delim17 = {'}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
+delim18 = {';', '{', ')', '&', '|', '+', '-', '*', '/', '%'}
+delim19 = {';', ',', '}', ')', '=', '>', '<', '!'}
+delim20 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
+delim21 = set(DIGIT)
+delim22 = {',', ';', '(', ')', '{', '[', ']'}
+delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
+delim24 = set(ZERODIGIT + ALPHA + '~' + '(')
+delim25 = set(ALPHANUM + ';) \t\n')
 idf_delim = {' ', ',', ';', '(', ')', '{', '}', '[', ']', ':', '+', '-', '*', '/', '%',
-             '>', '<', '=', '\t', '\n', '.', '"', "'"}                                          # after identifiers
+             '>', '<', '=', '\t', '\n', '.', '"', "'"}
 whlnum_delim = {';', ' ', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<',
-                '!', '&', '|', '\t', '\n'}                                                      # after integers
+                '!', '&', '|', '\t', '\n'}
 decim_delim = {'}', ';', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', ' ',
-               '\t', '\n', ')', ']'}                                                            # after floats/doubles
-comment_delim = set(ALPHANUM + ';+-*/%}{()' + '\n')                                             # within comments
+               '\t', '\n', ')', ']'}
+comment_delim = set(ALPHANUM + ';+-*/%}{()' + '\n')

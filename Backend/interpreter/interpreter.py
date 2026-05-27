@@ -540,7 +540,7 @@ class Interpreter:
                         right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
-                return left + right
+                return left + right  # type: ignore[operator]
             
             elif operator == '-':
                 if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
@@ -553,7 +553,7 @@ class Interpreter:
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
 
-                return left - right
+                return left - right  # type: ignore[operator]
             elif operator == '*':
                 if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
@@ -564,7 +564,7 @@ class Interpreter:
                         right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
-                return left * right
+                return left * right  # type: ignore[operator]
             elif operator == '**':
                 if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
@@ -575,7 +575,7 @@ class Interpreter:
                         right = 1 if right == True else 0
                     elif isinstance(right, str):
                         right = 1 if right != "" else 0
-                return left ** right
+                return left ** right  # type: ignore[operator]
             elif operator == '/':
                 if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
@@ -588,7 +588,7 @@ class Interpreter:
                         right = 1 if right != "" else 0
                 if right == 0:
                     raise InterpreterError("Runtime Error: Division by zero is undefined", node.line)
-                return left / right
+                return left / right  # type: ignore[operator]
             elif operator == '%':
                 if not isinstance(left, (int, float)) and not isinstance(right, (int, float)):
                     if isinstance(left, bool):
@@ -601,7 +601,7 @@ class Interpreter:
                         right = 1 if right != "" else 0
                 if right == 0:
                     raise InterpreterError("Runtime Error: Division by zero is undefined", node.line)
-                return left % right
+                return left % right  # type: ignore[operator]
             elif operator == '==':
                 return left == right
             elif operator == '!=':
@@ -816,6 +816,16 @@ class Interpreter:
         value = value.replace(r'\}', '}')
         value = value.replace(r'\/', '/')
         return value
+
+
+    def eval_list(self, node):
+        result = []
+        for child in node.children:
+            if isinstance(child, ListNode):
+                result.append(self.eval_list(child))
+            else:
+                result.append(self.interpret(child))
+        return result
 
 
     def eval_list_access(self, node):
