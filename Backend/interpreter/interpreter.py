@@ -1,44 +1,12 @@
-# ============================================================================
-# INTERPRETER - Tree-walking executor for the validated AST
-# ============================================================================
-# Extracted from Backend/GALinterpreter.py during the modular restructure.
-# Pipeline position:
-#   lex -> parse -> AST -> semantic -> ICG (display) -> THIS FILE (execute)
-# ============================================================================
 
-# ============================================================================
-# GAL INTERPRETER - Tree-walking executor for the semantic AST
-# ============================================================================
-# This is the runtime engine of the GAL compiler. It walks the AST produced
-# by GALsemantic and executes each node directly. The interpreter does NOT
-# consume the ICG output — TAC is a parallel display layer; execution happens
-# here on the AST.
-#
-# Pipeline position:
-#   lex -> parse -> AST -> semantic -> ICG (display) -> THIS FILE (execute)
-#
-# Output is sent via self.socketio.emit('output', ...) which can be either
-# a real Socket.IO instance (live mode) or an OutputCollector (synchronous).
-# Input is collected via self.socketio.emit('input_required', ...) which
-# parks the interpreter until provide_input() is called.
-# ============================================================================
 
-# ============================================================================
-# IMPORTS - AST node classes from the semantic analyzer + concurrency
-# primitives for cooperative input-waiting.
-# ============================================================================
-from shared.ast_nodes import *  # AST node classes
+from shared.ast_nodes import *
 
 import threading
 import sys
 
-# Allow deeply recursive GAL programs (e.g. recursive pollinate functions)
-# without hitting Python's default recursion limit (1000)
 sys.setrecursionlimit(10000)
 
-# Prefer eventlet's cooperative Event so wait_for_input yields to the
-# eventlet hub instead of blocking the entire event loop.
-# Falls back to threading.Event if eventlet isn't installed (e.g. in tests).
 try:
     import eventlet.event as _ev
     _USE_EVENTLET = True
@@ -46,11 +14,6 @@ except ImportError:
     _USE_EVENTLET = False
 
 
-# ============================================================================
-# EXCEPTION CLASSES - All extracted to errors.py during the restructure.
-# Re-exported here so existing `from GALinterpreter import InterpreterError, ...`
-# imports keep working unchanged.
-# ============================================================================
 from semantic.errors import SemanticError  # noqa: F401 - some runtime checks raise it
 from interpreter.errors import (  # noqa: F401 - runtime-specific error classes
     ReturnValue,
@@ -59,57 +22,31 @@ from interpreter.errors import (  # noqa: F401 - runtime-specific error classes
     InterpreterInputRequest,
 )
 
-# ============================================================================
-# INTERPRETER CLASS - Tree-walks the AST and executes each node
-# ============================================================================
-# State organization:
-#   - self.scopes      : stack of scope dicts (innermost on top); enter_scope
-#                        pushes a fresh dict, exit_scope pops it
-#   - self.variables   : globals (visible from every scope)
-#   - self.functions   : pollinate definitions, keyed by function name
-#   - self.bundle_types: bundle (struct) layouts
-#   - self.loop_stack  : current loop nesting, used by prune/skip
-#   - self.break_flag  : 'prune' was hit, propagate up to nearest loop/switch
-#   - self.continue_flag: 'skip' was hit, propagate up to nearest loop
-#   - self.input_*     : channels for water() input arriving from the client
-#   - self.socketio    : adapter for output/input I/O (SessionEmitter or
-#                        OutputCollector — both expose .emit())
-# ============================================================================
 class Interpreter:
     def __init__(self, socketio=None):
-        # ---- Output state ----
-        self.output = []                # legacy collector, kept for compat
-        self.socketio = socketio        # plant() uses this to emit 'output'
+        self.output = []
+        self.socketio = socketio
 
-        # ---- Control-flow flags (set by break/continue, cleared by loops) ----
-        self.loop_stack = []            # nested loop-type strings
-        self.break_flag = False         # set by 'prune'
-        self.continue_flag = False      # set by 'skip'
+        self.loop_stack = []
+        self.break_flag = False
+        self.continue_flag = False
 
-        # ---- Input plumbing for water() ----
-        self.input_required = False     # True while waiting for the client
-        self.input_events = {}          # var_name -> Event (eventlet/threading)
-        self.input_values = {}          # var_name -> string typed by client
+        self.input_required = False
+        self.input_events = {}
+        self.input_values = {}
 
-        # ---- Diagnostics ----
-        self.current_node = None        # node being interpreted (for error msgs)
+        self.current_node = None
         self.current_parent = None
 
-        # ---- Symbol tables ----
-        self.variables = {}             # global variables (visible everywhere)
-        self.global_variables = {}      # mirror used by declare_variable for dup-check
-        self.functions = {}             # pollinate definitions (name -> info)
-        self.scopes = [{}]              # scope stack; [0] is the global scope
-        self.current_func_name = None   # name of the function currently executing
-        self.function_variables = {}    # per-function locals (legacy, partially unused)
-        self.bundle_types = {}          # bundle (struct) layouts
+        self.variables = {}
+        self.global_variables = {}
+        self.functions = {}
+        self.scopes = [{}]
+        self.current_func_name = None
+        self.function_variables = {}
+        self.bundle_types = {}
 
 
-    # ========================================================================
-    # VARIABLE MANAGEMENT - declare / lookup / set
-    # Lookup walks the scope stack from innermost outward, then falls back to
-    # globals. This implements lexical scoping for the AST walker.
-    # ========================================================================
     def declare_variable(self, name, type_, value=None, is_list=False, is_fertile=False):
         scope = self.scopes[-1]
         current_func = self.current_func_name
@@ -135,7 +72,6 @@ class Interpreter:
             self.global_variables[name] = self.variables[name]
         
 
-
     def lookup_variable(self, name):
         for i, scope in enumerate(reversed(self.scopes)):
             if name in scope:
@@ -156,14 +92,8 @@ class Interpreter:
         return f"Semantic Error: Variable '{name}' not declared in any scope."
 
 
-    # ========================================================================
-    # FUNCTION MANAGEMENT - declare / lookup
-    # GAL functions are first registered (when the parser walks pollinate
-    # declarations) and then invoked by name from eval_function_call.
-    # ========================================================================
     def declare_function(self, name, return_type, params, node=None):
         if name in self.functions:
-            # Returns an error string — caller decides whether to raise
             return f"Semantic Error: Function '{name}' already declared."
         self.functions[name] = {"return_type": return_type, "params": params, "node": node}
 
@@ -173,22 +103,14 @@ class Interpreter:
         return f"Semantic Error: Function '{name}' is not defined."
 
 
-    # ========================================================================
-    # SCOPE MANAGEMENT - enter / exit
-    # Each function call, block, and loop body pushes a fresh scope onto
-    # self.scopes. Variables declared inside go in the top dict and vanish
-    # when the scope is popped.
-    # ========================================================================
     def enter_scope(self):
         self.scopes.append({})
 
 
     def exit_scope(self):
-        # Never pop the global scope (scopes[0])
         if len(self.scopes) > 1:
             self.scopes.pop()
 
-        # Clear function-local cache if we're leaving a function call
         if self.current_func_name:
             current_func = self.current_func_name
 
@@ -196,11 +118,6 @@ class Interpreter:
                 self.function_variables[current_func].clear()
 
 
-    # ========================================================================
-    # MAIN AST DISPATCH - The 'switch' that maps each AST-node class to its
-    # eval_* handler. This is the entry point of execution; server.py calls
-    # interp.interpret(ast) where ast is a ProgramNode.
-    # ========================================================================
     def interpret(self, node):
         if isinstance(node, ProgramNode):
             return self.eval_program(node)
@@ -294,31 +211,20 @@ class Interpreter:
         else:
             raise Exception(f"Unknown AST node type: {node.node_type}")
 
-    # ========================================================================
-    # PROGRAM ENTRY - Walks every top-level declaration (globals, fertile,
-    # bundle, pollinate functions) and then synthesizes a call to root().
-    # This implements GAL's rule that root() is always the entry point.
-    # ========================================================================
     def eval_program(self, node):
-        # 1. Process every top-level node (registers globals + functions)
         for child in node.children:
             self.interpret(child)
 
-        # 2. Now invoke root() — the program's entry point
         main_call = FunctionCallNode("root", [], node.line)
         return self.interpret(main_call)
 
 
-    # ========================================================================
-    # DECLARATIONS - variables, bundles, members, fertile (constants)
-    # ========================================================================
     def eval_variable_declaration(self, node):
         var_type = node.children[0].value
         var_name = node.children[1].value
         value_node = node.children[2] if len(node.children) > 2 else None
         is_list = False
         
-        # Default values for uninitialized variables
         default_values = {
             "seed": 0,
             "tree": 0.0,
@@ -331,7 +237,6 @@ class Interpreter:
             if value_node.node_type == "List":
                 value = []
                 if var_type in self.bundle_types:
-                    # Bundle array: initialize list of dicts with default member values (recursive for nested)
                     for _ in value_node.children:
                         value.append(self._build_bundle_defaults(var_type))
                 else:
@@ -380,22 +285,17 @@ class Interpreter:
                         else:
                             value = True
         else:
-            # Uninitialized variable — use default value for the type
             if var_type in self.bundle_types:
-                # Bundle variable: initialize with dict of default member values (recursive for nested)
                 value = self._build_bundle_defaults(var_type)
             else:
                 value = default_values.get(var_type, None)
                     
-        #print(f"\nDeclaring variable '{var_name}' of type '{var_type}' with initial value: {value}")
         self.declare_variable(var_name, var_type, value, is_list=is_list)
 
     def eval_bundle_definition(self, node):
-        """Store bundle type definition for later use."""
         self.bundle_types[node.bundle_name] = node.members
 
     def _build_bundle_defaults(self, bundle_type_name):
-        """Recursively build default values for a bundle type, including nested bundles."""
         _member_defaults = {"seed": 0, "tree": 0.0, "leaf": '', "vine": "", "branch": False}
         members = self.bundle_types[bundle_type_name]
         result = {}
@@ -407,18 +307,14 @@ class Interpreter:
         return result
 
     def eval_member_access(self, node):
-        """Read a bundle member value: p.age or p.addr.zip (nested)"""
         obj_child = node.children[0]
         member_name = node.children[1].value
 
         if obj_child.node_type == "MemberAccess":
-            # Nested: evaluate inner member access first
             bundle_value = self.eval_member_access(obj_child)
         elif obj_child.node_type == "ArrayMemberAccess":
-            # Chained after array member: p[0].addr.zip
             bundle_value = self.eval_array_member_access(obj_child)
         else:
-            # Simple: obj_child is ASTNode("Object", var_name)
             obj_name = obj_child.value
             var_info = self.lookup_variable(obj_name)
             if isinstance(var_info, str):
@@ -432,7 +328,6 @@ class Interpreter:
         return bundle_value[member_name]
 
     def eval_array_member_access(self, node):
-        """Read a bundle array element member value: p[0].x"""
         list_access_node = node.children[0]
         member_name = node.children[1].value
         bundle_element = self.eval_list_access(list_access_node)
@@ -450,16 +345,6 @@ class Interpreter:
         self.declare_variable(var_name, var_type, value, is_list=False,  is_fertile=True)
 
 
-    # ========================================================================
-    # ASSIGNMENT - The biggest dispatch in this file. Handles every shape:
-    #   x = expr;            (simple variable)
-    #   arr[i] = expr;       (single-dim list element)
-    #   arr[i][j] = expr;    (multi-dim list element)
-    #   bundle.member = expr;(struct member)
-    #   x += expr; etc.      (compound assignment operators)
-    # Type-checking against the variable's declared type happens here too.
-    # Returning the stored value lets the same node serve as an expression.
-    # ========================================================================
     def eval_assignment(self, node):
         target_node = node.children[0]
         value_node = node.children[1]
@@ -475,7 +360,6 @@ class Interpreter:
                 return
 
         if target_node.node_type == "ListAccess":
-            # Collect all index nodes from outermost to innermost
             indices = []
             current = target_node
             while hasattr(current, 'node_type') and current.node_type == "ListAccess":
@@ -483,10 +367,8 @@ class Interpreter:
                 if not isinstance(idx, int):
                     raise InterpreterError(f"Runtime Error: List index must be an integer. Got '{idx}'", node.line)
                 indices.append(idx)
-                # children[0] is ASTNode("ListName", name_or_node)
                 current = current.children[0].value
 
-            # current is now the base variable name (string)
             list_name = current
             list_entry = self.lookup_variable(list_name)
             if isinstance(list_entry, str):
@@ -496,7 +378,6 @@ class Interpreter:
             if not isinstance(list_value, (list, str)):
                 raise InterpreterError(f"Runtime Error: Variable '{list_name}' is not a list.", node.line)
 
-            # Handle string element assignment (vine)
             if isinstance(list_value, str):
                 if len(indices) != 1:
                     raise InterpreterError(f"Runtime Error: Multi-dimensional indexing not supported for strings.", node.line)
@@ -508,10 +389,8 @@ class Interpreter:
                 list_value = list_value[:final_idx] + value + list_value[final_idx + 1:]
                 list_entry["value"] = list_value
             else:
-                # indices were collected outermost-first, reverse to get innermost-first
                 indices.reverse()
 
-                # Navigate to the correct nested list
                 target = list_value
                 for i, idx in enumerate(indices[:-1]):
                     if idx < 0 or idx >= len(target):
@@ -527,19 +406,15 @@ class Interpreter:
                 target[final_idx] = value
 
         elif target_node.node_type == "MemberAccess":
-            # Bundle member assignment: p.age = 19 or p.addr.zip = 1000
-            # Collect the chain of member names from outermost to innermost
             chain = []
             current = target_node
             while hasattr(current, 'node_type') and current.node_type == "MemberAccess":
-                chain.append(current.children[1].value)  # member name
-                current = current.children[0]  # go deeper
+                chain.append(current.children[1].value)
+                current = current.children[0]
 
-            chain.reverse()  # now ordered from root to leaf
+            chain.reverse()
 
-            # current is now ASTNode("Object", var_name) or an ArrayMemberAccessNode
             if hasattr(current, 'node_type') and current.node_type == "ArrayMemberAccess":
-                # Chained off array member: p[0].addr.zip = 1000
                 bundle_value = self.interpret(current)
                 if not isinstance(bundle_value, dict):
                     raise InterpreterError(f"Runtime Error: Value is not a bundle.", node.line)
@@ -552,7 +427,6 @@ class Interpreter:
                 if not isinstance(bundle_value, dict):
                     raise InterpreterError(f"Runtime Error: Variable '{obj_name}' is not a bundle.", node.line)
 
-            # Navigate to the parent dict (all but last member)
             for member in chain[:-1]:
                 if member not in bundle_value:
                     raise InterpreterError(f"Runtime Error: Bundle has no member '{member}'.", node.line)
@@ -564,10 +438,8 @@ class Interpreter:
             if final_member not in bundle_value:
                 raise InterpreterError(f"Runtime Error: Bundle has no member '{final_member}'.", node.line)
 
-            # Type coercion: find the final member's declared type
             type_chain_current = current
             if hasattr(type_chain_current, 'node_type') and type_chain_current.node_type == "ArrayMemberAccess":
-                # For array member chains, walk up to find the variable's bundle type
                 la_node = type_chain_current.children[0]
                 while hasattr(la_node, 'node_type') and la_node.node_type == "ListAccess":
                     la_node = la_node.children[0].value
@@ -578,7 +450,6 @@ class Interpreter:
                 var_type = var_info["type"] if not isinstance(var_info, str) else None
 
             if var_type and var_type in self.bundle_types:
-                # Walk through the type definitions to find the final member type
                 cur_type = var_type
                 for member in chain:
                     if cur_type in self.bundle_types:
@@ -593,7 +464,6 @@ class Interpreter:
             bundle_value[final_member] = value
 
         elif target_node.node_type == "ArrayMemberAccess":
-            # Bundle array member assignment: p[0].x = 1
             list_access_node = target_node.children[0]
             member_name = target_node.children[1].value
             bundle_element = self.eval_list_access(list_access_node)
@@ -602,7 +472,6 @@ class Interpreter:
             if member_name not in bundle_element:
                 raise InterpreterError(f"Runtime Error: Bundle has no member '{member_name}'.", node.line)
 
-            # Type coercion for the member
             current = list_access_node
             while hasattr(current, 'node_type') and current.node_type == "ListAccess":
                 current = current.children[0].value
@@ -636,26 +505,15 @@ class Interpreter:
                 value = True if value != 0 else False
 
             self.set_variable(var_name, value)
-            #print(f"\nUpdating variable '{var_name}' of type '{var_type}' with value: {value}")
 
         return value
 
 
-    # ========================================================================
-    # BINARY OPERATIONS - + - * / % ** == != < <= > >= && || `
-    # The biggest expression evaluator. Each operator branch coerces non-
-    # numeric operands (bool, str) into numeric form before computing, so
-    # mixed-type expressions don't crash. The `(backtick) operator handles
-    # vine concatenation specially (BEFORE _parse_literal) to preserve
-    # whitespace-only strings like " ".
-    # ========================================================================
     def eval_binary_op(self, node):
         left = self.interpret(node.children[0])
         right = self.interpret(node.children[1])
         operator = node.value
 
-        # Handle string concatenation with ` before _parse_literal
-        # to preserve whitespace-only vine values like " "
         if operator == '`':
             result = str(left) + str(right)
             return result
@@ -819,12 +677,6 @@ class Interpreter:
         except ZeroDivisionError:
             raise InterpreterError("Runtime Error: Division by zero", "")
 
-    # ========================================================================
-    # _PARSE_LITERAL - Converts a token's string value into the right Python
-    # type. Handles GAL's negative-number prefix '~' (e.g. '~5' -> -5), the
-    # boolean keywords sunshine/frost, and ints / floats / strings / chars.
-    # Called from inside eval_binary_op before doing arithmetic.
-    # ========================================================================
     def _parse_literal(self, value):
 
         if isinstance(value, str):
@@ -851,7 +703,6 @@ class Interpreter:
         if value in ('false', 'frost'):
             return False
 
-        # Handle GAL negative literals: ~20 → -20, ~3.14 → -3.14
         parse_value = value
         if parse_value.startswith('~'):
             parse_value = '-' + parse_value[1:]
@@ -864,11 +715,6 @@ class Interpreter:
             return value 
     
 
-    # ========================================================================
-    # FUNCTION DECLARATION - Registers a 'pollinate' function so it can be
-    # called later. This walks the parameter list and saves the function
-    # body node for the actual call to interpret.
-    # ========================================================================
     def eval_function_declaration(self, node):
         return_type = node.children[0].value
         parameters_node = node.children[1]
@@ -888,41 +734,23 @@ class Interpreter:
 
         return None
 
-    # ========================================================================
-    # BLOCK EXECUTION - Walks the children of a block { ... } in order,
-    # short-circuiting if a break (prune) or continue (skip) was triggered.
-    # ========================================================================
     def eval_block(self, block_node):
         for statement in block_node.children:
             self.interpret(statement)
-            # 'prune' was hit somewhere inside — stop executing this block
             if self.break_triggered():
                 return
-            # 'skip' was hit — also stop; the surrounding loop handles re-entry
             if self.continue_flag:
                 return
 
 
-    # ========================================================================
-    # OUTPUT - 'plant' primitive. Routes to socketio.emit so output is
-    # delivered to the right client (live mode) or collected (sync mode).
-    # ========================================================================
     def plant(self, value):
-        """GAL output primitive."""
         self.socketio.emit('output', {'output': str(value)})
 
-    # Backward-compatible alias kept for older internal callers
     def plant_out(self, num):
         self.socketio.emit('output', {'output': str(num)})
         self.output.append(str(num))
 
 
-    # ========================================================================
-    # PRINT STATEMENT - Implements plant("template", arg1, arg2, ...).
-    # If the first argument is a string with {} placeholders, it formats
-    # the rest into the template (Python str.format style). Otherwise
-    # arguments are joined with spaces (C printf style).
-    # ========================================================================
     def eval_print(self, node):
         if not node.children:
             return
@@ -957,7 +785,6 @@ class Interpreter:
             self.plant(output_str)
             return
 
-        # No {} placeholders — print all arguments separated by spaces (C-style)
         if len(node.children) > 1:
             parts = [str(evaluated_first)]
             for arg in node.children[1:]:
@@ -972,17 +799,11 @@ class Interpreter:
 
         self.plant(str(evaluated_first))
 
-    # ========================================================================
-    # FORMATTED STRING - Strips outer quotes and converts escape sequences
-    # (\n, \t, \", \{, \}, \/, \\) into their real characters before the
-    # string is used as a plant() template.
-    # ========================================================================
     def eval_formatted_string(self, node):
         value = node.value
         if value.startswith('"') and value.endswith('"'):
             value = value[1:-1]
 
-        # Escape sequences
         value = value.replace(r'\\', '\\')
         value = value.replace(r'\n', '\n')
         value = value.replace(r'\t', '\t')
@@ -993,13 +814,7 @@ class Interpreter:
         return value
 
 
-    # ========================================================================
-    # LIST ACCESS - arr[index] reads. Validates bounds and that the index
-    # is an integer. NOTE: indexing is 0-based in the implementation, even
-    # though the GAL spec describes 1-based arrays.
-    # ========================================================================
     def eval_list_access(self, node):
-        # children[0] is ASTNode("ListName", list_name) where list_name is a string or ListAccessNode
         name_or_node = node.children[0].value
         if hasattr(name_or_node, 'node_type') and name_or_node.node_type == "ListAccess":
             list_value = self.eval_list_access(name_or_node)
@@ -1025,22 +840,11 @@ class Interpreter:
         return list_value[index]
     
 
-    # ========================================================================
-    # RETURN ('reclaim') - Uses exception unwinding so the return value
-    # bubbles up cleanly through any number of nested blocks/loops/ifs.
-    # eval_function_call catches ReturnValue and uses its .value as the
-    # call's result.
-    # ========================================================================
     def eval_return(self, node):
         value = self.interpret(node.children[0]) if node.children else None
         raise ReturnValue(value)
 
 
-    # ========================================================================
-    # FUNCTION CALL - Looks up the function, validates arg count, binds
-    # parameters into a fresh scope, and runs the body. ReturnValue is
-    # caught to extract 'reclaim'-returned values.
-    # ========================================================================
     def eval_function_call(self, node):
         function_name = node.value
         args = [self.interpret(arg.children[0]) for arg in node.children]
@@ -1066,7 +870,6 @@ class Interpreter:
                 param_type = param["type"]
                 arg_value = args[i]
                 is_list = param.get("is_list", False)
-                #print(f"\n[CALL] In function: {function_name} — Argument '{param_name}' of type '{param_type}' with value: {arg_value}")
                 self.declare_variable(param_name, param_type, arg_value, is_list=is_list)
 
             try:
@@ -1082,11 +885,6 @@ class Interpreter:
             self.current_func_name = None
 
 
-    # ========================================================================
-    # LIST OPERATIONS - append, insert, remove
-    # These mutate the underlying Python list stored in the variable's value.
-    # Index validation matches eval_list_access (0-based bounds).
-    # ========================================================================
     def eval_append(self, node):
         list_name = node.parent.children[0].value
         list_info = self.lookup_variable(list_name)
@@ -1094,7 +892,6 @@ class Interpreter:
         for child in node.children:
             value = self.interpret(child)
             list_info["value"].append(value)
-            #print(f"\nAppending value '{value}' to list '{list_name}'")
 
         
     def eval_insert(self, node):
@@ -1113,7 +910,6 @@ class Interpreter:
             value = self.interpret(child)
             list_info["value"].insert(index, value)
             index += 1
-            #print(f"Inserted {value} at index {index} in list '{list_name}': {list_info['value']}")
 
 
     def eval_remove(self, node):
@@ -1133,26 +929,16 @@ class Interpreter:
             raise InterpreterError(f"Runtime Error: Index {index} out of bounds for remove", node.line)
 
         removed = list_info["value"].pop(index)
-        #print(f"Removed value {removed} from list '{list_name}': {list_info['value']}")
 
-    # ========================================================================
-    # UNARY OPERATIONS - x++, x--, ~x (negate), !x (logical not)
-    # Increment/decrement mutate the variable in place; ~ and ! return a
-    # new value without mutation. Works on both simple variables and
-    # list elements (arr[i]++).
-    # ========================================================================
     def eval_unaryop(self, node):
-        # ++ / -- on a bundle member: ++p.age;  p.addr.zip--;
         if isinstance(node.children[0], MemberAccessNode) and node.value in {"++", "--"}:
             target = node.children[0]
-            # Walk the member chain to find the leaf bundle dict + final member name
             chain = []
             current = target
             while isinstance(current, MemberAccessNode):
                 chain.append(current.children[1].value)
                 current = current.children[0]
             chain.reverse()
-            # current is now an Object/Identifier node carrying the root variable name
             obj_name = current.value
             var_info = self.lookup_variable(obj_name)
             if isinstance(var_info, str):
@@ -1160,7 +946,6 @@ class Interpreter:
             bundle_value = var_info["value"]
             if not isinstance(bundle_value, dict):
                 raise InterpreterError(f"Runtime Error: Variable '{obj_name}' is not a bundle.", node.line)
-            # Navigate down to the parent dict (all but last member)
             for member in chain[:-1]:
                 if member not in bundle_value:
                     raise InterpreterError(f"Runtime Error: Bundle has no member '{member}'.", node.line)
@@ -1186,7 +971,7 @@ class Interpreter:
                 if node.position == "pre":
                     var_info["value"] += 1
                     return var_info["value"]
-                else:  # post
+                else:
                     original = var_info["value"]
                     var_info["value"] += 1
                     return original
@@ -1197,7 +982,7 @@ class Interpreter:
                 if node.position == "pre":
                     var_info["value"] -= 1
                     return var_info["value"]
-                else:  # post
+                else:
                     original = var_info["value"]
                     var_info["value"] -= 1
                     return original
@@ -1246,14 +1031,8 @@ class Interpreter:
                 return original if node.position == "post" else list_value[index]
 
         
-            
-
         raise InterpreterError(f"Unknown unary operator {node.value}", node.line)
     
-    # ========================================================================
-    # TYPE CAST - Converts a value to the named GAL type. Supports the five
-    # data types: seed, tree, leaf, branch, vine.
-    # ========================================================================
     def eval_cast(self, node):
         value = self.interpret(node.children[1])
         cast_type = node.children[0].value
@@ -1264,7 +1043,7 @@ class Interpreter:
             return float(value)
         elif cast_type == "leaf":
             if isinstance(value, int):
-                return chr(value)        # int -> ASCII character
+                return chr(value)
             return str(value)[0] if value else '\0'
         elif cast_type == "branch":
             return bool(value)
@@ -1274,21 +1053,12 @@ class Interpreter:
             raise InterpreterError(f"Unknown cast type: {cast_type}", node.line)
 
 
-    # ========================================================================
-    # STRING / LIST UTILITY HELPERS - taper, ts, soil, bloom
-    #   taper  : split a vine into a list of leaves (characters)
-    #   ts     : length of a list, vine, or leaf-array
-    #   soil   : lowercase a string
-    #   bloom  : uppercase a string
-    # These are GAL's built-in string/collection primitives.
-    # ========================================================================
     def eval_taper(self, node):
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
         
         if var_info["type"] == "leaf":
             value = list(var_info["value"])
-            #print(f"Tapered string '{var_name}' into list: {var_info['value']}")
 
         return value
 
@@ -1314,18 +1084,11 @@ class Interpreter:
         var_info = self.lookup_variable(var_name)
         return var_info["value"].upper()
 
-    # ========================================================================
-    # CONDITIONAL: spring / bud / wither (if / else-if / else)
-    # GAL chains: spring (cond) {} bud (cond) {} bud (cond) {} wither {}
-    # We evaluate the spring condition, then bud chain, then wither default.
-    # The condition must be a boolean (branch type).
-    # ========================================================================
     def eval_if_statement(self, node):
         condition_result = self.interpret(node.children[0].children[0])
         self.enter_scope()
 
 
-        
         try:
             if condition_result:
                 self.eval_block(node.children[1])
@@ -1345,14 +1108,12 @@ class Interpreter:
                         if elif_condition_result:
                             try:
                                 self.enter_scope()
-                                #print(f"Executing ElseIf block: {elif_node.line}")
                                 self.eval_block(elif_node.children[1])
                             finally:
                                 self.exit_scope()
                             return
                         
                     elif elif_node.node_type == "ElseStatement":
-                        #print(f"Executing Else block: {elif_node.line}")
                         try:
                             self.enter_scope()
                             self.eval_block(elif_node.children[0])
@@ -1366,16 +1127,10 @@ class Interpreter:
 
         return None
     
-    # ========================================================================
-    # LOOPS: cultivate (for), grow (while), tend (do-while)
-    # All three use the same MAX_LOOP_ITERATIONS guard (10000) to catch
-    # runaway loops during a demo. Each tracks break/continue flags so
-    # 'prune' exits the loop and 'skip' jumps to the next iteration.
-    # ========================================================================
     def eval_for_loop(self, node):
         self.enter_loop('for')
         self.enter_scope()
-        MAX_LOOP_ITERATIONS = 10000              # Runaway-loop safety net
+        MAX_LOOP_ITERATIONS = 10000
         LOOP_COUNTER = 0
 
         try:
@@ -1487,12 +1242,6 @@ class Interpreter:
             self.exit_loop()
 
     
-    # ========================================================================
-    # BREAK / CONTINUE - 'prune' and 'skip'
-    # These set flags that the surrounding block / loop checks each
-    # iteration. The loop_stack ensures break/continue can only be used
-    # inside a loop or switch.
-    # ========================================================================
     def eval_break(self, node):
         if self.loop_stack:
             self.trigger_break()
@@ -1506,7 +1255,6 @@ class Interpreter:
         return self.break_flag
 
     def enter_loop(self, loop_type):
-        # Push a new loop frame; reset break/continue so they don't carry over
         self.loop_stack.append(loop_type)
         self.break_flag = False
         self.continue_flag = False
@@ -1530,11 +1278,6 @@ class Interpreter:
         self.continue_flag = True
 
 
-    # ========================================================================
-    # SWITCH: harvest / variety / soil  (switch / case / default)
-    # Cases match the switch value. 'prune' inside a case exits the switch.
-    # 'soil' is the default case (executes if no variety matched).
-    # ========================================================================
     def eval_switch(self, node):
         self.enter_loop('switch')
         self.enter_scope()
@@ -1579,44 +1322,28 @@ class Interpreter:
             self.exit_scope()
 
 
-    # ========================================================================
-    # INPUT SYSTEM ('water')
-    # When water() runs, the interpreter:
-    #   1. emit_input_request   -> tells the client to show an input box
-    #   2. wait_for_input        -> parks on an Event (eventlet or threading)
-    #   3. (client emits 'capture_input' -> server calls provide_input)
-    #   4. provide_input         -> .send() / .set() unblocks the waiter
-    #   5. wait_for_input returns the typed string
-    #   6. eval_input parses and type-checks it (e.g. ~5 -> -5 for seed)
-    # ========================================================================
     def emit_input_request(self, var_name, prompt):
-        # Tell the client a water() prompt is needed
         self.socketio.emit('input_required', {'prompt': prompt, 'variable': var_name})
 
-    # Method to capture input from the client
     def provide_input(self, var_name, input_value):
         evt = self.input_events.get(var_name)
         if evt is None:
-            # No waiter yet — stash the value for later
             self.input_values[var_name] = input_value
             return
         if _USE_EVENTLET:
-            # eventlet.event.Event.send() unblocks the waiting greenlet
             evt.send(input_value)
         else:
             self.input_values[var_name] = input_value
             evt.set()
 
-    # Method to wait for input asynchronously
     def wait_for_input(self, var_name):
-        # Check if input was already stashed (provide_input called first)
         if var_name in self.input_values:
             return self.input_values.pop(var_name)
 
         if _USE_EVENTLET:
             evt = _ev.Event()
             self.input_events[var_name] = evt
-            value = evt.wait()          # cooperative yield
+            value = evt.wait()
             self.input_events.pop(var_name, None)
             if getattr(self, '_cancelled', False):
                 raise _CancelledError()
@@ -1631,14 +1358,6 @@ class Interpreter:
             self.input_events.pop(var_name, None)
             return value
 
-    # ========================================================================
-    # EVAL_INPUT - Implements 'water(...)'. Determines what type of value
-    # the receiving variable expects, prompts the user, then validates and
-    # converts the typed input to that type. Enforces strict GAL syntax:
-    #   - Negative numbers must use '~' (not '-')
-    #   - Booleans must be 'sunshine' or 'frost' (not 'true'/'false')
-    # Errors include a "did you mean" suggestion to guide the user.
-    # ========================================================================
     def eval_input(self, node):
         parent_node = node.parent
         if isinstance(parent_node, VariableDeclarationNode):
@@ -1648,8 +1367,6 @@ class Interpreter:
         elif isinstance(parent_node, AssignmentNode):
             target = parent_node.children[0]
             if isinstance(target, ListAccessNode):
-                # water(arr[i]) — target is a list access node
-                # Walk down to find the base list name
                 current = target
                 while hasattr(current, 'node_type') and current.node_type == "ListAccess":
                     current = current.children[0].value
@@ -1660,7 +1377,6 @@ class Interpreter:
                 var_type = self.lookup_variable(var_name)["type"]
 
         else:
-            # Standalone water() / water(type) — extract type from node value
             var_name = "_input"
             if node.value and "(" in node.value:
                 inner = node.value.split("(")[1].rstrip(")")
@@ -1668,21 +1384,18 @@ class Interpreter:
             else:
                 var_type = "vine"
 
-        prompt = f"Input for {var_name}: "  # Create a prompt message for the input
+        prompt = f"Input for {var_name}: "
         self.input_required = True
 
 
-        # Emit the input request to the client
         self.emit_input_request(var_name, prompt)
 
-        # Wait for the input asynchronously
         input_value = self.wait_for_input(var_name)
 
 
-        self.input_required = False  # Reset the input flag
+        self.input_required = False
 
         if var_type == "seed":
-            # GAL uses ~ for negative numbers; '-' is NOT accepted at input
             original_input = input_value
             if isinstance(input_value, str) and input_value.startswith('-'):
                 raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
@@ -1696,7 +1409,6 @@ class Interpreter:
                 raise InterpreterError(f"Runtime Error: Expected integer value, got '{original_input}'", node.line)
 
         elif var_type == "tree":
-            # GAL uses ~ for negative numbers; '-' is NOT accepted at input
             original_input = input_value
             if isinstance(input_value, str) and input_value.startswith('-'):
                 raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
@@ -1721,7 +1433,6 @@ class Interpreter:
                 raise InterpreterError(f"Runtime Error: Expected float value, got '{original_input}'", node.line)
 
         elif var_type == "branch":
-            # GAL booleans are 'sunshine' (true) and 'frost' (false); 'true'/'false' are NOT accepted
             if input_value == "true" or input_value == "false":
                 suggestion = "sunshine" if input_value == "true" else "frost"
                 raise InterpreterError(f"Runtime Error: GAL uses 'sunshine' and 'frost' for booleans, not 'true'/'false'. Got '{input_value}'; did you mean '{suggestion}'?", node.line)

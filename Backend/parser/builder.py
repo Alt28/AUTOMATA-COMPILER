@@ -1,36 +1,12 @@
-# ============================================================================
-# AST BUILDER - build_ast + all parse_* helpers + analyze_semantics
-# ============================================================================
-# Extracted from GALsemantic.py during the modular restructure.
-#
-# This module turns a validated token stream into an AST. The parser (in
-# parser/parser.py) does LL(1) syntax checking, then hands the tokens to
-# build_ast() here. During construction the parse_* helpers also perform
-# many semantic checks (undeclared variables, duplicate functions, type
-# mismatches in expressions). A dedicated tree-walking validator in
-# semantic/analyzer.py runs as the final semantic pass.
-#
-# Why this lives under parser/ and not semantic/:
-#   The natural output of parsing is an AST. Putting build_ast under parser/
-#   makes the data flow textbook-clean:
-#       tokens -> parser (syntax + AST construction) -> semantic (validate)
-#   This is more correct than the original layout where GALsemantic.py was
-#   doing both jobs.
-# ============================================================================
 import copy
 import re
 
-# Shared types & constants
 from shared.tokens import *  # noqa: F401,F403 - TT_* constants used throughout parse_*
 from semantic.errors import SemanticError
 from shared.ast_nodes import *  # noqa: F401,F403 - all AST node classes
-# SymbolTable lives in semantic/symbol_table.py.
 from semantic.symbol_table import SymbolTable
 
 
-# Vestigial placeholder from an earlier design; the real semantic checks happen
-# in the parse_* helpers below and in semantic/analyzer.py. Kept (locally) only
-# because semantic_analyzer is referenced as a module-level singleton.
 class SemanticAnalyzer:
     def __init__(self, symbol_table):
         self.symbol_table = symbol_table
@@ -41,26 +17,14 @@ symbol_table = SymbolTable()
 semantic_analyzer = SemanticAnalyzer(symbol_table)
 context_stack = []
 
-# ============================================================================
-# BUILD AST - Main entry point for AST construction
-# ============================================================================
-# Walks the token stream produced by the lexer (after parser validation)
-# and constructs a tree of ASTNode objects. While walking it also performs
-# many semantic checks via the parse_* helpers below (undeclared variables,
-# duplicate functions, type mismatches in expressions, etc.).
-#
-# Called by Gal_Parser.parse_and_build right after LL(1) syntax validation.
-# Returns the root ProgramNode. Errors are raised as SemanticError.
-# ============================================================================
 
 def build_ast(tokens):
-    """Constructs an AST from the token list after LL(1) parsing."""
     root = ProgramNode()
-    symbol_table.variables = {}  # Stores variables 
-    symbol_table.functions = {}  # Stores function definitions
+    symbol_table.variables = {}
+    symbol_table.functions = {}
     symbol_table.scopes = [{}] 
     symbol_table.function_variables = {}
-    symbol_table.bundle_types = {}  # Reset bundle type definitions
+    symbol_table.bundle_types = {}
     context_stack = []
     index = 0
     symbol_table.current_func_name = None
@@ -68,7 +32,6 @@ def build_ast(tokens):
     while index < len(tokens):
         token = tokens[index]
 
-        # Skip semicolons between top-level declarations
         if token.type == ";":
             index += 1
             continue
@@ -112,7 +75,6 @@ def build_ast(tokens):
                     root.add_child(node)
 
             elif tokens[index].type == "id" and tokens[index].value in symbol_table.bundle_types:
-                # Bundle return type: pollinate Pair makePair(...) { ... }
                 id_type = tokens[index].value
                 index += 1
                 if tokens[index].type != "id":
@@ -147,11 +109,10 @@ def build_ast(tokens):
 
         elif token.value == "bundle":
             bundle_name = tokens[index + 1].value
-            index += 2  # skip 'bundle' and bundle name
+            index += 2
 
             if tokens[index].type == "{":
-                # Bundle definition: bundle Person { seed age; vine name; }
-                index += 1  # skip '{'
+                index += 1
                 members = {}
                 while tokens[index].type != "}":
                     if tokens[index].value in {"seed", "tree", "vine", "leaf", "branch"}:
@@ -160,22 +121,21 @@ def build_ast(tokens):
                         if member_name in members:
                             raise SemanticError(f"Semantic Error: Duplicate member '{member_name}' in bundle '{bundle_name}'.", tokens[index].line)
                         members[member_name] = member_type
-                        index += 2  # skip type and name
+                        index += 2
                         if tokens[index].type == ";":
-                            index += 1  # skip ';'
+                            index += 1
                     elif tokens[index].type == "id" and tokens[index].value in symbol_table.bundle_types:
-                        # Nested bundle member: Address addr;
                         member_type = tokens[index].value
                         member_name = tokens[index + 1].value
                         if member_name in members:
                             raise SemanticError(f"Semantic Error: Duplicate member '{member_name}' in bundle '{bundle_name}'.", tokens[index].line)
                         members[member_name] = member_type
-                        index += 2  # skip type and name
+                        index += 2
                         if tokens[index].type == ";":
-                            index += 1  # skip ';'
+                            index += 1
                     else:
                         raise SemanticError(f"Semantic Error: Invalid member type '{tokens[index].value}' in bundle definition.", tokens[index].line)
-                index += 1  # skip '}'
+                index += 1
 
                 if bundle_name in symbol_table.bundle_types:
                     raise SemanticError(f"Semantic Error: Bundle type '{bundle_name}' already defined.", token.line)
@@ -185,7 +145,6 @@ def build_ast(tokens):
                 root.add_child(node)
 
             else:
-                # Global bundle variable: bundle Person p;
                 var_name = tokens[index].value
                 index += 1
 
@@ -233,12 +192,6 @@ def parse_functionOrVariable(tokens, index):
     
     return None, index
 
-# ============================================================================
-# DECLARATION PARSERS - parse_function, parse_variable
-# These build the AST nodes for top-level declarations and register them
-# in the symbol table. parse_function handles both root() and pollinate
-# functions; parse_variable handles seed/tree/leaf/branch/vine declarations.
-# ============================================================================
 def parse_function(tokens, index, func_name, func_type):
     line = tokens[index].line
 
@@ -252,12 +205,10 @@ def parse_function(tokens, index, func_name, func_type):
         error = f"Semantic Error: '{func_name}' already declared."
         raise SemanticError(error, tokens[index].line)
 
-    # Entry point: root()  (legacy alias: skibidi{...})
     if func_name in {"root"}:
         symbol_table.enter_scope()
-        index += 1  # consume keyword
+        index += 1
 
-        # root() requires empty parameter list
         if tokens[index].type == "(":
             index += 1
             if tokens[index].type != ")":
@@ -289,13 +240,12 @@ def parse_function(tokens, index, func_name, func_type):
                     param_node.add_child(ASTNode("Identifier", param_name))
                     index += 1
 
-                    # Check for array parameter: seed arr[]
                     is_list = False
                     if tokens[index].type == "[":
-                        index += 1  # skip '['
+                        index += 1
                         if tokens[index].type != "]":
                             raise SemanticError(f"Semantic Error: Expected ']' after '[' in array parameter.", line)
-                        index += 1  # skip ']'
+                        index += 1
                         is_list = True
                         param_node.add_child(ASTNode("ArrayParam", "true"))
 
@@ -312,7 +262,6 @@ def parse_function(tokens, index, func_name, func_type):
                     raise SemanticError(error, line)
 
             elif tokens[index].type == "id" and tokens[index].value in symbol_table.bundle_types:
-                # Bundle parameter: Pair p
                 param_type = tokens[index].value
                 index += 1
                 if tokens[index].type == "id":
@@ -401,17 +350,17 @@ def parse_variable(tokens, index, var_name, var_type):
 
             elif tokens[index].value == "water":
                 water_line = tokens[index].line
-                index += 1  # skip 'water'
+                index += 1
                 if tokens[index].type != "(":
                     raise SemanticError(f"Semantic Error: Expected '(' after water.", water_line)
-                index += 1  # skip '('
+                index += 1
                 water_type = None
                 if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
                     water_type = tokens[index].value
                     index += 1
                 if tokens[index].type != ")":
                     raise SemanticError(f"Semantic Error: water() accepts only an optional type parameter (e.g., water(seed)).", water_line)
-                index += 1  # skip ')'
+                index += 1
                 if water_type and not _types_compatible(var_type, water_type):
                     raise SemanticError(f"Semantic Error: Type mismatch — cannot assign water({water_type}) to '{var_type}' variable.", water_line)
                 value_node = ASTNode("Input", f"water({water_type})" if water_type else "water()", line=water_line)
@@ -422,24 +371,21 @@ def parse_variable(tokens, index, var_name, var_type):
                 var_node.add_child(value_node)
 
         elif tokens[index].type == "[":
-            # List declaration with size: seed nums[3]; or seed nums[];
-            # Also supports multi-dimensional: seed matrix[2][3];
             is_list = True
             dimensions = []
             while tokens[index].type == "[":
-                index += 1  # skip '['
+                index += 1
                 dim_size = 0
                 if tokens[index].type == "dbllit":
                     raise SemanticError(f"Semantic Error: Array size must be of type 'seed' (integer), got 'tree' (float) '{tokens[index].value}'.", line)
                 if tokens[index].type == "intlit":
                     dim_size = int(tokens[index].value)
-                    index += 1  # skip size
+                    index += 1
                 if tokens[index].type != "]":
                     raise SemanticError(f"Syntax Error: Expected ']' after list size.", line)
-                index += 1  # skip ']'
+                index += 1
                 dimensions.append(dim_size)
 
-            # Build nested List nodes for multi-dimensional arrays
             default_literals = {"seed": "0", "tree": "0.0", "leaf": "''", "vine": '""', "branch": "false"}
 
             def build_list_node(dims):
@@ -455,26 +401,23 @@ def parse_variable(tokens, index, var_name, var_type):
             list_node = build_list_node(dimensions)
             var_node.add_child(list_node)
 
-            # Handle optional initialization after size: seed nums[3] = {10, 20, 30} ;
             if tokens[index].type == "=":
-                index += 1  # skip '='
+                index += 1
                 if tokens[index].type == "{":
-                    index += 1  # skip '{'
+                    index += 1
                     elements = []
                     while tokens[index].type != "}":
                         expr, index = parse_expression_type(tokens, index, var_type)
                         elements.append(expr)
                         if tokens[index].type == ",":
                             index += 1
-                    index += 1  # skip '}'
+                    index += 1
                     value_node = ListNode(elements=elements, line=line)
-                    # Replace the default list_node with the initialized values
                     var_node.children[-1] = value_node
                 else:
                     raise SemanticError(f"Syntax Error: Expected '{{' after '=' in array initialization.", line)
    
         else:
-            # Uninitialized declaration: vine name; or seed x;
             pass
 
         error = symbol_table.declare_variable(var_name, var_type, is_list = is_list)
@@ -502,30 +445,20 @@ def parse_variable(tokens, index, var_name, var_type):
 
 
 def _skip_semicolons(tokens, index):
-    """Advance past any consecutive ';' tokens."""
     while index < len(tokens) and tokens[index].type == ";":
         index += 1
     return index
 
 
-# ============================================================================
-# STATEMENT PARSER - The big dispatch
-# Walks one statement at a time inside a function body. Recognizes every
-# statement form: variable declaration, assignment, function call,
-# spring/bud/wither, grow/cultivate/tend, harvest, plant, water,
-# reclaim, prune, skip. Returns (ast_node, new_index).
-# ============================================================================
 def parse_statement(tokens, index, func_type = None):
     token = tokens[index]
 
-    # Skip stray semicolons before the actual statement
     if token.type == ";":
         return None, index + 1
 
     line = token.line
 
     if token.value in {"seed", "tree", "vine", "leaf", "branch"}:
-        # Normalize GAL type keywords to internal types
         var_type = token.value
         var_name = tokens[index + 1].value
         index += 2
@@ -539,30 +472,27 @@ def parse_statement(tokens, index, func_type = None):
         return node, index
 
     elif token.value == "bundle":
-        # Local bundle variable declaration: bundle Person p; or bundle Person p[2];
         bundle_type_name = tokens[index + 1].value
         if bundle_type_name not in symbol_table.bundle_types:
             raise SemanticError(f"Semantic Error: Bundle type '{bundle_type_name}' is not defined.", token.line)
         var_name = tokens[index + 2].value
-        index += 3  # skip 'bundle', type name, var name
+        index += 3
 
         members = symbol_table.bundle_types[bundle_type_name]
         _defaults = {"seed": 0, "tree": 0.0, "leaf": '', "vine": "", "branch": False}
 
         if tokens[index].type == "[":
-            # Array of bundles: bundle Point p[2];
-            index += 1  # skip '['
+            index += 1
             if tokens[index].type == "dbllit":
                 raise SemanticError(f"Semantic Error: Array size must be of type 'seed' (integer), got 'tree' (float) '{tokens[index].value}'.", token.line)
             array_size = 0
             if tokens[index].type == "intlit":
                 array_size = int(tokens[index].value)
-                index += 1  # skip size
+                index += 1
             if tokens[index].type != "]":
                 raise SemanticError(f"Syntax Error: Expected ']' after array size.", token.line)
-            index += 1  # skip ']'
+            index += 1
 
-            # Build list of bundle default values
             list_node = ASTNode("List", line=token.line)
             for _ in range(array_size):
                 bundle_val_node = ASTNode("BundleDefault", line=token.line)
@@ -625,17 +555,15 @@ def parse_statement(tokens, index, func_type = None):
                         list_access_node, index = parse_list_access(tokens, index)
 
                         if tokens[index + 1].type == "." and var_type in symbol_table.bundle_types:
-                            # Bundle array member assignment: p[0].x = 1; or p[0].addr.zip = 1;
-                            index += 2  # skip ']' and '.'
+                            index += 2
                             member_name = tokens[index].value
                             bundle_members = symbol_table.bundle_types[var_type]
                             if member_name not in bundle_members:
                                 raise SemanticError(f"Semantic Error: Bundle type '{var_type}' has no member '{member_name}'.", line)
                             member_type = bundle_members[member_name]
                             target = ArrayMemberAccessNode(list_access_node, member_name, line=line)
-                            index += 1  # skip member name
+                            index += 1
 
-                            # Handle chained access for nested bundles: p[0].addr.zip
                             while tokens[index].type == "." and member_type in symbol_table.bundle_types:
                                 next_member = tokens[index + 1].value
                                 nested_members = symbol_table.bundle_types[member_type]
@@ -643,10 +571,10 @@ def parse_statement(tokens, index, func_type = None):
                                     raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", line)
                                 member_type = nested_members[next_member]
                                 target = MemberAccessNode(target, next_member, line=line)
-                                index += 2  # skip '.', member
+                                index += 2
 
                             if tokens[index].type == "=":
-                                index += 1  # skip '='
+                                index += 1
                                 value_node, index = parse_expression_type(tokens, index, member_type)
                                 assign_node = AssignmentNode(target, value_node, line=line)
                                 assignments_node.add_child(assign_node)
@@ -667,17 +595,17 @@ def parse_statement(tokens, index, func_type = None):
                             index += 2 
                             if tokens[index].value == "water":
                                 water_line = tokens[index].line
-                                index += 1  # skip 'water'
+                                index += 1
                                 if tokens[index].type != "(":
                                     raise SemanticError(f"Syntax Error: Expected '(' after water.", water_line)
-                                index += 1  # skip '('
+                                index += 1
                                 water_type = None
                                 if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
                                     water_type = tokens[index].value
                                     index += 1
                                 if tokens[index].type != ")":
                                     raise SemanticError(f"Semantic Error: water() accepts only an optional type parameter.", water_line)
-                                index += 1  # skip ')'
+                                index += 1
                                 if water_type and not _types_compatible(var_type, water_type):
                                     raise SemanticError(f"Semantic Error: Type mismatch — cannot assign water({water_type}) to '{var_type}' list element.", water_line)
                                 value_node = ASTNode("Input", f"water({water_type})" if water_type else "water()", line=water_line)
@@ -698,20 +626,17 @@ def parse_statement(tokens, index, func_type = None):
                             
                         
                 elif tokens[index + 1].type == ".":
-                    # Bundle member assignment: p.age = 19; or p.addr.zip = 1000;
                     obj_name = tokens[index].value
                     member_name = tokens[index + 2].value
-                    # Validate bundle type and member
                     if var_type not in symbol_table.bundle_types:
                         raise SemanticError(f"Semantic Error: Variable '{obj_name}' is not a bundle type.", line)
                     bundle_members = symbol_table.bundle_types[var_type]
                     if member_name not in bundle_members:
                         raise SemanticError(f"Semantic Error: Bundle type '{var_type}' has no member '{member_name}'.", line)
                     member_type = bundle_members[member_name]
-                    index += 3  # skip id, '.', member
+                    index += 3
                     target = MemberAccessNode(obj_name, member_name, line=line)
 
-                    # Handle chained access for nested bundles: p.addr.zip
                     while tokens[index].type == "." and member_type in symbol_table.bundle_types:
                         next_member = tokens[index + 1].value
                         nested_members = symbol_table.bundle_types[member_type]
@@ -719,24 +644,23 @@ def parse_statement(tokens, index, func_type = None):
                             raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", line)
                         member_type = nested_members[next_member]
                         target = MemberAccessNode(target, next_member, line=line)
-                        index += 2  # skip '.', member
+                        index += 2
 
                     if tokens[index].type == "=":
-                        index += 1  # skip '='
-                        # Handle water() input for bundle members
+                        index += 1
                         if tokens[index].value == "water":
                             water_line = tokens[index].line
-                            index += 1  # skip 'water'
+                            index += 1
                             if tokens[index].type != "(":
                                 raise SemanticError(f"Syntax Error: Expected '(' after water.", water_line)
-                            index += 1  # skip '('
+                            index += 1
                             water_type = None
                             if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
                                 water_type = tokens[index].value
                                 index += 1
                             if tokens[index].type != ")":
                                 raise SemanticError(f"Semantic Error: water() accepts only an optional type parameter (e.g., water(seed)).", water_line)
-                            index += 1  # skip ')'
+                            index += 1
                             if water_type and not _types_compatible(member_type, water_type):
                                 raise SemanticError(f"Semantic Error: Type mismatch — cannot assign water({water_type}) to '{member_type}' member '{member_name}'.", water_line)
                             value_node = ASTNode("Input", f"water({water_type})" if water_type else "water()", line=water_line)
@@ -745,22 +669,20 @@ def parse_statement(tokens, index, func_type = None):
                         assign_node = AssignmentNode(target, value_node, line=line)
                         assignments_node.add_child(assign_node)
                     elif tokens[index].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
-                        # Compound assignment on bundle member: p.age += 1
                         if member_type not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Compound assignment '{tokens[index].value}' is not valid for '{member_type}' member '{member_name}'.", line)
                         compound_op = tokens[index].value
                         base_op = compound_op[:-1]
-                        index += 1  # skip compound op
+                        index += 1
                         rhs_node, index = parse_expression_type(tokens, index, member_type)
                         value_node = BinaryOpNode(target, base_op, rhs_node, line=line)
                         assign_node = AssignmentNode(target, value_node, line=line)
                         assignments_node.add_child(assign_node)
                     elif tokens[index].type in {"++", "--"}:
-                        # Postfix increment/decrement on bundle member: p.age++;
                         if member_type not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Cannot apply '{tokens[index].value}' to member '{member_name}' of type '{member_type}'.", line)
                         operator = tokens[index].value
-                        index += 1  # skip ++/--
+                        index += 1
                         assignments_node.add_child(UnaryOpNode(operator, target, "post", line=line))
                     else:
                         raise SemanticError(f"Semantic Error: Expected '=' after '{obj_name}.{member_name}'.", line)
@@ -789,9 +711,8 @@ def parse_statement(tokens, index, func_type = None):
                     assignments_node.add_child(UnaryOpNode(operator, operand, "post", line=line))
 
                 elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
-                    # Compound assignment: x += 5  =>  x = x + 5
-                    compound_op = tokens[index + 1].value  # e.g. '+='
-                    base_op = compound_op[:-1]  # e.g. "+" from "+=", "**" from "**="
+                    compound_op = tokens[index + 1].value
+                    base_op = compound_op[:-1]
                     cur_var_name = tokens[index].value
                     cur_var_info = symbol_table.lookup_variable(cur_var_name)
                     if isinstance(cur_var_info, str):
@@ -801,15 +722,13 @@ def parse_statement(tokens, index, func_type = None):
                     cur_var_type = cur_var_info["type"]
                     if cur_var_type not in {"seed", "tree"}:
                         raise SemanticError(f"Semantic Error: Cannot use compound assignment on '{cur_var_name}' of type '{cur_var_type}'.", line)
-                    # ── modulo-assign guard: %= requires seed ──
                     if base_op == "%" and cur_var_type != "seed":
                         raise SemanticError(
                             f"Semantic Error: Modulo operator '%' requires 'seed' (integer) operands, "
                             f"but '{cur_var_name}' is of type 'tree'.",
                             line,
                         )
-                    # ──────────────────────────────────────────────
-                    index += 2  # skip id and compound op
+                    index += 2
                     rhs_node, index, rhs_type = parse_expression(tokens, index)
                     if rhs_type not in {"seed", "tree"}:
                         raise SemanticError(
@@ -834,15 +753,13 @@ def parse_statement(tokens, index, func_type = None):
                     if isinstance(var_info, str):
                         raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
 
-                    # ++arr[i]; — prefix on indexed array element
                     if tokens[index + 1].type == "[":
                         if var_info["type"] not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
                         list_access_node, index = parse_list_access(tokens, index)
-                        index += 1  # advance past the trailing ']'
+                        index += 1
                         assignments_node.add_child(UnaryOpNode(operator, list_access_node, "pre", line=line))
 
-                    # ++obj.field; — prefix on bundle member
                     elif tokens[index + 1].type == ".":
                         obj_name = tokens[index].value
                         if var_info["type"] not in symbol_table.bundle_types:
@@ -852,9 +769,8 @@ def parse_statement(tokens, index, func_type = None):
                         if member_name not in bundle_members:
                             raise SemanticError(f"Semantic Error: Bundle type '{var_info['type']}' has no member '{member_name}'.", line)
                         member_type = bundle_members[member_name]
-                        index += 3  # skip id, '.', member
+                        index += 3
                         target = MemberAccessNode(obj_name, member_name, line=line)
-                        # nested member access: ++p.addr.zip
                         while tokens[index].type == "." and member_type in symbol_table.bundle_types:
                             next_member = tokens[index + 1].value
                             nested_members = symbol_table.bundle_types[member_type]
@@ -867,7 +783,6 @@ def parse_statement(tokens, index, func_type = None):
                             raise SemanticError(f"Semantic Error: Cannot apply '{operator}' to member '{member_name}' of type '{member_type}'.", line)
                         assignments_node.add_child(UnaryOpNode(operator, target, "pre", line=line))
 
-                    # ++x; — prefix on plain identifier (original path)
                     else:
                         if var_info["type"] not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
@@ -943,14 +858,13 @@ def parse_statement(tokens, index, func_type = None):
         raise SemanticError(f"Semantic Error: '{token.value}' statement used outside a 'harvest' block.", line)
 
     elif token.type == "{":
-        # Bare block: { ... }
-        index += 1  # skip '{'
+        index += 1
         block_node = ASTNode("Block", line=line)
         while tokens[index].type != "}":
             stmt, index = parse_statement(tokens, index, func_type)
             if stmt:
                 block_node.add_child(stmt)
-        index += 1  # skip '}'
+        index += 1
         return block_node, index
 
     else:
@@ -973,7 +887,6 @@ def parse_list_access(tokens, index):
 
     index_node, index, idx_type = parse_equality(tokens, index)
 
-    # Array indices must be seed (integer)
     if idx_type is not None and idx_type != "seed":
         raise SemanticError(
             f"Semantic Error: List index must be of type 'seed', got '{idx_type}'.",
@@ -988,9 +901,8 @@ def parse_list_access(tokens, index):
 
     node = ListAccessNode(list_name, index_wrapper, line=line)
 
-    # Handle multi-dimensional access: m[1][2]
     while tokens[index + 1].type == "[":
-        index += 2  # skip ']' and '['
+        index += 2
         inner_index_node, index, inner_idx_type = parse_equality(tokens, index)
         if inner_idx_type is not None and inner_idx_type != "seed":
             raise SemanticError(
@@ -1007,7 +919,6 @@ def parse_list_access(tokens, index):
 
 
 def parse_list_assignment(tokens, index):
-    """Parses full list assignment, list operations, or function calls on a list."""
     line = tokens[index].line
     var_name = tokens[index].value
 
@@ -1025,7 +936,6 @@ def parse_list_assignment(tokens, index):
     if var_info.get("is_fertile", False):
         raise SemanticError(f"Semantic Error: Variable '{var_name}' is declared as fertile.", line)
 
-    # List functions
     if tokens[index].value == "append":
         value_node, index = parse_append(tokens, index, var_name, var_type)
 
@@ -1035,7 +945,6 @@ def parse_list_assignment(tokens, index):
     elif tokens[index].value == "remove":
         value_node, index = parse_remove(tokens, index, var_name, var_type)
 
-    # Assignment from another list
     elif tokens[index].type == "id":
         source_var = tokens[index].value
         source_info = symbol_table.lookup_variable(source_var)
@@ -1076,7 +985,6 @@ def parse_list_assignment(tokens, index):
             value_node = ASTNode("Value", source_var, line=line)
             index += 1
 
-    # Assignment from list literal
     elif tokens[index].type == "[":
         value_node, index = parse_list(tokens, index, var_type)
 
@@ -1087,13 +995,10 @@ def parse_list_assignment(tokens, index):
 
 
 def _types_compatible(declared, inferred):
-    """Check whether *inferred* expression type can be stored in a *declared* variable."""
     if declared == inferred:
         return True
-    # seed (int) and tree (float) are mutually compatible
     if declared in {"seed", "tree"} and inferred in {"seed", "tree"}:
         return True
-    # Bundle types are compatible if they are the same type (checked above)
     return False
 
 
@@ -1105,7 +1010,6 @@ def parse_expression_type(tokens, index, var_type):
 
     node, index, expr_type = parse_assignment_expression(tokens, index)
 
-    # --- type-mismatch guard ---
     if expr_type is None:
         raise SemanticError(
             "Semantic Error: Could not determine the type of the expression.",
@@ -1172,7 +1076,7 @@ def parse_expression_leaf(tokens, index):
         func_name = tokens[index].value
         func_info = symbol_table.lookup_function(func_name)
 
-        if isinstance(func_info, str):  # Function not found
+        if isinstance(func_info, str):
             raise SemanticError(f"Semantic Error: Function '{func_name}' is not defined.", line)
 
         func_return_type = func_info["return_type"]
@@ -1204,15 +1108,14 @@ def parse_expression_leaf(tokens, index):
         index += 1
         node = ListAccessNode(list_name, index_node, line=token.line)
 
-        # Handle multi-dimensional access: m[1][2]
         while index < len(tokens) and tokens[index].type == "[":
-            index += 1  # skip '['
+            index += 1
             inner_expr, index, _ = parse_expression(tokens, index)
             if tokens[index].type != "]":
                 raise SemanticError("Syntax Error: Missing closing bracket.", token.line)
             inner_index = ASTNode("Index", line=token.line)
             inner_index.add_child(inner_expr)
-            index += 1  # skip ']'
+            index += 1
             node = ListAccessNode(node, inner_index, line=token.line)
 
     elif tokens[index].type == "id":
@@ -1245,7 +1148,7 @@ def parse_expression_leaf(tokens, index):
                 func_name = tokens[index].value
                 func_info = symbol_table.lookup_function(func_name)
 
-                if isinstance(func_info, str):  # Function not found
+                if isinstance(func_info, str):
                     raise SemanticError(f"Semantic Error: Function '{func_name}' is not defined.", line)
 
                 func_return_type = func_info["return_type"]
@@ -1302,21 +1205,7 @@ def parse_expression_leaf(tokens, index):
     return left_node, index 
 
 
-# ============================================================================
-# EXPRESSION PARSER - Operator-precedence climbing
-# Standard precedence ladder built from these layered functions:
-#   parse_expression    : + - `      (lowest precedence)
-#   parse_term          : * / %
-#   parse_power         : **         (right-associative)
-#   parse_unary         : ~ ! ++ --
-#   parse_factor        : literals, identifiers, function calls,
-#                          parenthesized expressions     (highest)
-# Each layer calls the next-higher-precedence layer for its operands.
-# All return (ast_node, new_index, inferred_type).
-# ============================================================================
 def parse_expression(tokens, index):
-    """Parses an expression with +, -, and ` (string concat).
-    Returns (node, index, type_str)."""
     left_node, index, left_type = parse_term(tokens, index)
 
     while tokens[index].type in {"+", "-", "`"}:
@@ -1324,7 +1213,6 @@ def parse_expression(tokens, index):
         token = tokens[index]
 
         if op == "`":
-            # Backtick joins vines and leaves; the resulting string is a vine.
             if left_type not in {"vine", "leaf"}:
                 raise SemanticError(
                     f"Semantic Error: Cannot concatenate - left operand is of type '{left_type}', expected 'vine' or 'leaf'.",
@@ -1340,7 +1228,6 @@ def parse_expression(tokens, index):
             left_node = BinaryOpNode(left_node, op, right_node)
             left_type = "vine"
         else:
-            # + or -: both operands must be numeric (seed or tree)
             if left_type not in {"seed", "tree"}:
                 raise SemanticError(
                     f"Semantic Error: Cannot use '{op}' on type '{left_type}'. Expected 'seed' or 'tree'.",
@@ -1354,29 +1241,24 @@ def parse_expression(tokens, index):
                     token.line,
                 )
             left_node = BinaryOpNode(left_node, op, right_node)
-            # Promote to tree if either operand is tree
             if left_type == "tree" or right_type == "tree":
                 left_type = "tree"
 
     return left_node, index, left_type
 
 def parse_term(tokens, index):
-    """Parses multiplication, division, and modulus with type checking.
-    Returns (node, index, type_str)."""
     left_node, index, left_type = parse_power(tokens, index)
 
     while tokens[index].type in {"*", "/", "%"}:
         op = tokens[index].value
         token = tokens[index]
 
-        # Validate left operand is numeric
         if left_type not in {"seed", "tree"}:
             raise SemanticError(
                 f"Semantic Error: Cannot use '{op}' on type '{left_type}'. Expected 'seed' or 'tree'.",
                 token.line,
             )
 
-        # ── modulo type guard: % requires seed (integer) operands ──
         if op == "%":
             if left_type == "tree":
                 raise SemanticError(
@@ -1388,7 +1270,6 @@ def parse_term(tokens, index):
         index += 1
         right_node, index, right_type = parse_power(tokens, index)
 
-        # Validate right operand is numeric
         if right_type not in {"seed", "tree"}:
             raise SemanticError(
                 f"Semantic Error: Cannot use '{op}' on type '{right_type}'. Expected 'seed' or 'tree'.",
@@ -1410,15 +1291,12 @@ def parse_term(tokens, index):
                 pass
             
         left_node = BinaryOpNode(left_node, op, right_node)
-        # Promote to tree if either operand is tree
         if left_type == "tree" or right_type == "tree":
             left_type = "tree"
 
     return left_node, index, left_type
 
 def parse_power(tokens, index):
-    """Parses right-associative exponentiation (**).
-    Returns (node, index, type_str)."""
     left_node, index, left_type = parse_unary(tokens, index)
 
     if tokens[index].type == "**":
@@ -1447,7 +1325,6 @@ def parse_power(tokens, index):
     return left_node, index, left_type
 
 def parse_unary(tokens, index):
-    """Returns (node, index, type_str)."""
 
     if tokens[index].type in {"++", "--", "-", "~"}:
         op = tokens[index].value
@@ -1480,9 +1357,6 @@ def parse_unary(tokens, index):
     return node, index, factor_type
 
 def parse_cast(tokens, index):
-    """Parses explicit type casting: (type)expression.
-    Supports all GAL types: seed, tree, leaf, branch, vine.
-    Returns (node, index, type_str)."""
     token = tokens[index]
     cast_types = {"seed", "tree", "leaf", "branch", "vine"}
     if token.type == "(" and tokens[index + 1].value in cast_types:
@@ -1500,8 +1374,6 @@ def parse_cast(tokens, index):
 
 
 def parse_factor(tokens, index):
-    """Parses literals, identifiers, parenthesized expressions, and postfix operators.
-    Returns (node, index, type_str)."""
     token = tokens[index]
 
     if token.type == "(" and tokens[index + 1].value in {"seed", "tree", "leaf", "branch", "vine"}:
@@ -1521,7 +1393,6 @@ def parse_factor(tokens, index):
         index += 1
         return node, index, infer_literal_type(token.type)
 
-    # water() is an I/O statement, not an expression
     if token.value == "water":
         raise SemanticError(f"Semantic Error: water() is an I/O statement, not an expression. It cannot be used inside an expression.", token.line)
 
@@ -1582,7 +1453,6 @@ def parse_factor(tokens, index):
         tokens[index].type == "id" and
         tokens[index + 1].type == "."
     ):
-        # Bundle member access in expression: p.age, p.name
         obj_name = tokens[index].value
         member_name = tokens[index + 2].value
 
@@ -1599,10 +1469,9 @@ def parse_factor(tokens, index):
             raise SemanticError(f"Semantic Error: Bundle type '{var_type}' has no member '{member_name}'.", token.line)
 
         member_type = bundle_members[member_name]
-        index += 3  # skip id, '.', member
+        index += 3
         node = MemberAccessNode(obj_name, member_name, line=token.line)
 
-        # Handle chained access for nested bundles: p.addr.zip
         while index < len(tokens) and tokens[index].type == "." and member_type in symbol_table.bundle_types:
             next_member = tokens[index + 1].value
             nested_members = symbol_table.bundle_types[member_type]
@@ -1610,7 +1479,7 @@ def parse_factor(tokens, index):
                 raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", token.line)
             member_type = nested_members[next_member]
             node = MemberAccessNode(node, next_member, line=token.line)
-            index += 2  # skip '.', member
+            index += 2
 
         return node, index, member_type
 
@@ -1637,29 +1506,26 @@ def parse_factor(tokens, index):
         index += 1
         list_access_node = ListAccessNode(list_name, index_node, line=token.line)
 
-        # Handle multi-dimensional access: m[1][2]
         while index < len(tokens) and tokens[index].type == "[":
-            index += 1  # skip '['
+            index += 1
             inner_expr, index, _ = parse_expression(tokens, index)
             if tokens[index].type != "]":
                 raise SemanticError("Syntax Error: Missing closing bracket.", token.line)
             inner_index = ASTNode("Index", line=token.line)
             inner_index.add_child(inner_expr)
-            index += 1  # skip ']'
+            index += 1
             list_access_node = ListAccessNode(list_access_node, inner_index, line=token.line)
 
-        # Handle bundle array member access: p[0].x or p[0].addr.zip
         if index < len(tokens) and tokens[index].type == "." and list_info["type"] in symbol_table.bundle_types:
-            index += 1  # skip '.'
+            index += 1
             member_name = tokens[index].value
             bundle_members = symbol_table.bundle_types[list_info["type"]]
             if member_name not in bundle_members:
                 raise SemanticError(f"Semantic Error: Bundle type '{list_info['type']}' has no member '{member_name}'.", token.line)
             member_type = bundle_members[member_name]
-            index += 1  # skip member name
+            index += 1
             node = ArrayMemberAccessNode(list_access_node, member_name, line=token.line)
 
-            # Handle chained access for nested bundles: p[0].addr.zip
             while index < len(tokens) and tokens[index].type == "." and member_type in symbol_table.bundle_types:
                 next_member = tokens[index + 1].value
                 nested_members = symbol_table.bundle_types[member_type]
@@ -1667,7 +1533,7 @@ def parse_factor(tokens, index):
                     raise SemanticError(f"Semantic Error: Bundle type '{member_type}' has no member '{next_member}'.", token.line)
                 member_type = nested_members[next_member]
                 node = MemberAccessNode(node, next_member, line=token.line)
-                index += 2  # skip '.', member
+                index += 2
 
             return node, index, member_type
 
@@ -1704,7 +1570,6 @@ def parse_factor(tokens, index):
 
 
 def _assignment_root_name(node):
-    """Return the declared root variable of an assignable AST node."""
     if node.node_type in {"Identifier", "Value", "Object", "ListName"}:
         if isinstance(node.value, ASTNode):
             return _assignment_root_name(node.value)
@@ -1715,7 +1580,6 @@ def _assignment_root_name(node):
 
 
 def _assignment_target(node, line):
-    """Validate and normalize an assignment-expression left-hand side."""
     root_name = _assignment_root_name(node)
     valid_node_types = {"Value", "Identifier", "ListAccess", "MemberAccess", "ArrayMemberAccess"}
     var_info = symbol_table.lookup_variable(root_name) if root_name is not None else None
@@ -1737,7 +1601,6 @@ def _assignment_target(node, line):
 
 
 def parse_assignment_expression(tokens, index):
-    """Parse right-associative assignments and infer their stored value type."""
     line = tokens[index].line
     left_node, index, left_type = parse_logical_expression(tokens, index)
     if tokens[index].type not in {"=", "+=", "-=", "*=", "/=", "%="}:
@@ -1772,12 +1635,10 @@ def parse_assignment_expression(tokens, index):
 
 
 def parse_expression_branch(tokens, index):
-    """Parse the full expression form used by conditions and parentheses."""
     return parse_assignment_expression(tokens, index)
 
 
 def parse_logical_expression(tokens, index):
-    """Parses logical expressions with &&/|| operators for branch type."""
     line = tokens[index].line
     left_node, index, left_type = parse_equality(tokens, index)
 
@@ -1800,7 +1661,6 @@ def parse_logical_expression(tokens, index):
 
 
 def parse_equality(tokens, index):
-    """Parses equality expressions with == or !=."""
     line = tokens[index].line
     left_node, index, left_type = parse_relational(tokens, index)
 
@@ -1809,7 +1669,6 @@ def parse_equality(tokens, index):
         index += 1
         right_node, index, right_type = parse_relational(tokens, index)
 
-        # ── type guard: equality operators require compatible types ──
         if left_type is None or right_type is None:
             raise SemanticError(
                 "Semantic Error: Could not determine the type of an operand in equality check.",
@@ -1821,7 +1680,6 @@ def parse_equality(tokens, index):
                 f"Semantic Error: Cannot compare '{left_type}' with '{right_type}' using '{operator}'.",
                 line,
             )
-        # ──────────────────────────────────────────────────────────────
 
         left_node = BinaryOpNode(left_node, operator, right_node, line=line)
         left_type = "branch"
@@ -1830,7 +1688,6 @@ def parse_equality(tokens, index):
 
 
 def parse_relational(tokens, index):
-    """Parses relational expressions with <, >, <=, >= or ! unary operator."""
     line = tokens[index].line
 
     if tokens[index].type == "!":
@@ -1855,7 +1712,6 @@ def parse_relational(tokens, index):
                 line,
             )
 
-        # ── type guard: relational operators require compatible types ──
         if left_type and right_type:
             numeric = {"seed", "tree"}
             if left_type in numeric and right_type not in numeric:
@@ -1873,7 +1729,6 @@ def parse_relational(tokens, index):
                     f"Semantic Error: Cannot compare '{left_type}' with '{right_type}' using '{operator}'.",
                     line,
                 )
-        # ──────────────────────────────────────────────────────────────
 
         left_node = BinaryOpNode(left_node, operator, right_node, line=line)
         left_type = "branch"
@@ -1905,15 +1760,12 @@ def check_lwk(tokens, index):
     return op_found, start_index
 
 def parse_operand(tokens, index):
-    """Determines the parsing function based on the operand type."""
     token = tokens[index]
     line = token.line
 
-    # water() is an I/O statement, not an expression
     if token.value == "water":
         raise SemanticError(f"Semantic Error: water() is an I/O statement, not an expression. It cannot be used inside an expression.", token.line)
 
-    # Handle parentheses
     if token.type == "(":
         if tokens[index+1].value in {"seed", "tree"}:
             expr_type = tokens[index+1].value
@@ -1946,18 +1798,15 @@ def parse_operand(tokens, index):
         index += 1
         return expr_node, index, expr_type
 
-    # Chungus or Chudeluxe (arithmetic types)
     if token.type in {"intlit", "dbllit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
-    # Forsencd (String concatenation or manipulation)
     if token.type in {"chrlit", "stringlit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
 
-    # Lwk (Boolean literal)
     if token.type in {"sunshine", "frost"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
@@ -1985,36 +1834,29 @@ def parse_operand(tokens, index):
         if not list_info["is_list"] and list_info.get("type") != "vine":
             raise SemanticError(f"Semantic Error: '{list_name}' is not a list.", token.line)
 
-        # Delegate to parse_expression so arithmetic (a[0] + a[1]) is handled
         expr_node, index, expr_type = parse_expression(tokens, index)
         return expr_node, index, expr_type
 
-    # Chungus or Chudeluxe (arithmetic types)
     if token.type in {"intlit", "dbllit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
-    # Forsencd (String concatenation or manipulation)
     if token.type == "chrlit":
         expr_node, index = parse_expression_leaf(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
-    # Forsen (String literal)
     if token.type == "stringlit":
         return ASTNode("Value", token.value, line=line), index + 1, "vine"
 
-    # Lwk (Boolean literal)
     if token.type in {"sunshine", "frost"}:
         return ASTNode("Value", token.value, line=line), index + 1, "branch"
 
-    # Bundle member access in operand context: p.age > 18 or p.addr.zip > 0
     if token.type == "id" and tokens[index + 1].type == ".":
         var_info = symbol_table.lookup_variable(token.value)
         if not isinstance(var_info, str) and var_info["type"] in symbol_table.bundle_types:
             expr_node, index, expr_type = parse_expression(tokens, index)
             return expr_node, index, expr_type
 
-    # Identifiers (Variables)
     if token.type == "id":
         var_info = symbol_table.lookup_variable(token.value)
         if isinstance(var_info, str):
@@ -2024,7 +1866,6 @@ def parse_operand(tokens, index):
         is_list = var_info.get("is_list", False)
 
         if is_list and tokens[index + 1].type != "[":
-            # Check if this is an array <op> array case (e.g., x = a + b)
             if tokens[index + 1].type in {"+", "-", "*", "/", "%", "**", "==", "!=", ">", "<", ">=", "<="}:
                 op_token = tokens[index + 1]
                 if index + 2 < len(tokens) and tokens[index + 2].type == "id":
@@ -2036,7 +1877,6 @@ def parse_operand(tokens, index):
                         )
             raise SemanticError(f"Semantic Error: List '{token.value}' must be indexed with '[]' in expressions.", line)
     
-        # Dispatch to specific parsers based on type
         if var_type in {"seed", "tree", "branch"}:
             expr_node, index, _ = parse_expression(tokens, index)
             
@@ -2054,7 +1894,6 @@ def parse_operand(tokens, index):
             return ASTNode("Value", token.value, line=line), index + 1, var_type
 
         elif var_type in symbol_table.bundle_types:
-            # Bundle variable used directly — dispatch through expression parser
             expr_node, index, _ = parse_expression(tokens, index)
             return expr_node, index, var_type
 
@@ -2067,7 +1906,6 @@ def parse_operand(tokens, index):
 
 
 def infer_literal_type(token_type):
-    """Returns the type string for a given literal token type."""
     if token_type == "intlit":
         return "seed"
     if token_type == "dbllit":
@@ -2089,17 +1927,17 @@ def parse_assignment(tokens, index, var_name, var_type):
 
     if tokens[index].value == "water":
         water_line = tokens[index].line
-        index += 1  # skip 'water'
+        index += 1
         if tokens[index].type != "(":
             raise SemanticError(f"Syntax Error: Expected '(' after water.", water_line)
-        index += 1  # skip '('
+        index += 1
         water_type = None
         if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
             water_type = tokens[index].value
             index += 1
         if tokens[index].type != ")":
             raise SemanticError(f"Semantic Error: water() accepts only an optional type parameter (e.g., water(seed)).", water_line)
-        index += 1  # skip ')'
+        index += 1
         if water_type and not _types_compatible(var_type, water_type):
             raise SemanticError(f"Semantic Error: Type mismatch — cannot assign water({water_type}) to '{var_type}' variable.", water_line)
         value_node = ASTNode("Input", f"water({water_type})" if water_type else "water()", line=water_line)
@@ -2125,12 +1963,10 @@ def parse_function_call(tokens, index, func_name, func_type, func_params):
 
         expected_type = expected_params[len(provided_args)].children[0].value 
         
-        # Check if the expected parameter is an array parameter
         expected_param = expected_params[len(provided_args)]
         is_array_param = any(child.node_type == "ArrayParam" for child in expected_param.children)
 
         if is_array_param:
-            # Array parameter: expect an array identifier
             if tokens[index].type != "id":
                 raise SemanticError(f"Semantic Error: Expected array variable for parameter {len(provided_args) + 1} of '{func_name}'.", line)
             arg_name = tokens[index].value
@@ -2165,7 +2001,7 @@ def parse_function_call(tokens, index, func_name, func_type, func_params):
         raise SemanticError(f"Semantic Error: Function '{func_name}' expects {len(expected_params)} arguments, but {len(provided_args)} were provided.", line)
 
     for i, (arg_node, arg_type) in enumerate(provided_args):
-        expected_type = expected_params[i].children[0].value  # Get expected type
+        expected_type = expected_params[i].children[0].value
 
         if expected_type in {"seed", "tree"} and arg_type == "seed":
             continue 
@@ -2177,39 +2013,34 @@ def parse_function_call(tokens, index, func_name, func_type, func_params):
 
 
 def parse_water_statement(tokens, index):
-    """Parse water(variable); — reads input into an existing variable."""
     line = tokens[index].line
-    index += 1  # skip 'water'
+    index += 1
 
     if tokens[index].type != "(":
         raise SemanticError(f"Syntax Error: Expected '(' after water.", line)
-    index += 1  # skip '('
+    index += 1
 
-    # Case 1: water() or water(data_type) — no variable target (expression form used as statement)
     if tokens[index].value in {"seed", "tree", "leaf", "branch", "vine"}:
         water_type = tokens[index].value
         index += 1
         if tokens[index].type != ")":
             raise SemanticError(f"Semantic Error: water() accepts only an optional type parameter or a variable name.", line)
-        index += 1  # skip ')'
+        index += 1
         if tokens[index].type != ";":
             raise SemanticError(f"Syntax Error: Expected ';' after water statement.", line)
-        index += 1  # skip ';'
-        # Standalone typed water with no target — just returns input (discarded)
+        index += 1
         input_node = ASTNode("Input", f"water({water_type})", line=line)
         return input_node, index
 
     elif tokens[index].type == ")":
-        # water() with no args
-        index += 1  # skip ')'
+        index += 1
         if tokens[index].type != ";":
             raise SemanticError(f"Syntax Error: Expected ';' after water statement.", line)
-        index += 1  # skip ';'
+        index += 1
         input_node = ASTNode("Input", "water()", line=line)
         return input_node, index
 
     elif tokens[index].type == "id":
-        # water(variable) — read input into variable
         var_name = tokens[index].value
         var_info = symbol_table.lookup_variable(var_name)
         if isinstance(var_info, str):
@@ -2217,56 +2048,52 @@ def parse_water_statement(tokens, index):
         if var_info.get("is_fertile", False):
             raise SemanticError(f"Semantic Error: Variable '{var_name}' is declared as fertile and cannot be re-assigned a value.", line)
         var_type = var_info["type"]
-        index += 1  # skip identifier
+        index += 1
 
-        # Check for list element access: water(arr[i])
         if tokens[index].type == "[":
             if not var_info.get("is_list", False) and var_info.get("type") != "vine":
                 raise SemanticError(f"Semantic Error: Variable '{var_name}' is not a list.", line)
-            index += 1  # skip '['
+            index += 1
             index_expr, index, idx_type = parse_equality(tokens, index)
             if idx_type is not None and idx_type != "seed":
                 raise SemanticError(f"Semantic Error: List index must be of type 'seed', got '{idx_type}'.", line)
             if tokens[index].type != "]":
                 raise SemanticError(f"Syntax Error: Expected ']' after list index.", line)
-            index += 1  # skip ']'
+            index += 1
 
-            # Build first dimension: arr[i]
             index_wrapper = ASTNode("Index", line=line)
             index_wrapper.add_child(index_expr)
             list_access_node = ListAccessNode(var_name, index_wrapper, line=line)
 
-            # Handle additional dimensions: water(arr[i][j][k]...)
             while tokens[index].type == "[":
-                index += 1  # skip '['
+                index += 1
                 inner_expr, index, inner_type = parse_equality(tokens, index)
                 if inner_type is not None and inner_type != "seed":
                     raise SemanticError(f"Semantic Error: List index must be of type 'seed', got '{inner_type}'.", line)
                 if tokens[index].type != "]":
                     raise SemanticError(f"Syntax Error: Expected ']' after list index.", line)
-                index += 1  # skip ']'
+                index += 1
                 inner_wrapper = ASTNode("Index", line=line)
                 inner_wrapper.add_child(inner_expr)
                 list_access_node = ListAccessNode(list_access_node, inner_wrapper, line=line)
 
             if tokens[index].type != ")":
                 raise SemanticError(f"Semantic Error: Expected ')' after water(arr[i]).", line)
-            index += 1  # skip ')'
+            index += 1
             if tokens[index].type != ";":
                 raise SemanticError(f"Syntax Error: Expected ';' after water statement.", line)
-            index += 1  # skip ';'
+            index += 1
             input_node = ASTNode("Input", f"water({var_type})", line=line)
             assignment_node = AssignmentNode(list_access_node, input_node, line=line)
             return assignment_node, index
 
         if tokens[index].type != ")":
             raise SemanticError(f"Semantic Error: water() accepts only a single variable name or type parameter.", line)
-        index += 1  # skip ')'
+        index += 1
         if tokens[index].type != ";":
             raise SemanticError(f"Syntax Error: Expected ';' after water statement.", line)
-        index += 1  # skip ';'
+        index += 1
 
-        # Build as: variable = water(type)  — an assignment with Input as the value
         input_node = ASTNode("Input", f"water({var_type})", line=line)
         value_ident = ASTNode("Identifier", var_name, line=line)
         assignment_node = AssignmentNode(var_name, input_node, line=line)
@@ -2356,7 +2183,6 @@ def parse_print(tokens, index):
                 raise SemanticError(f"Semantic Error: Variable '{identif_name}' used before declaration.", line)
             
             if tokens[index + 1].type == "." and arg_info["type"] in symbol_table.bundle_types:
-                # Bundle member access in plant: plant(p.name)
                 expr_node, index, _ = parse_expression(tokens, index)
                 args.append(expr_node)
 
@@ -2468,7 +2294,6 @@ def parse_print(tokens, index):
                     raise SemanticError(f"Semantic Error: List '{arg_name}' must be indexed with '[]' in expressions.", line)
                 
             if tokens[index + 1].type == "." and arg_info["type"] in symbol_table.bundle_types:
-                # Bundle member access in plant args: plant("{}", p.name)
                 arg_node, index, _ = parse_expression(tokens, index)
                 actual_args.append(arg_node)
 
@@ -2510,7 +2335,6 @@ def parse_print(tokens, index):
     if placeholder_count > 15:
         raise SemanticError(f"Semantic Error: Exceeded maximum amount of 15 arguments in plant statement.", line)
 
-    # Only enforce placeholder matching when the format string contains {}
     if placeholder_count > 0 and placeholder_count != len(actual_args):
         raise SemanticError(f"Semantic Error: Found {len(actual_args)} argument(s). Expected {placeholder_count} argument(s).", line)
     
@@ -2623,21 +2447,15 @@ def parse_fertile(tokens, index):
 
     return FertileDeclarationNode(var_type, var_name, value_node, line=line), index
 
-# ============================================================================
-# CONTROL-FLOW PARSERS - parse_if / parse_for / parse_while / parse_do /
-# parse_switch. Each builds the matching AST node (IfStatementNode,
-# ForLoopNode, etc.) and recursively parses the body via parse_statement.
-# Conditions must evaluate to a branch (boolean) — checked here.
-# ============================================================================
 def parse_if(tokens, index, func_type):
     line = tokens[index].line
-    index += 1  # Move past "spring"
+    index += 1
 
     if tokens[index].type != "(":
         raise SemanticError(f"Syntax Error: Expected '(' after 'spring'.", line)
     index += 1
 
-    condition_expr, index, cond_type = parse_expression_branch(tokens, index)  # Parse branch expression
+    condition_expr, index, cond_type = parse_expression_branch(tokens, index)
 
     if cond_type != "branch":
         raise SemanticError(f"Semantic Error: spring condition must be branch, got {cond_type}.", line)
@@ -2674,7 +2492,6 @@ def parse_if(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected '{{' after 'spring' condition.", line)
 
 
-    # Else-if chains: bud (<cond>) { ... }
     while tokens[index].value == "bud":
         index += 1
 
@@ -2719,7 +2536,6 @@ def parse_if(tokens, index, func_type):
             raise SemanticError(f"Syntax Error: Expected '{{' after else-if condition.", line)
 
 
-    # Else: wither { ... }
     if tokens[index].value == "wither":
         index += 1
 
@@ -2757,10 +2573,10 @@ def parse_return(tokens, index, func_type):
     elif tokens[index].type == "id":
         identifier = tokens[index].value
 
-        if tokens[index+1].type == "(":  # Function call case
+        if tokens[index+1].type == "(":
             func_info = symbol_table.lookup_function(identifier)
 
-            if isinstance(func_info, str):  # Function not found
+            if isinstance(func_info, str):
                 raise SemanticError(f"Semantic Error: Function '{identifier}' is not defined.", line)
 
             return_type = func_info["return_type"]
@@ -2769,13 +2585,11 @@ def parse_return(tokens, index, func_type):
 
             return_expr, index = parse_expression_type(tokens, index, func_type)
 
-        else:  # Variable case
+        else:
             var_info = symbol_table.lookup_variable(identifier)
             if isinstance(var_info, str):
                 raise SemanticError(f"Semantic Error: Variable '{identifier}' used before declaration.", line)
 
-            # Skip preliminary type check when the variable is a bundle with member access (e.g., p.a)
-            # because the expression type depends on the member, not the base variable
             is_member_access = var_info["type"] in symbol_table.bundle_types and tokens[index+1].type == "."
             if not is_member_access:
                 if var_info["type"] not in [func_type, "seed", "tree"] and var_info["type"] != "seed" and var_info["type"] != "tree":                
@@ -2787,7 +2601,6 @@ def parse_return(tokens, index, func_type):
         return_expr, index = parse_expression_type(tokens, index, func_type)
 
     return ReturnNode(return_expr, line=line), index
-
 
 
 def parse_for(tokens, index, func_type):
@@ -2910,11 +2723,10 @@ def parse_update(tokens, index):
                             assign_node = AssignmentNode(list_access_node, value_node, line=tokens[index].line)
                             assignments_node.add_child(assign_node)
                         elif tokens[index + 1].type in {"++", "--"}:
-                            # arr[i]++ in for-update (cultivate(...; ...; arr[i]++))
                             if var_type not in {"seed", "tree"}:
                                 raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_type} in expression.", line)
                             operator = tokens[index + 1].value
-                            index += 2  # past ']' and ++/--
+                            index += 2
                             assignments_node.add_child(UnaryOpNode(operator, list_access_node, "post", line=line))
                         else:
                             raise SemanticError("Semantic Error: Expected '=' or '++'/'--' after list access.", tokens[index + 1].line)
@@ -2945,7 +2757,6 @@ def parse_update(tokens, index):
                     assignments_node.add_child(node)
 
                 elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
-                    # Compound assignment in for-loop update: i += 2
                     compound_op = tokens[index + 1].value
                     base_op = compound_op[:-1]
                     cur_var_name = tokens[index].value
@@ -2957,15 +2768,13 @@ def parse_update(tokens, index):
                     cur_var_type = cur_var_info["type"]
                     if cur_var_type not in {"seed", "tree"}:
                         raise SemanticError(f"Semantic Error: Cannot use compound assignment on '{cur_var_name}' of type '{cur_var_type}'.", line)
-                    # ── modulo-assign guard: %= requires seed ──
                     if base_op == "%" and cur_var_type != "seed":
                         raise SemanticError(
                             f"Semantic Error: Modulo operator '%' requires 'seed' (integer) operands, "
                             f"but '{cur_var_name}' is of type 'tree'.",
                             line,
                         )
-                    # ──────────────────────────────────────────────
-                    index += 2  # skip id and compound op
+                    index += 2
                     rhs_node, index, rhs_type = parse_expression(tokens, index)
                     if rhs_type not in {"seed", "tree"}:
                         raise SemanticError(
@@ -2990,15 +2799,13 @@ def parse_update(tokens, index):
                     if isinstance(var_info, str):
                         raise SemanticError(f"Semantic Error: Variable '{var_name}' used before declaration.", line)
 
-                    # ++arr[i]; — prefix on indexed array element
                     if tokens[index + 1].type == "[":
                         if var_info["type"] not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
                         list_access_node, index = parse_list_access(tokens, index)
-                        index += 1  # advance past the trailing ']'
+                        index += 1
                         assignments_node.add_child(UnaryOpNode(operator, list_access_node, "pre", line=line))
 
-                    # ++obj.field; — prefix on bundle member
                     elif tokens[index + 1].type == ".":
                         obj_name = tokens[index].value
                         if var_info["type"] not in symbol_table.bundle_types:
@@ -3008,9 +2815,8 @@ def parse_update(tokens, index):
                         if member_name not in bundle_members:
                             raise SemanticError(f"Semantic Error: Bundle type '{var_info['type']}' has no member '{member_name}'.", line)
                         member_type = bundle_members[member_name]
-                        index += 3  # skip id, '.', member
+                        index += 3
                         target = MemberAccessNode(obj_name, member_name, line=line)
-                        # nested member access: ++p.addr.zip
                         while tokens[index].type == "." and member_type in symbol_table.bundle_types:
                             next_member = tokens[index + 1].value
                             nested_members = symbol_table.bundle_types[member_type]
@@ -3023,7 +2829,6 @@ def parse_update(tokens, index):
                             raise SemanticError(f"Semantic Error: Cannot apply '{operator}' to member '{member_name}' of type '{member_type}'.", line)
                         assignments_node.add_child(UnaryOpNode(operator, target, "pre", line=line))
 
-                    # ++x; — prefix on plain identifier (original path)
                     else:
                         if var_info["type"] not in {"seed", "tree"}:
                             raise SemanticError(f"Semantic Error: Cannot use '{var_name}' of type {var_info['type']} in expression.", line)
@@ -3173,7 +2978,7 @@ def parse_switch(tokens, index, func_type):
         raise SemanticError(f"Syntax Error: Expected '(' after 'harvest'.", line)
     index += 1
 
-    switch_type = None  # track the type of the harvest expression
+    switch_type = None
 
     if tokens[index].type == "id":
         var_info = symbol_table.lookup_variable(tokens[index].value)
@@ -3187,7 +2992,6 @@ def parse_switch(tokens, index, func_type):
         
 
     elif tokens[index].type in {"intlit", "chrlit", "sunshine", "frost"} or tokens[index].type in {"--", "++", "-", "("}:
-        # infer type from the leading token
         if tokens[index].type == "intlit" or tokens[index].type in {"--", "++", "-"}:
             switch_type = "seed"
         elif tokens[index].type == "chrlit":
@@ -3195,7 +2999,7 @@ def parse_switch(tokens, index, func_type):
         elif tokens[index].type in {"sunshine", "frost"}:
             switch_type = "branch"
         elif tokens[index].type == "(":
-            switch_type = "seed"  # default for grouped expressions
+            switch_type = "seed"
         switch_expr, index, _ = parse_expression(tokens, index)
 
     elif tokens[index].type in {"stringlit"}:
@@ -3219,7 +3023,7 @@ def parse_switch(tokens, index, func_type):
 
     case_nodes = []
     default_case = None
-    seen_case_values = set()  # track variety values to detect duplicates
+    seen_case_values = set()
 
     while tokens[index].value in {"variety"}:
         case_line = tokens[index].line
@@ -3229,7 +3033,6 @@ def parse_switch(tokens, index, func_type):
         if tokens[index].type not in {"chrlit", "stringlit", "sunshine", "frost", "intlit", "dbllit"}:
             raise SemanticError(f"Semantic Error: Expected valid literal value after 'variety'.", line)
 
-        # --- type-check the variety literal against the harvest expression ---
         lit_type_map = {
             "intlit": "seed",
             "dbllit": "tree",
@@ -3245,7 +3048,6 @@ def parse_switch(tokens, index, func_type):
                 tokens[index].line,
             )
 
-        # --- check for duplicate variety values ---
         case_val_key = tokens[index].value
         if case_val_key in seen_case_values:
             raise SemanticError(
@@ -3382,7 +3184,6 @@ def parse_insert(tokens, index, var_name, expected_type):
     index += 1
 
     expr_node, index, idx_type = parse_equality(tokens, index)
-    # Insert index must be seed (integer)
     if idx_type is not None and idx_type != "seed":
         raise SemanticError(
             f"Semantic Error: List index must be of type 'seed', got '{idx_type}'.",
@@ -3422,7 +3223,6 @@ def parse_remove(tokens, index, var_name, expected_type):
     index += 1
 
     expr_node, index, idx_type = parse_equality(tokens, index)
-    # Remove index must be seed (integer)
     if idx_type is not None and idx_type != "seed":
         raise SemanticError(
             f"Semantic Error: List index must be of type 'seed', got '{idx_type}'.",
@@ -3442,17 +3242,7 @@ def is_inside_loop_or_switch_stack():
     return any(ctx in {"WhileNode", "DoWhileNode", "SwitchNode", "ForNode"} for ctx in context_stack)
 
 
-# ============================================================================
-# analyze_semantics() - LEGACY ONE-SHOT ENTRY POINT
-# Older API that does build_ast in one call. The current pipeline uses
-# the two-step parse_and_build + validate_ast instead so the IDE can
-# distinguish 'syntax' from 'semantic' error stages.
-# ============================================================================
 def analyze_semantics(tokens):
-    """
-    Legacy API — builds AST from tokens and validates in one pass.
-    Kept for backward compatibility.
-    """
     try:
         filtered = [t for t in tokens if t.type != '\n']
         ast = build_ast(filtered)
@@ -3501,15 +3291,3 @@ def analyze_semantics(tokens):
         }
 
 
-# ============================================================================
-# SEMANTIC VALIDATION — Tree-Walking Pass
-# ============================================================================
-# After the parser builds the AST, this validator walks the tree to verify
-# semantic correctness.  The compiler pipeline is:
-#
-#   Lexer → Parser (LL1 + AST build) → Semantic (validate AST) → Interpreter
-#
-# The parser already performs primary checks during AST construction (variable
-# declarations, type dispatch, scope tracking).  This tree-walking pass serves
-# as the dedicated semantic analysis phase that validates the completed AST.
-# ============================================================================

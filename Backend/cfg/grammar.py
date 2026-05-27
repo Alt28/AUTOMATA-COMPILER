@@ -1,73 +1,47 @@
-# ============================================================================
-# CFG GRAMMAR + FIRST/FOLLOW/PREDICT - the static parse table source
-# ============================================================================
-# Extracted from Backend/cfg.py during the modular restructure.
-# Exports three artifacts consumed by parser/parser.py:
-#   cfg           : Dict[non_terminal -> List[List[symbol]]]
-#   first_sets    : Dict[non_terminal -> Set[terminal]]
-#   predict_sets  : Dict[(non_terminal, production) -> Set[terminal]]
-# ============================================================================
 import sys
 from collections import defaultdict
 
-# Set UTF-8 encoding for Windows console (so λ prints correctly during dev)
 if sys.platform == 'win32':
     try:
         sys.stdout.reconfigure(encoding='utf-8')
     except:
         pass
 
-# Use λ (lambda) as epsilon symbol - represents empty/null production
 EPSILON = "λ"
 
 
 def compute_first(cfg):
-    """
-    Compute FIRST sets for all non-terminals in the grammar.
-    
-    FIRST(X) = set of terminals that can appear at the beginning 
-               of any string derived from X
-    
-    Example: If X -> aB, then 'a' is in FIRST(X)
-    """
-    first = defaultdict(set)  # Dictionary to store FIRST sets for each non-terminal
+    first = defaultdict(set)
     epsilon = EPSILON
 
-    # Initial pass: Add terminals and epsilon that appear first in productions
-    for lhs, productions in cfg.items():  # lhs = left-hand side (non-terminal)
-        for prod in productions:  # prod = production (right-hand side)
+    for lhs, productions in cfg.items():
+        for prod in productions:
             if not prod:
                 continue
-            if prod[0] == epsilon:  # Production derives epsilon directly
+            if prod[0] == epsilon:
                 first[lhs].add(epsilon)
-            elif prod[0] not in cfg:  # First symbol is a terminal (not a non-terminal)
+            elif prod[0] not in cfg:
                 first[lhs].add(prod[0])
 
-    # Iterative pass: Keep updating FIRST sets until no changes occur
     changed = True
     while changed:
         changed = False
         for lhs, productions in cfg.items():
             for prod in productions:
-                before = len(first[lhs])  # Track size to detect changes
+                before = len(first[lhs])
 
-                # Process each symbol in the production
                 for symbol in prod:
-                    if symbol in cfg:  # Symbol is a non-terminal
-                        # Add FIRST(symbol) to FIRST(lhs), excluding epsilon
+                    if symbol in cfg:
                         first[lhs] |= (first[symbol] - {epsilon})
-                        # If symbol cannot derive epsilon, stop here
                         if epsilon not in first[symbol]:
                             break
-                    else:  # Symbol is a terminal
+                    else:
                         if symbol != epsilon:
                             first[lhs].add(symbol)
                         break
                 else:
-                    # All symbols can derive epsilon, so this production can too
                     first[lhs].add(epsilon)
 
-                # Check if FIRST set grew
                 if len(first[lhs]) > before:
                     changed = True
 
@@ -75,53 +49,36 @@ def compute_first(cfg):
 
 
 def compute_follow(cfg, first):
-    """
-    Compute FOLLOW sets for all non-terminals in the grammar.
-    
-    FOLLOW(X) = set of terminals that can appear immediately after X
-                in any derivation
-    
-    Example: If S -> AB, then FOLLOW(A) includes FIRST(B)
-    """
-    follow = defaultdict(set)  # Dictionary to store FOLLOW sets
+    follow = defaultdict(set)
     epsilon = EPSILON
 
-    # Start symbol gets end-of-input marker (EOF)
-    start_symbol = next(iter(cfg))  # First non-terminal in grammar
+    start_symbol = next(iter(cfg))
     follow[start_symbol].add("EOF")
 
-    # Iterative pass: Keep updating until no changes
     changed = True
     while changed:
         changed = False
         for lhs, productions in cfg.items():
             for prod in productions:
-                # Check each symbol in the production
                 for i, symbol in enumerate(prod):
-                    if symbol in cfg:  # Only compute FOLLOW for non-terminals
+                    if symbol in cfg:
                         before = len(follow[symbol])
 
-                        # Look at all symbols that come after this symbol
                         j = i + 1
                         while j < len(prod):
                             next_symbol = prod[j]
-                            if next_symbol in cfg:  # Next symbol is non-terminal
-                                # Add FIRST(next_symbol) to FOLLOW(symbol), excluding epsilon
+                            if next_symbol in cfg:
                                 follow[symbol] |= (first[next_symbol] - {epsilon})
-                                # If next symbol cannot derive epsilon, stop here
                                 if epsilon not in first[next_symbol]:
                                     break
-                            else:  # Next symbol is terminal
+                            else:
                                 if next_symbol != epsilon:
                                     follow[symbol].add(next_symbol)
                                 break
                             j += 1
                         else:
-                            # All remaining symbols can derive epsilon (or we reached the end)
-                            # Add FOLLOW(lhs) to FOLLOW(symbol)
                             follow[symbol] |= follow[lhs]
 
-                        # Check if FOLLOW set grew
                         if len(follow[symbol]) > before:
                             changed = True
 
@@ -129,481 +86,353 @@ def compute_follow(cfg, first):
 
 
 def compute_predict(cfg, first, follow):
-    """
-    Compute PREDICT sets for all productions in the grammar.
-    
-    PREDICT(A -> α) = set of terminals that indicate when to use this production
-    
-    Used to build parsing table for predictive (LL) parser:
-    - If next input token is in PREDICT(A -> α), use that production
-    
-    Rules:
-    1. Add FIRST(α) to PREDICT
-    2. If α can derive epsilon, also add FOLLOW(A)
-    """
-    predict = {}  # Dictionary to store PREDICT sets
+    predict = {}
     epsilon = EPSILON
 
     for lhs, productions in cfg.items():
         for prod in productions:
-            # Key is (non-terminal, production tuple)
             key = (lhs, tuple(prod))
             predict[key] = set()
 
-            # Check if production is epsilon (empty or just epsilon symbol)
             if not prod or (len(prod) == 1 and prod[0] == epsilon):
-                # Epsilon production: PREDICT = FOLLOW(lhs)
                 predict[key] = follow[lhs].copy()
                 continue
 
-            # Compute FIRST set of this production
             first_set = set()
             for symbol in prod:
-                if symbol in cfg:  # Symbol is non-terminal
-                    # Add FIRST(symbol) excluding epsilon
+                if symbol in cfg:
                     first_set |= (first[symbol] - {epsilon})
-                    # If symbol cannot derive epsilon, stop
                     if epsilon not in first[symbol]:
                         break
-                else:  # Symbol is terminal
+                else:
                     if symbol != epsilon:
                         first_set.add(symbol)
                     break
             else:
-                # All symbols can derive epsilon
                 first_set.add(epsilon)
 
-            # PREDICT set starts with FIRST set
             predict[key] = first_set
-            # If production can derive epsilon, add FOLLOW(lhs)
             if epsilon in first_set:
                 predict[key] |= follow[lhs] 
 
     return predict
 
 
-# ===============================================================================
-# GAL (Grow A Language) Context-Free Grammar Definition
-# ===============================================================================
-# This dictionary defines the complete grammar for the GAL programming language.
-# Format: { "<non-terminal>": [ [production1], [production2], ... ] }
-# 
-# Non-terminals: Enclosed in < >, represent grammar rules (e.g., <program>)
-# Terminals: Actual tokens from the lexer (e.g., "seed", "id", "{")
-# λ (EPSILON): Represents empty production (optional/nullable rules)
-# ===============================================================================
-
 cfg = {
-    # ===== PROGRAM STRUCTURE =====
-    # Entry point: Every GAL program must have a root() function
     "<program>": [
         [
-            "<global_declaration>",   # Global variables, constants, bundles (structs)
-            "<function_definition>",  # User-defined functions
-            "root",                   # Main function name (like main() in C)
+            "<global_declaration>",
+            "<function_definition>",
+            "root",
             "(",
             ")",
             "{",
-            "<local_declaration>",    # Old-style C local declarations must come first
-            "<body_statement>",       # Executable statements before the required final return
-            "reclaim",                # root() must end with reclaim;
+            "<local_declaration>",
+            "<body_statement>",
+            "reclaim",
             ";",
             "}",
         ]
     ],
 
-    # ===== GLOBAL DECLARATIONS =====
-    # Variables, constants, and structs declared outside functions
     "<global_declaration>": [
-        ["bundle", "id", "<bundle_or_var>", "<global_declaration>"],  # Bundle definition or variable
-        ["<data_type>", "id", "<array_dec>", "<var_value>", ";", "<global_declaration>"],  # Variable declaration
-        ["fertile", "<data_type>", "id", "=", "<init_val>", "<const_next>", ";", "<global_declaration>"],  # Constant declaration
-        [EPSILON],  # Can be empty (no global declarations)
+        ["bundle", "id", "<bundle_or_var>", "<global_declaration>"],
+        ["<data_type>", "id", "<array_dec>", "<var_value>", ";", "<global_declaration>"],
+        ["fertile", "<data_type>", "id", "=", "<init_val>", "<const_next>", ";", "<global_declaration>"],
+        [EPSILON],
     ],
 
-    # Distinguish between bundle definition and bundle variable after seeing "bundle id"
     "<bundle_or_var>": [
-        ["{", "<bundle_members>", "}", ";"],           # Bundle definition: bundle Person { ... };
-        ["<bundle_mem_dec>", ";"],                      # Bundle variable: bundle Person p;
+        ["{", "<bundle_members>", "}", ";"],
+        ["<bundle_mem_dec>", ";"],
     ],
 
-    # ===== LOCAL DECLARATIONS =====
-    # Variables and constants declared inside functions
     "<local_declaration>": [
-        ["<var_dec>", ";", "<local_declaration>"],   # Variable/array/bundle-variable declaration
-        ["<const_dec>", ";", "<local_declaration>"], # Constant declaration
-        [EPSILON],  # Can be empty (no local declarations)
+        ["<var_dec>", ";", "<local_declaration>"],
+        ["<const_dec>", ";", "<local_declaration>"],
+        [EPSILON],
     ],
 
-    # ===== DATA TYPES =====
-    # The five primitive types in GAL
     "<data_type>": [
-        ["seed"],    # Integer type
-        ["tree"],    # Float/Double type
-        ["leaf"],    # Character type
-        ["branch"],  # Boolean type
-        ["vine"],    # String type
+        ["seed"],
+        ["tree"],
+        ["leaf"],
+        ["branch"],
+        ["vine"],
     ],
 
-    # ===== CONSTANT DECLARATIONS =====
-    # Example: fertile seed MAX = 100;
-    #          fertile leaf NEWLINE = '\n', TAB = '\t';
     "<const_dec>": [
         ["fertile", "<data_type>", "id", "=", "<init_val>", "<const_next>"],
     ],
 
     "<const_next>": [
-        [",", "id", "=", "<init_val>", "<const_next>"],  # Multiple constants in one line
-        [EPSILON],  # Single constant
-    ],
-
-    # ===== VARIABLE DECLARATIONS =====
-    # Examples: seed x = 5;
-    #           tree arr[10];
-    #           bundle Person p;
-    #           bundle Person group[2];
-    "<var_dec>": [
-        ["<data_type>", "id", "<array_dec>", "<var_value>"],  # Regular variable or array
-        ["bundle", "id", "<bundle_mem_dec>"],                 # Struct variable
-    ],
-
-    "<bundle_mem_dec>": [
-        ["id", "<array_dec>"],  # bundle Person p; or bundle Person p[2];
-    ],
-
-    "<var_value>": [
-        ["=", "<init_val>", "<var_value_next>"],  # With initialization: seed x = 1, y = 2;
-        ["<var_value_next>"],                      # Without initialization: seed x, y, z;
-    ],
-
-    "<var_value_next>": [
-        [",", "id", "<array_dec>", "<var_value>"],  # Multiple variables: seed x = 1, y = 2, z;
+        [",", "id", "=", "<init_val>", "<const_next>"],
         [EPSILON],
     ],
 
-    # ===== INITIALIZATION VALUES =====
-    "<init_val>": [
-        ["<array_init_opt>"],                    # Array initialization: seed arr[] = {1, 2, 3};
-        ["water", "(", "<water_arg>", ")"],     # Input: seed x = water(seed);
-        ["<expression>"],                         # Single value: seed x = 5 + 3;
+    "<var_dec>": [
+        ["<data_type>", "id", "<array_dec>", "<var_value>"],
+        ["bundle", "id", "<bundle_mem_dec>"],
     ],
 
-    # ===== ARRAY DECLARATIONS =====
-    # Examples: seed arr[10];        (1D array - fixed size)
-    #           tree vals[];         (1D array - dynamic size)
-    #           seed matrix[2][3];   (2D array)
-    #           seed cube[2][3][4];  (3D array)
+    "<bundle_mem_dec>": [
+        ["id", "<array_dec>"],
+    ],
+
+    "<var_value>": [
+        ["=", "<init_val>", "<var_value_next>"],
+        ["<var_value_next>"],
+    ],
+
+    "<var_value_next>": [
+        [",", "id", "<array_dec>", "<var_value>"],
+        [EPSILON],
+    ],
+
+    "<init_val>": [
+        ["<array_init_opt>"],
+        ["water", "(", "<water_arg>", ")"],
+        ["<expression>"],
+    ],
+
     "<array_dec>": [
-        ["[", "<array_dim_opt>", "]", "<array_dec>"],  # One dimension, possibly more
-        [EPSILON],                                      # Not an array (base case)
+        ["[", "<array_dim_opt>", "]", "<array_dec>"],
+        [EPSILON],
     ],
 
     "<array_dim_opt>": [
-        ["intlit"],  # Size specified: [10]
-        ["dblit"],   # Float size (semantic error)
-        [EPSILON],   # Size not specified: []
+        ["intlit"],
+        ["dblit"],
+        [EPSILON],
     ],
 
-    # ===== ARRAY INITIALIZATION =====
-    # Examples: {1, 2, 3}
-    #           {{1, 2}, {3, 4}}  (nested arrays)
     "<array_init_opt>": [
-        ["{", "<init_vals>", "}"],  # Array initializer
-        [EPSILON],                   # No initialization
+        ["{", "<init_vals>", "}"],
+        [EPSILON],
     ],
 
     "<init_vals>": [
-        ["<init_val_item>", "<init_vals_next>"],  # Start with first item (expression or nested init)
-        [EPSILON],                                 # Empty initializer
+        ["<init_val_item>", "<init_vals_next>"],
+        [EPSILON],
     ],
 
     "<init_vals_next>": [
-        [",", "<init_val_item>", "<init_vals_next>"],  # More items
-        [EPSILON],                                      # End of list
+        [",", "<init_val_item>", "<init_vals_next>"],
+        [EPSILON],
     ],
 
     "<init_val_item>": [
-        ["{", "<init_vals>", "}"],  # Nested initializer
-        ["<expression>"],            # Simple expression
+        ["{", "<init_vals>", "}"],
+        ["<expression>"],
     ],
 
-    # ===== STRUCT (BUNDLE) DECLARATIONS =====
-    # Example: bundle Person {
-    #              seed age;
-    #              branch name;
-    #          }
     "<bundle_members>": [
-        ["<data_type>", "id", ";", "<bundle_members>"],  # Primitive member fields
-        ["id", "id", ";", "<bundle_members>"],            # Nested bundle member: Address addr;
-        [EPSILON],                                        # Empty struct or end of members
+        ["<data_type>", "id", ";", "<bundle_members>"],
+        ["id", "id", ";", "<bundle_members>"],
+        [EPSILON],
     ],
 
-    # ===== FUNCTION DEFINITIONS =====
-    # Example: pollinate seed add(seed a, seed b) {
-    #              reclaim a + b;
-    #          }
     "<function_definition>": [
         [
-            "pollinate",           # Keyword for function definition
-            "<return_type>",       # Return type (seed, tree, leaf, branch, or empty)
-            "id",                  # Function name
+            "pollinate",
+            "<return_type>",
+            "id",
             "(",
-            "<parameters>",        # Parameter list
+            "<parameters>",
             ")",
             "{",
-            "<local_declaration>", # Old-style C local declarations must come first
-            "<body_statement>",    # Executable statements before the required final return
-            "reclaim",             # Every function must end with reclaim
-            "<reclaim_value>",     # Value validated against the declared return type
+            "<local_declaration>",
+            "<body_statement>",
+            "reclaim",
+            "<reclaim_value>",
             "}",
-            "<function_definition>",  # Multiple functions (recursive definition)
+            "<function_definition>",
         ],
-        [EPSILON],  # No more functions
+        [EPSILON],
     ],
 
-    # ===== RETURN TYPE =====
     "<return_type>": [
-        ["<data_type>"],  # Returns seed, tree, leaf, or branch
-        ["empty"],        # Void function (no return value)
-        ["id"],           # User-defined bundle type (e.g., Pair, Person)
+        ["<data_type>"],
+        ["empty"],
+        ["id"],
     ],
 
-    # ===== FUNCTION PARAMETERS =====
-    # Examples: (seed x, tree y)
-    #           ()  (no parameters)
     "<parameters>": [
-        [EPSILON],                      # No parameters
-        ["<param>", "<param_next>"],    # One or more parameters
+        [EPSILON],
+        ["<param>", "<param_next>"],
     ],
 
     "<param>": [
-        ["<data_type>", "id", "<param_array>"],  # Parameter: primitive type + name (optionally array)
-        ["id", "id"],           # Parameter: bundle type + name (e.g., Pair p)
+        ["<data_type>", "id", "<param_array>"],
+        ["id", "id"],
     ],
 
     "<param_array>": [
-        [EPSILON],              # Scalar parameter
-        ["[", "]"],             # Array parameter: seed arr[]
+        [EPSILON],
+        ["[", "]"],
     ],
 
     "<param_next>": [
-        [EPSILON],                           # Last parameter
-        [",", "<param>", "<param_next>"],    # More parameters
+        [EPSILON],
+        [",", "<param>", "<param_next>"],
     ],
 
-    # ===== RETURN STATEMENT =====
-    # Examples: reclaim x + y;
-    #           reclaim;  (for empty functions)
     "<reclaim_value>": [
-        ["<expression>", ";"],  # Return with value
-        [";"],                  # Return without value
+        ["<expression>", ";"],
+        [";"],
     ],
 
-    # ===== STATEMENTS =====
-    # Function/root body statements before the required final reclaim.
-    # Nested blocks still use <statement>, where an early return is legal.
     "<body_statement>": [
         ["<non_reclaim_stmt>", "<body_statement>"],
         [EPSILON],
     ],
 
     "<non_reclaim_stmt>": [
-        ["id", "<id_stmt>"],                     # Assignment, unary, or function call
-        ["<inc_dec_op>", "id", "<id_next>", ";"],# Prefix: ++x; ++arr[i]; ++obj.field;
-        ["<io_stmt>"],                           # water() or plant()
-        ["<conditional_stmt>"],                  # spring/bud/wither
-        ["<loop_stmt>"],                         # grow/cultivate/tend
-        ["<switch_stmt>"],                       # harvest
-        ["<control_stmt>"],                      # prune/skip
+        ["id", "<id_stmt>"],
+        ["<inc_dec_op>", "id", "<id_next>", ";"],
+        ["<io_stmt>"],
+        ["<conditional_stmt>"],
+        ["<loop_stmt>"],
+        ["<switch_stmt>"],
+        ["<control_stmt>"],
     ],
 
-    # A sequence of executable statements (zero or more).
-    # Used for nested blocks, where early reclaim remains allowed.
     "<statement>": [
-        ["<simple_stmt>", "<statement>"],  # One statement followed by more
-        [EPSILON],                         # No more statements (end of block)
+        ["<simple_stmt>", "<statement>"],
+        [EPSILON],
     ],
 
-    # ===== TYPES OF STATEMENTS =====
     "<simple_stmt>": [
-        ["<non_reclaim_stmt>"],           # Regular executable nested statement
-        ["reclaim", "<reclaim_value>"],  # Early return: reclaim x; or reclaim;
+        ["<non_reclaim_stmt>"],
+        ["reclaim", "<reclaim_value>"],
     ],
 
-    # After seeing id, determine what kind of statement it is.
-    # Left-factored so that <id_next> can be followed by either an assignment
-    # operator OR an inc/dec operator — this is what enables arr[i]++; and
-    # obj.field++; (and x++; via <id_next> -> epsilon).
     "<id_stmt>": [
-        ["<id_next>", "<id_stmt_tail>"],     # Assignment OR postfix inc/dec on id/arr[i]/obj.f
-        ["(", "<arguments>", ")", ";"],      # Function call: func();
+        ["<id_next>", "<id_stmt_tail>"],
+        ["(", "<arguments>", ")", ";"],
     ],
 
-    # Tail of <id_stmt>: the operator that follows the (possibly-indexed/
-    # member-accessed) target. Either '=' (or compound '+=' etc.) followed
-    # by an RHS, or a postfix '++' / '--'.
     "<id_stmt_tail>": [
-        ["<assign_op>", "<assign_rhs>", ";"],  # x = 5;  arr[i] = 5;  obj.f += 2;
-        ["<inc_dec_op>", ";"],                  # x++;  arr[i]++;  obj.field--;
+        ["<assign_op>", "<assign_rhs>", ";"],
+        ["<inc_dec_op>", ";"],
     ],
 
-    # ===== ASSIGNMENT STATEMENTS =====
-    # Examples: x = 10;
-    #           arr[0] = 5;
-    #           person.age = 25;
-    #           total += 5;
-    # Assignment right-hand side: either water() input or a regular expression
     "<assign_rhs>": [
-        ["water", "(", "<water_arg>", ")"],  # Input: x = water(seed);
-        ["<expression>"],                      # Expression: x = 5 + 3;
+        ["water", "(", "<water_arg>", ")"],
+        ["<expression>"],
     ],
 
-    # Assignment operators
     "<assign_op>": [
-        ["="],    # Simple assignment
-        ["+="],   # Add and assign
-        ["-="],   # Subtract and assign
-        ["*="],   # Multiply and assign
-        ["/="],   # Divide and assign
-        ["%="],   # Modulo and assign
-        ["**="],  # Exponent and assign (x **= 2  →  x = x ** 2)
+        ["="],
+        ["+="],
+        ["-="],
+        ["*="],
+        ["/="],
+        ["%="],
+        ["**="],
     ],
 
     "<id_next>": [
-        ["<array_access>", "<post_array_access>"],   # Array indexing: arr[0] or arr[0].member
-        ["<struct_access>"],  # Struct member: person.name
-        [EPSILON],            # Just a simple variable: x
+        ["<array_access>", "<post_array_access>"],
+        ["<struct_access>"],
+        [EPSILON],
     ],
 
-    # ===== ARRAY ACCESS =====
-    # Examples: arr[0]
-    #           matrix[i][j]  (multi-dimensional)
     "<array_access>": [
         ["[", "<expression>", "]", "<array_access_more>"],
     ],
 
     "<array_access_more>": [
-        ["[", "<expression>", "]", "<array_access_more>"],  # Additional dimensions
-        [EPSILON],                                           # End of array indexing
+        ["[", "<expression>", "]", "<array_access_more>"],
+        [EPSILON],
     ],
 
-    # ===== STRUCT/BUNDLE ACCESS =====
-    # Examples: person.name
-    #           person.address.city  (nested structs)
     "<struct_access>": [
         [".", "id", "<struct_access_more>"],
     ],
 
     "<struct_access_more>": [
-        [".", "id", "<struct_access_more>"],  # Nested member access
-        [EPSILON],                             # End of member access
+        [".", "id", "<struct_access_more>"],
+        [EPSILON],
     ],
 
-    # Optional struct access after array access (e.g., p[0].x or p[0].addr.zip)
     "<post_array_access>": [
-        [".", "id", "<post_array_access>"],  # Chained member access: p[0].addr.zip
-        [EPSILON],                              # Just array access: arr[0]
+        [".", "id", "<post_array_access>"],
+        [EPSILON],
     ],
 
-    # ===== INPUT/OUTPUT STATEMENTS =====
-    # plant() - output/print function
-    # water() - input/read function
-    # Examples: plant("Hello");
-    #           water();
     "<io_stmt>": [
-        ["plant", "(", "<arguments>", ")", ";"],  # Output: plant("hello")
-        ["water", "(", "<water_arg>", ")", ";"],   # Input standalone: water(); or water(seed);
+        ["plant", "(", "<arguments>", ")", ";"],
+        ["water", "(", "<water_arg>", ")", ";"],
     ],
 
-    # Optional type argument for water()
     "<water_arg>": [
-        ["<data_type>"],                       # Typed input: water(seed), water(tree)
-        ["id", "<water_id_tail>"],             # Variable or list element: water(name) or water(arr[i])
-        [EPSILON],                             # Untyped input: water()
+        ["<data_type>"],
+        ["id", "<water_id_tail>"],
+        [EPSILON],
     ],
 
     "<water_id_tail>": [
-        ["[", "<expression>", "]", "<water_id_tail>"],  # List element: water(arr[i]) or water(arr[i][j])
-        [EPSILON],                             # Plain variable: water(name) / end of indices
+        ["[", "<expression>", "]", "<water_id_tail>"],
+        [EPSILON],
     ],
 
-    # Argument list for function calls and I/O
     "<arguments>": [
-        ["<expression>", "<arg_next>"],  # One or more arguments
-        [EPSILON],                        # No arguments
+        ["<expression>", "<arg_next>"],
+        [EPSILON],
     ],
 
     "<arg_next>": [
-        [",", "<expression>", "<arg_next>"],  # More arguments
-        [EPSILON],                             # Last argument
+        [",", "<expression>", "<arg_next>"],
+        [EPSILON],
     ],
 
-    # ===== CONDITIONAL STATEMENTS =====
-    # spring = if
-    # bud = else if
-    # wither = else
-    # 
-    # Example: spring (x > 0) {
-    #              water("positive");
-    #          }
-    #          bud (x < 0) {
-    #              water("negative");
-    #          }
-    #          wither {
-    #              water("zero");
-    #          }
     "<conditional_stmt>": [
         [
-            "spring",              # if keyword
+            "spring",
             "(",
-            "<expression>",        # condition
+            "<expression>",
             ")",
             "{",
-            "<local_declaration>", # Declarations before executable statements
-            "<statement>",         # if body
+            "<local_declaration>",
+            "<statement>",
             "}",
-            "<elseif_chain>",      # else-if chain (optional)
-            "<else_opt>",          # else clause (optional)
+            "<elseif_chain>",
+            "<else_opt>",
         ]
     ],
 
     "<elseif_chain>": [
         [
-            "bud",                 # else-if keyword
+            "bud",
             "(",
-            "<expression>",        # condition
+            "<expression>",
             ")",
             "{",
-            "<local_declaration>", # Declarations before executable statements
-            "<statement>",         # else-if body
+            "<local_declaration>",
+            "<statement>",
             "}",
-            "<elseif_chain>",      # More else-ifs
+            "<elseif_chain>",
         ],
-        [EPSILON],  # No else-if
+        [EPSILON],
     ],
 
     "<else_opt>": [
-        ["wither", "{", "<local_declaration>", "<statement>", "}"],  # else clause
-        [EPSILON],                             # No else
+        ["wither", "{", "<local_declaration>", "<statement>", "}"],
+        [EPSILON],
     ],
 
-    # ===== LOOP STATEMENTS =====
-    # grow = while loop
-    # cultivate = for loop
-    # tend = do-while loop
     "<loop_stmt>": [
-        # While loop: grow (x < 10) { ... }
         ["grow", "(", "<expression>", ")", "{", "<local_declaration>", "<statement>", "}"],
         
-        # For loop: cultivate (seed i = 0; i < 10; i++) { ... }
         [
             "cultivate",
             "(",
-            "<for_init>",          # Initialization
+            "<for_init>",
             ";",
-            "<expression>",        # Condition
+            "<expression>",
             ";",
-            "<for_update>",        # Update
+            "<for_update>",
             ")",
             "{",
             "<local_declaration>",
@@ -611,120 +440,79 @@ cfg = {
             "}",
         ],
         
-        # Do-while: tend { statements } grow ( condition );
         ["tend", "{", "<local_declaration>", "<statement>", "}", "grow", "(", "<expression>", ")", ";"],
     ],
 
     "<for_init>": [
-        ["<data_type>", "id", "<array_dec>", "<var_value>"],  # Variable declaration: seed i = 0
-        ["id", "<id_next>", "<assign_op>", "<expression>"],   # Assignment: i = 0
-        [EPSILON],                                             # Empty initialization
+        ["<data_type>", "id", "<array_dec>", "<var_value>"],
+        ["id", "<id_next>", "<assign_op>", "<expression>"],
+        [EPSILON],
     ],
 
     "<for_update>": [
-        # Left-factored so <id_next> can be followed by EITHER an inc/dec
-        # operator OR an assignment operator. This is what lets
-        # cultivate(...; ...; arr[i]++) and obj.f += 2 work in for-updates.
         ["id", "<id_next>", "<for_update_tail>"],
-        [EPSILON],                                    # Empty update
+        [EPSILON],
     ],
 
     "<for_update_tail>": [
-        ["<inc_dec_op>"],                             # i++  arr[i]++  obj.f--
-        ["<assign_op>", "<expression>"],              # i = i + 1   obj.f += 2
+        ["<inc_dec_op>"],
+        ["<assign_op>", "<expression>"],
     ],
 
-    # ===== UNARY STATEMENTS =====
-    # Examples: x++;  y--;
     "<inc_dec_op>": [
-        ["++"],  # Increment
-        ["--"],  # Decrement
+        ["++"],
+        ["--"],
     ],
 
-    # ===== SWITCH STATEMENT =====
-    # harvest = switch
-    # variety = case
-    # soil = default
-    # prune = break (required after each case)
-    #
-    # Example: harvest (choice) {
-    #              variety (1): water("One"); prune;
-    #              variety (2): water("Two"); prune;
-    #              soil: water("Default");
-    #          }
     "<switch_stmt>": [
         ["harvest", "(", "<expression>", ")", "{", "<case_list>", "<default_opt>", "}"],
     ],
 
     "<case_list>": [
         [
-            "variety",             # case keyword
-            "<case_literal>",      # case value (literal only, no expressions)
+            "variety",
+            "<case_literal>",
             ":",
-            "<local_declaration>", # Declarations must precede executable case statements
-            "<case_statements>",   # zero or more executable statements (including prune)
-            "<case_list>",         # More cases
+            "<local_declaration>",
+            "<case_statements>",
+            "<case_list>",
         ],
-        [EPSILON],  # No more cases
+        [EPSILON],
     ],
 
-    # Only literal values are allowed after variety (case)
     "<case_literal>": [
-        ["intlit"],                      # Integer literal (e.g., 1)
-        ["dblit"],                       # Double/float literal (e.g., 3.14)
-        ["chrlit"],                      # Character literal (e.g., 'a')
-        ["stringlit"],                   # String literal (e.g., "hello")
-        ["sunshine"],                    # Boolean true
-        ["frost"],                       # Boolean false
+        ["<literal>"],
     ],
 
-    # Executable statements inside a case - recursive list of statements
     "<case_statements>": [
-        ["<case_statement>", "<case_statements>"],  # One statement, then more
-        [EPSILON],                                  # No more statements (stops at variety/soil/})
+        ["<case_statement>", "<case_statements>"],
+        [EPSILON],
     ],
     
-    # Executable statement types allowed in a case body
     "<case_statement>": [
-        ["id", "<id_stmt>"],                          # Assignment/increment/function call
-        ["<inc_dec_op>", "id", "<id_next>", ";"],     # Prefix: ++x; ++arr[i]; ++obj.f;
-        ["<io_stmt>"],                                # water() or plant()
-        ["<conditional_stmt>"],           # spring (if), bud (else-if), wither (else)
-        ["<loop_stmt>"],                  # grow (while), cultivate (for), tend (do-while)
-        ["<switch_stmt>"],                # harvest (nested switch)
-        ["{", "<local_declaration>", "<statement>", "}"],  # Nested block
-        ["prune", ";"],                   # prune (break)
-        ["skip", ";"],                    # skip (continue)
-        ["reclaim", "<reclaim_value>"],   # Early return: reclaim x; or reclaim;
+        ["id", "<id_stmt>"],
+        ["<inc_dec_op>", "id", "<id_next>", ";"],
+        ["<io_stmt>"],
+        ["<conditional_stmt>"],
+        ["<loop_stmt>"],
+        ["<switch_stmt>"],
+        ["{", "<local_declaration>", "<statement>", "}"],
+        ["prune", ";"],
+        ["skip", ";"],
+        ["reclaim", "<reclaim_value>"],
     ],
 
     "<default_opt>": [
-        ["soil", ":", "<local_declaration>", "<case_statements>"],  # default case
-        [EPSILON],                            # No default
+        ["soil", ":", "<local_declaration>", "<case_statements>"],
+        [EPSILON],
     ],
 
-    # ===== CONTROL FLOW STATEMENTS =====
     "<control_stmt>": [
-        ["prune", ";"],  # break
-        ["skip", ";"],   # continue
+        ["prune", ";"],
+        ["skip", ";"],
     ],
 
-    # ===== FUNCTION CALL =====
-    # Example: myFunc(x, y, z);
-    # ===== EXPRESSIONS =====
-    # Expressions follow operator precedence (lowest to highest):
-    # 1. Assignment (=, +=, -=, *=, /=, %=), right-associative
-    # 2. Logical OR (||)
-    # 3. Logical AND (&&)
-    # 4. Relational (>, <, >=, <=, ==, !=)
-    # 5. Arithmetic (+, -)
-    # 6. Term (*, /, %)
-    # 7. Power (**)
-    # 8. Factor (literals, variables, function calls, parentheses)
 
-    # Level 1: Assignment expression (lowest precedence).
-    # Semantic analysis verifies that the left side is assignable.
-    # Examples: a = 5, total += amount, a = b = 10
     "<expression>": [
         ["<assignment_expression>"],
     ],
@@ -734,146 +522,117 @@ cfg = {
     ],
 
     "<assignment_expression_next>": [
-        ["<assign_op>", "<assignment_expression>"],  # Right-associative assignment
-        [EPSILON],                                     # Ordinary expression
+        ["<assign_op>", "<assignment_expression>"],
+        [EPSILON],
     ],
 
-    # Level 2: Logical OR
-    # Example: a || b || c
     "<logic_or>": [
         ["<logic_and>", "<logic_or_next>"],
     ],
 
     "<logic_or_next>": [
-        ["||", "<logic_and>", "<logic_or_next>"],  # More OR operations
-        [EPSILON],                                  # End
+        ["||", "<logic_and>", "<logic_or_next>"],
+        [EPSILON],
     ],
 
-    # Level 2: Logical AND
-    # Example: a && b && c
     "<logic_and>": [
         ["<relational>", "<logic_and_next>"],
     ],
 
     "<logic_and_next>": [
-        ["&&", "<relational>", "<logic_and_next>"],  # More AND operations
-        [EPSILON],                                    # End
+        ["&&", "<relational>", "<logic_and_next>"],
+        [EPSILON],
     ],
 
-    # Level 3: Relational operators
-    # Example: a > b, x == y
     "<relational>": [
-        ["<arithmetic>", "<relational_next>"],  # Arithmetic with optional comparison
+        ["<arithmetic>", "<relational_next>"],
     ],
 
     "<relational_next>": [
-        ["<relational_op>", "<arithmetic>"],  # Comparison operator
-        [EPSILON],                             # Just arithmetic, no comparison
+        ["<relational_op>", "<arithmetic>"],
+        [EPSILON],
     ],
 
     "<relational_op>": [
-        [">"],   # Greater than
-        ["<"],   # Less than
-        [">="],  # Greater than or equal
-        ["<="],  # Less than or equal
-        ["=="],  # Equal
-        ["!="],  # Not equal
+        [">"],
+        ["<"],
+        [">="],
+        ["<="],
+        ["=="],
+        ["!="],
     ],
 
-    # Level 4: Arithmetic (addition/subtraction)
-    # Example: a + b - c
     "<arithmetic>": [
         ["<term>", "<arithmetic_next>"],
     ],
 
     "<arithmetic_next>": [
-        ["+", "<term>", "<arithmetic_next>"],  # Addition
-        ["-", "<term>", "<arithmetic_next>"],  # Subtraction
-        ["`", "<term>", "<arithmetic_next>"],  # String concatenation: vine/leaf operands produce vine
-        [EPSILON],                              # End
+        ["+", "<term>", "<arithmetic_next>"],
+        ["-", "<term>", "<arithmetic_next>"],
+        ["`", "<term>", "<arithmetic_next>"],
+        [EPSILON],
     ],
 
-    # String-expression type rules are enforced during semantic analysis:
-    #   vine/leaf ` vine/leaf -> vine
-    #   vine == vine and vine != vine -> branch
-    #   vine cannot be used with <, >, <=, >=, &&, or ||
 
-    # Level 5: Term (multiplication/division/modulo)
-    # Example: a * b / c % d
     "<term>": [
         ["<power>", "<term_next>"],
     ],
 
     "<term_next>": [
-        ["*", "<power>", "<term_next>"],  # Multiplication
-        ["/", "<power>", "<term_next>"],  # Division
-        ["%", "<power>", "<term_next>"],  # Modulo
-        [EPSILON],                          # End
+        ["*", "<power>", "<term_next>"],
+        ["/", "<power>", "<term_next>"],
+        ["%", "<power>", "<term_next>"],
+        [EPSILON],
     ],
 
-    # Level 6: Power (right-associative exponentiation)
-    # Example: a ** b ** c
     "<power>": [
         ["<factor>", "<power_next>"],
     ],
 
     "<power_next>": [
-        ["**", "<power>"],  # Exponentiation
-        [EPSILON],           # End
+        ["**", "<power>"],
+        [EPSILON],
     ],
 
-    # Level 7: Factor (highest precedence - literals, variables, etc.)
     "<factor>": [
-        ["(", "<paren_expr>"],           # Cast or parenthesized expression
-        ["<unary_op>", "<factor>"],      # Unary operation (e.g., ~x, !flag)
-        ["id", "<factor_id_next>"],      # Variable, array, struct, or function
-        ["intlit"],                      # Integer literal (e.g., 42)
-        ["dblit"],                       # Double/float literal (e.g., 3.14)
-        ["chrlit"],                       # Character literal (e.g., 'a')
-        ["stringlit"],                   # String literal (e.g., "hello")
-        ["sunshine"],                    # Boolean true
-        ["frost"],                       # Boolean false
+        ["(", "<paren_expr>"],
+        ["<unary_op>", "<factor>"],
+        ["id", "<factor_id_next>"],
+        ["<literal>"],
     ],
 
-    # Disambiguate after '(' — either a type cast or a grouped expression
-    # No LL(1) conflict: FIRST(<data_type>) = {seed,tree,leaf,branch,vine}
-    #                    FIRST(<expression>) = {(,~,!,id,intlit,dblit,...}
+    "<literal>": [
+        ["intlit"],
+        ["dblit"],
+        ["chrlit"],
+        ["stringlit"],
+        ["sunshine"],
+        ["frost"],
+    ],
+
     "<paren_expr>": [
-        ["<data_type>", ")", "<factor>"],  # Type cast: (seed)x, (tree)3.14
-        ["<expression>", ")"],             # Parenthesized expression: (x + 1)
+        ["<data_type>", ")", "<factor>"],
+        ["<expression>", ")"],
     ],
     
-    # Unary operators
     "<unary_op>": [
-        ["~"],   # Arithmetic negation
-        ["!"],   # Logical NOT
+        ["~"],
+        ["!"],
     ],
 
-    # For identifiers in expressions - could be variable, array, struct, or function
     "<factor_id_next>": [
-        ["<array_access>", "<post_array_access>"],  # Array element: arr[0] or arr[0].member
-        ["<struct_access>"],          # Struct member: person.name
-        ["(", "<arguments>", ")"],    # Function call: add(2, 3)
-        [EPSILON],                    # Simple variable: x
+        ["<array_access>", "<post_array_access>"],
+        ["<struct_access>"],
+        ["(", "<arguments>", ")"],
+        [EPSILON],
     ],
 }
 
 
-# ===============================================================================
-# COMPUTE FIRST, FOLLOW, AND PREDICT SETS
-# ===============================================================================
-# These sets are used for building a predictive (LL) parser
-
-
-# Compute the FIRST, FOLLOW, and PREDICT sets
 first_sets = compute_first(cfg)
 follow_sets = compute_follow(cfg, first_sets)
 predict_sets = compute_predict(cfg, first_sets, follow_sets)
 
-
-# ===============================================================================
-# OUTPUT: Display the computed sets (only when run directly)
-# ===============================================================================
 
 if __name__ == '__main__':
     print("=" * 80)

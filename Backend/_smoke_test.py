@@ -1,4 +1,3 @@
-"""Smoke test runner for restructure. Run after each phase: python _smoke_test.py"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -39,7 +38,6 @@ PROGRAMS = [
      ['age=20']),
     ('nestedreturn', 'root() { branch stop = frost; spring (stop) { reclaim; } plant("continued"); reclaim; }',
      ['continued']),
-    # ── increment/decrement on indexed/member operands (added by Part A) ──
     ('arr_postfix', 'root() { seed arr[3]; arr[0] = 1; arr[0]++; plant("v={}", arr[0]); reclaim; }',
      ['v=2']),
     ('arr_prefix',  'root() { seed arr[3]; arr[0] = 5; ++arr[0]; plant("v={}", arr[0]); reclaim; }',
@@ -54,7 +52,6 @@ PROGRAMS = [
      ['v=9']),
     ('arr_in_loop', 'root() { seed arr[3]; arr[0]=0; arr[1]=0; arr[2]=0; cultivate(seed i = 0; i < 3; i++) { arr[i]++; } plant("a={} b={} c={}", arr[0], arr[1], arr[2]); reclaim; }',
      ['a=1 b=1 c=1']),
-    # ── exponent-assign (added separately) ──
     ('exp_assign_seed', 'root() { seed x = 2; x **= 3; plant("{}", x); reclaim; }',
      ['8']),
     ('exp_assign_chain', 'root() { seed x = 2; x **= 3; x **= 2; plant("{}", x); reclaim; }',

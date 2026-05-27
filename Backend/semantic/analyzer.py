@@ -1,24 +1,7 @@
-# ============================================================================
-# SEMANTIC ANALYZER - Tree-walking validator for the completed AST
-# ============================================================================
-# Extracted from GALsemantic.py during the modular restructure.
-# The parser already does primary checks during AST construction. This
-# validator does the SECOND pass over the completed tree to catch checks
-# that need a global view (function arity, return-path coverage, etc.).
-# ============================================================================
 from semantic.errors import SemanticError
 
 
 class ASTValidator:
-    """Tree-walking semantic validator.
-
-    Receives an already-built AST and walks every node to verify:
-      • Variable declarations are well-formed
-      • Function declarations have names and return types
-      • Break/continue appear only inside loops or switches
-      • Loop and conditional bodies are present
-      • Expressions have valid structure
-    """
 
     def __init__(self):
         self.errors = []
@@ -28,10 +11,8 @@ class ASTValidator:
         self._in_function = False
         self._current_func_type = None
 
-    # ── public entry point ──────────────────────────────────────────
 
     def validate(self, ast, symbol_table_data):
-        """Validate *ast* and return a result dict."""
         self._walk(ast)
         return {
             "success": len(self.errors) == 0,
@@ -41,7 +22,6 @@ class ASTValidator:
             "ast": ast,
         }
 
-    # ── recursive walker ────────────────────────────────────────────
 
     def _walk(self, node):
         if node is None:
@@ -50,11 +30,9 @@ class ASTValidator:
         if handler:
             handler(node)
         else:
-            # Default: visit all children
             for child in getattr(node, 'children', []):
                 self._walk(child)
 
-    # ── node-specific validators ────────────────────────────────────
 
     def _check_Program(self, node):
         for child in node.children:
@@ -72,7 +50,6 @@ class ASTValidator:
             self._walk(child)
 
     def _check_SturdyDeclaration(self, node):
-        # fertile (constant) declaration
         if len(node.children) < 3:
             self.errors.append(
                 f"Ln {node.line} Semantic Error: Fertile declaration must have type, name, and value.")
@@ -86,7 +63,6 @@ class ASTValidator:
         prev_in_func = self._in_function
         prev_func_type = self._current_func_type
         self._in_function = True
-        # Return type is in the first child
         if node.children:
             self._current_func_type = node.children[0].value
         for child in node.children:
@@ -222,25 +198,6 @@ class ASTValidator:
             self._walk(child)
 
 
-# ============================================================================
-# validate_ast() - PUBLIC SEMANTIC-ANALYSIS ENTRY POINT
-# Used by server.py after parse_and_build succeeds. Wraps ASTValidator.
-# Returns a dict with success/errors/warnings/symbol_table/ast.
-# ============================================================================
 def validate_ast(ast, symbol_table_data):
-    """Public API: validate an already-built AST.
-
-    This is the semantic analysis phase of the compiler pipeline.
-    The parser has already built the AST (with primary checks during
-    construction).  This function performs a tree-walking validation
-    pass over the completed AST.
-
-    Args:
-        ast: The root AST node (ProgramNode) produced by the parser.
-        symbol_table_data: Serialized symbol table dict from the parser.
-
-    Returns:
-        dict with keys: success, errors, warnings, symbol_table, ast
-    """
     validator = ASTValidator()
     return validator.validate(ast, symbol_table_data)

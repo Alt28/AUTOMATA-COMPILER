@@ -1,31 +1,19 @@
-# ============================================================================
-# SYMBOL TABLE - Declaration tracker for the AST builder
-# ============================================================================
-# Extracted from GALsemantic.py during the modular restructure.
-# Used by parser/builder.py during AST construction to track variables,
-# functions, bundles, and scopes; the populated table is then serialized
-# (in parser/parser.py) and passed to semantic/analyzer.py for the second
-# semantic pass.
-# ============================================================================
 
 
 class SymbolTable:
     def __init__(self):
-        self.variables = {}  # Stores variables
-        self.global_variables = {}  # Stores global variables
-        self.functions = {}  # Stores function definitions
-        self.scopes = [{}]   # Stack of scopes (for local/global tracking)
+        self.variables = {}
+        self.global_variables = {}
+        self.functions = {}
+        self.scopes = [{}]
         self.current_func_name = None
         self.function_variables = {}
-        self.bundle_types = {}  # Stores bundle (struct) type definitions
+        self.bundle_types = {}
 
-    ###### VARIABLE ######
     def declare_variable(self, name, type_, value=None, is_list=False, is_fertile=False):
         scope = self.scopes[-1]
         current_func = self.current_func_name
     
-        #for i, s in enumerate(self.scopes):
-            #print(f"[SCOPE {i}] {s}")
 
         if name in self.functions:
             return f"Semantic Error: Variable '{name}' already declared as a function."
@@ -59,7 +47,6 @@ class SymbolTable:
             }
         
 
-
     def lookup_variable(self, name):
         for i, scope in enumerate(reversed(self.scopes)):
             if name in scope:
@@ -78,7 +65,6 @@ class SymbolTable:
         else:
             return f"Semantic Error: Variable '{name}' not declared in the current scope."
 
-    ###### FUNCTION ######
     def declare_function(self, name, return_type, params, node=None):
         if name in self.functions:
             return f"Semantic Error: Function '{name}' already declared."
@@ -90,7 +76,6 @@ class SymbolTable:
         return f"Semantic Error: Function '{name}' is not defined."
     
 
-    ###### SCOPE ######
     def enter_scope(self):
         self.scopes.append({})
         
@@ -112,17 +97,5 @@ class SymbolTable:
         for i, scope in enumerate(self.scopes):
             print(f"  Scope {i}: {scope}")
         print("================================\n")
-
-
-
-# ============================================================================
-# BUILD AST + parse_* HELPERS - Moved to parser/builder.py (Phase 5b).
-# No re-export here because that would create a circular import:
-#     parser.builder imports SymbolTable from here, so we can't also import
-#     back from parser.builder.
-# External callers should import directly from the new location:
-#     from parser.builder import build_ast, symbol_table, analyze_semantics
-# ============================================================================
-
 
 

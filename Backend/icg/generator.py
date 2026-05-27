@@ -1,14 +1,3 @@
-# ============================================================================
-# ICG GENERATOR - Three-Address Code (TAC) generator (display-only)
-# ============================================================================
-# Extracted from Backend/icg.py during the modular restructure.
-# Pipeline position:
-#   lex -> parse -> AST -> semantic -> THIS FILE (display) -> interpret(AST)
-#                                       \________________/
-#                                        parallel pass; not on runtime path
-# The output is a list of quad-like TAC instructions for IDE display.
-# The interpreter walks the AST directly and does NOT consume this output.
-# ============================================================================
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -23,7 +12,6 @@ class _Tok:
 
 
 def _as_tok(raw: Any) -> _Tok:
-    """Normalise dict / object tokens into a uniform view."""
     if isinstance(raw, dict):
         return _Tok(
             type=str(raw.get("type", "")),
@@ -39,13 +27,8 @@ def _as_tok(raw: Any) -> _Tok:
     )
 
 
-# ---------------------------------------------------------------------------
-# Three-Address Code (TAC) instruction
-# ---------------------------------------------------------------------------
-
 @dataclass
 class TACInstruction:
-    """One three-address code quad."""
     op: str
     arg1: Optional[str] = None
     arg2: Optional[str] = None
@@ -92,7 +75,6 @@ class TACInstruction:
             return f"{self.arg1} = {self.arg1} + 1"
         if self.op == "DEC":
             return f"{self.arg1} = {self.arg1} - 1"
-        # Binary / unary arithmetic & assignment
         if self.arg2 is not None:
             return f"{self.result} = {self.arg1} {self.op} {self.arg2}"
         if self.op == "=":
@@ -113,9 +95,6 @@ class TACInstruction:
         }
 
 
-# ---------------------------------------------------------------------------
-# GAL type map
-# ---------------------------------------------------------------------------
 GAL_TYPE_MAP = {
     "seed": "int",
     "tree": "float",
@@ -130,32 +109,24 @@ DATA_TYPE_TOKENS = set(GAL_TYPE_MAP.keys())
 ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "%="}
 
 
-# ---------------------------------------------------------------------------
-# Intermediate Code Generator
-# ---------------------------------------------------------------------------
-
 class ICGenerator:
-    """Generates three-address code from a GAL token stream."""
 
     def __init__(self, tokens: List[Any]):
         self.tokens: List[_Tok] = self._prepare(tokens)
-        self.pos: int = 0               # current position in token stream
-        self.code: List[TACInstruction] = []  # generated TAC
+        self.pos: int = 0
+        self.code: List[TACInstruction] = []
         self.errors: List[str] = []
         self._temp_counter: int = 0
         self._label_counter: int = 0
 
-    # -- helpers ------------------------------------------------------------
 
     def _prepare(self, raw_tokens: List[Any]) -> List[_Tok]:
-        """Normalise and filter (skip newlines)."""
         toks: List[_Tok] = []
         for t in raw_tokens:
             tv = _as_tok(t)
             if tv.type == "\n":
                 continue
             toks.append(tv)
-        # Ensure EOF
         if not toks or toks[-1].type != "EOF":
             last_line = toks[-1].line if toks else 1
             toks.append(_Tok("EOF", "EOF", last_line))
@@ -178,12 +149,10 @@ class ICGenerator:
             self.errors.append(
                 f"ICG Line {tok.line}: expected '{token_type}', got '{tok.type}'"
             )
-            # try to continue anyway
             return tok
         return self._advance()
 
     def _match(self, token_type: str) -> bool:
-        """If current token matches, consume and return True."""
         if self._peek().type == token_type:
             self._advance()
             return True
@@ -206,12 +175,8 @@ class ICGenerator:
     def _is_data_type(self, tok: _Tok) -> bool:
         return tok.type in DATA_TYPE_TOKENS
 
-    # ======================================================================
-    # TOP-LEVEL: <program>
-    # ======================================================================
 
     def generate(self) -> Tuple[List[TACInstruction], List[str]]:
-        """Entry point — generate TAC for the whole program."""
         try:
             self._program()
         except Exception as exc:
@@ -219,11 +184,9 @@ class ICGenerator:
         return self.code, self.errors
 
     def _program(self):
-        """<program> -> ... root ( ) { <local_declaration> <body_statement> reclaim ; }"""
         self._global_declaration()
         self._function_definition()
 
-        # root ( ) { ... }
         self._expect("root")
         self._expect("(")
         self._expect(")")
@@ -240,33 +203,27 @@ class ICGenerator:
         self._expect("}")
         self._emit("ENDFUNC")
 
-    # ======================================================================
-    # GLOBAL DECLARATIONS
-    # ======================================================================
 
     def _global_declaration(self):
-        """<global_declaration> → bundle id ... | <data_type> id ... | fertile ... | λ"""
         while True:
             tok = self._peek()
             if tok.type == "bundle":
-                self._advance()  # bundle
+                self._advance()
                 name_tok = self._expect("id")
                 nxt = self._peek()
                 if nxt.type == "{":
-                    # bundle definition: bundle Id { members }
-                    self._advance()  # {
+                    self._advance()
                     self._bundle_members()
                     self._expect("}")
                     self._expect(";")
                 else:
-                    # bundle variable: bundle Id varName ... ;
                     self._bundle_mem_dec()
                     self._expect(";")
                 self._global_declaration()
                 return
 
             elif self._is_data_type(tok):
-                dtype = self._advance()  # data type
+                dtype = self._advance()
                 id_tok = self._expect("id")
                 arr_dims = self._array_dec()
                 if arr_dims:
@@ -288,15 +245,10 @@ class ICGenerator:
                 return
 
             else:
-                # λ — no more global declarations
                 return
 
-    # ======================================================================
-    # LOCAL DECLARATIONS
-    # ======================================================================
 
     def _declaration(self):
-        """Consume the <local_declaration> prefix of a block."""
         while True:
             tok = self._peek()
             if self._is_data_type(tok) or tok.type == "bundle":
@@ -309,7 +261,6 @@ class ICGenerator:
                 break
 
     def _var_dec(self):
-        """<var_dec> → <data_type> id <array_dec> <var_value> | bundle id <bundle_mem_dec>"""
         tok = self._peek()
         if tok.type == "bundle":
             self._advance()
@@ -317,7 +268,7 @@ class ICGenerator:
             self._bundle_mem_dec()
             return
 
-        dtype = self._advance()  # data type keyword
+        dtype = self._advance()
         id_tok = self._expect("id")
         arr_dims = self._array_dec()
         if arr_dims:
@@ -329,9 +280,8 @@ class ICGenerator:
         self._var_value(id_tok.value)
 
     def _const_dec(self):
-        """fertile <data_type> id = <init_val> <const_next>"""
         self._expect("fertile")
-        dtype = self._advance()  # data type
+        dtype = self._advance()
         id_tok = self._expect("id")
         self._expect("=")
         val = self._init_val()
@@ -339,7 +289,6 @@ class ICGenerator:
         self._const_next(dtype)
 
     def _const_next(self, dtype_tok: _Tok):
-        """<const_next> → , id = <init_val> <const_next> | λ"""
         while self._match(","):
             id_tok = self._expect("id")
             self._expect("=")
@@ -347,9 +296,8 @@ class ICGenerator:
             self._emit("CONST", GAL_TYPE_MAP.get(dtype_tok.type, dtype_tok.type), val, id_tok.value)
 
     def _var_value(self, var_name: str):
-        """<var_value> → = <init_val> <var_value_next> | <var_value_next>"""
         if self._peek().type == "=":
-            self._advance()  # =
+            self._advance()
             val = self._init_val()
             self._emit("=", val, None, var_name)
             self._var_value_next()
@@ -357,7 +305,6 @@ class ICGenerator:
             self._var_value_next()
 
     def _var_value_next(self):
-        """<var_value_next> → , id <array_dec> <var_value> | λ"""
         if self._match(","):
             id_tok = self._expect("id")
             arr_dims = self._array_dec()
@@ -369,13 +316,11 @@ class ICGenerator:
             self._var_value(id_tok.value)
 
     def _init_val(self) -> str:
-        """<init_val> → <array_init_opt> | <expression>"""
         if self._peek().type == "{":
             return self._array_init()
         return self._expression()
 
     def _array_init(self) -> str:
-        """{ <init_vals> }  — emit element-by-element stores, return temp."""
         self._expect("{")
         tmp = self._new_temp()
         idx = 0
@@ -395,31 +340,25 @@ class ICGenerator:
             return self._array_init()
         return self._expression()
 
-    # ======================================================================
-    # ARRAY & STRUCT HELPERS
-    # ======================================================================
 
     def _array_dec(self) -> List[str]:
-        """<array_dec> → [ <array_dim_opt> ] <array_dec> | λ  — returns list of dimension sizes."""
         dims: List[str] = []
         while self._peek().type == "[":
-            self._advance()  # [
+            self._advance()
             if self._peek().type == "intlit":
                 dims.append(self._advance().value)
             else:
-                dims.append("0")  # dynamic / unspecified
+                dims.append("0")
             self._expect("]")
         return dims
 
     def _bundle_members(self):
-        """<bundle_members> → <data_type> id ; <bundle_members> | λ"""
         while self._is_data_type(self._peek()):
             dtype = self._advance()
             id_tok = self._expect("id")
             self._expect(";")
 
     def _bundle_mem_dec(self):
-        """<bundle_mem_dec> → id <array_dec>"""
         id_tok = self._expect("id")
         arr_dims = self._array_dec()
         if arr_dims:
@@ -428,22 +367,16 @@ class ICGenerator:
         else:
             self._emit("DECLARE", "bundle", None, id_tok.value)
 
-    # ======================================================================
-    # FUNCTION DEFINITIONS
-    # ======================================================================
 
     def _function_definition(self):
-        """<function_definition> → pollinate <return_type> id ( <parameters> ) { ... } <function_definition> | λ"""
         while self._peek().type == "pollinate":
-            self._advance()  # pollinate
+            self._advance()
 
-            # return type
             if self._peek().type == "empty":
                 ret_type = self._advance().type
             elif self._is_data_type(self._peek()):
                 ret_type = self._advance().type
             elif self._peek().type == "id":
-                # User-defined bundle type as return type
                 ret_type = self._advance().value
             else:
                 ret_type = "void"
@@ -451,7 +384,6 @@ class ICGenerator:
             func_name = self._expect("id")
             self._expect("(")
 
-            # parameters
             params = self._parameters()
 
             self._expect(")")
@@ -480,7 +412,6 @@ class ICGenerator:
             self._emit("ENDFUNC")
 
     def _parameters(self):
-        """<parameters> → <param> <param_next> | λ"""
         params = []
         if self._is_data_type(self._peek()) or self._peek().type == "id":
             p = self._param()
@@ -493,22 +424,16 @@ class ICGenerator:
     def _param(self) -> Tuple[str, str]:
         dtype = self._advance()
         id_tok = self._expect("id")
-        # For bundle types, dtype.type is "id" — use dtype.value to get the actual type name
         type_name = dtype.value if dtype.type == "id" else dtype.type
-        # Check for array parameter: seed arr[]
         is_array = False
         if self._peek().type == "[":
-            self._advance()  # skip '['
+            self._advance()
             self._expect("]")
             is_array = True
         return (type_name, id_tok.value, is_array)
 
-    # ======================================================================
-    # STATEMENTS
-    # ======================================================================
 
     def _statement(self, allow_reclaim: bool = False):
-        """Consume executable statements; a function's final reclaim is consumed separately."""
         stopping_tokens = {"}", "EOF", "variety", "soil", "prune"}
         while self._peek().type not in stopping_tokens:
             tok = self._peek()
@@ -517,7 +442,6 @@ class ICGenerator:
                     return
                 self._return_stmt()
                 continue
-            # Nested blocks expose their valid declaration prefix here.
             if self._is_data_type(tok) or tok.type == "bundle" or tok.type == "fertile":
                 if tok.type == "fertile":
                     self._const_dec()
@@ -537,7 +461,6 @@ class ICGenerator:
         self._expect(";")
 
     def _simple_stmt(self):
-        """Dispatch on the first token."""
         tok = self._peek()
 
         if tok.type == "id":
@@ -553,20 +476,16 @@ class ICGenerator:
         elif tok.type in ("prune", "skip"):
             self._control_stmt()
         else:
-            # Skip unknown token to avoid infinite loop
             self.errors.append(f"ICG Line {tok.line}: unexpected token '{tok.type}'")
             self._advance()
 
-    # -- id statement -------------------------------------------------------
 
     def _id_stmt(self):
-        """id <id_next> <assign_op> <expression> ;  |  id <inc_dec_op> ;  |  id ( <arguments> ) ;"""
-        id_tok = self._advance()  # id
+        id_tok = self._advance()
         tok = self._peek()
 
-        # Function call
         if tok.type == "(":
-            self._advance()  # (
+            self._advance()
             args = self._arguments()
             self._expect(")")
             self._expect(";")
@@ -576,18 +495,15 @@ class ICGenerator:
             self._emit("CALL", id_tok.value, str(len(args)), tmp)
             return
 
-        # Increment / decrement
         if tok.type in ("++", "--"):
             op_tok = self._advance()
             self._expect(";")
             self._emit("INC" if op_tok.type == "++" else "DEC", id_tok.value)
             return
 
-        # Assignment (possibly with array / struct access on LHS)
         lhs = id_tok.value
         lhs = self._resolve_lhs(lhs)
 
-        # Assign op
         if self._peek().type in ASSIGN_OPS:
             op_tok = self._advance()
             rhs = self._expression()
@@ -596,27 +512,22 @@ class ICGenerator:
             if op_tok.type == "=":
                 self._emit("=", rhs, None, lhs)
             else:
-                # compound assignment: x += e  →  x = x + e
-                base_op = op_tok.type[0]  # +, -, *, /, %
+                base_op = op_tok.type[0]
                 tmp = self._new_temp()
                 self._emit(base_op, lhs, rhs, tmp)
                 self._emit("=", tmp, None, lhs)
         else:
-            # If it doesn't look like anything valid, skip to ;
             self.errors.append(f"ICG Line {tok.line}: unexpected token after id '{id_tok.value}'")
             while self._peek().type not in (";", "}", "EOF"):
                 self._advance()
             self._match(";")
 
     def _resolve_lhs(self, base: str) -> str:
-        """Handle array access [expr] or struct access .id after an identifier for LHS."""
         tok = self._peek()
         if tok.type == "[":
-            # array access
             self._advance()
             idx = self._expression()
             self._expect("]")
-            # possibly multi-dimensional
             while self._peek().type == "[":
                 self._advance()
                 idx2 = self._expression()
@@ -628,7 +539,6 @@ class ICGenerator:
         elif tok.type == ".":
             self._advance()
             member = self._expect("id")
-            # Possibly nested
             chain = f"{base}.{member.value}"
             while self._peek().type == ".":
                 self._advance()
@@ -637,11 +547,9 @@ class ICGenerator:
             return chain
         return base
 
-    # -- I/O ---------------------------------------------------------------
 
     def _io_stmt(self):
-        """water ( args ) ;  |  plant ( args ) ;"""
-        io_tok = self._advance()  # water / plant
+        io_tok = self._advance()
         self._expect("(")
         args = self._arguments()
         self._expect(")")
@@ -650,14 +558,12 @@ class ICGenerator:
         if io_tok.type == "plant":
             for a in args:
                 self._emit("PRINT", a)
-        else:  # water
+        else:
             for a in args:
                 self._emit("READ", None, None, a)
 
-    # -- conditional --------------------------------------------------------
 
     def _conditional_stmt(self):
-        """spring ( <expr> ) { <stmt> } <elseif_chain> <else_opt>"""
         self._expect("spring")
         self._expect("(")
         cond = self._expression()
@@ -675,10 +581,8 @@ class ICGenerator:
         self._emit("GOTO", None, None, end_label)
         self._emit("LABEL", None, None, false_label)
 
-        # elseif chain
         self._elseif_chain(end_label)
 
-        # else opt
         if self._peek().type == "wither":
             self._advance()
             self._expect("{")
@@ -688,9 +592,8 @@ class ICGenerator:
         self._emit("LABEL", None, None, end_label)
 
     def _elseif_chain(self, end_label: str):
-        """bud ( <expr> ) { <stmt> } <elseif_chain>"""
         while self._peek().type == "bud":
-            self._advance()  # bud
+            self._advance()
             self._expect("(")
             cond = self._expression()
             self._expect(")")
@@ -705,7 +608,6 @@ class ICGenerator:
             self._emit("GOTO", None, None, end_label)
             self._emit("LABEL", None, None, next_label)
 
-    # -- loops --------------------------------------------------------------
 
     def _loop_stmt(self):
         tok = self._peek()
@@ -717,7 +619,6 @@ class ICGenerator:
             self._do_while_loop()
 
     def _while_loop(self):
-        """grow ( <expr> ) { <stmt> }"""
         self._expect("grow")
         self._expect("(")
 
@@ -738,11 +639,9 @@ class ICGenerator:
         self._emit("LABEL", None, None, end_label)
 
     def _for_loop(self):
-        """cultivate ( <for_init> ; <expr> ; <for_update> ) { <stmt> }"""
         self._expect("cultivate")
         self._expect("(")
 
-        # init
         self._for_init()
         self._expect(";")
 
@@ -752,13 +651,11 @@ class ICGenerator:
 
         self._emit("LABEL", None, None, start_label)
 
-        # condition
         cond = self._expression()
         self._emit("IFFALSE", cond, None, end_label)
 
         self._expect(";")
 
-        # save update position — we need to emit update *after* body
         update_instrs: List[TACInstruction] = []
         saved_code = self.code
         self.code = update_instrs
@@ -770,14 +667,12 @@ class ICGenerator:
         self._statement(allow_reclaim=True)
         self._expect("}")
 
-        # emit update
         self._emit("LABEL", None, None, update_label)
         self.code.extend(update_instrs)
         self._emit("GOTO", None, None, start_label)
         self._emit("LABEL", None, None, end_label)
 
     def _for_init(self):
-        """<for_init> → <data_type> id <array_dec> <var_value> | id <id_next> <assign_op> <expression> | λ"""
         tok = self._peek()
         if self._is_data_type(tok):
             self._var_dec()
@@ -794,10 +689,8 @@ class ICGenerator:
                     tmp = self._new_temp()
                     self._emit(base_op, lhs, rhs, tmp)
                     self._emit("=", tmp, None, lhs)
-        # else: λ
 
     def _for_update(self):
-        """<for_update> → id <for_update_type> | λ"""
         if self._peek().type == "id":
             id_tok = self._advance()
             tok = self._peek()
@@ -818,7 +711,6 @@ class ICGenerator:
                         self._emit("=", tmp, None, lhs)
 
     def _do_while_loop(self):
-        """tend { <stmt> } grow ( <expr> ) ;"""
         self._expect("tend")
         self._expect("{")
 
@@ -836,10 +728,8 @@ class ICGenerator:
 
         self._emit("IF", cond, None, start_label)
 
-    # -- switch -------------------------------------------------------------
 
     def _switch_stmt(self):
-        """harvest ( <expr> ) { <case_list> <default_opt> }"""
         self._expect("harvest")
         self._expect("(")
         expr = self._expression()
@@ -854,9 +744,8 @@ class ICGenerator:
         self._emit("LABEL", None, None, end_label)
 
     def _case_list(self, switch_expr: str, end_label: str):
-        """variety <expr> : <case_statements> prune ; <case_list> | λ"""
         while self._peek().type == "variety":
-            self._advance()  # variety
+            self._advance()
             case_val = self._expression()
             self._expect(":")
 
@@ -868,11 +757,9 @@ class ICGenerator:
             self._emit("IFFALSE", cmp_tmp, None, next_label)
             self._emit("LABEL", None, None, body_label)
 
-            # case-local declarations, followed by executable case statements
             self._declaration()
             self._case_statements()
 
-            # prune ;
             if self._peek().type == "prune":
                 self._advance()
                 self._expect(";")
@@ -881,7 +768,6 @@ class ICGenerator:
             self._emit("LABEL", None, None, next_label)
 
     def _case_statements(self):
-        """<case_statements> → <case_statement> <case_statements> | λ"""
         while self._peek().type not in ("variety", "soil", "}", "prune", "EOF"):
             tok = self._peek()
             if tok.type == "id":
@@ -893,36 +779,29 @@ class ICGenerator:
             elif tok.type == "skip":
                 self._advance()
                 self._expect(";")
-                # skip = continue, emit as nop in switch context
             elif tok.type == "reclaim":
                 self._return_stmt()
             else:
                 break
 
     def _default_opt(self, end_label: str):
-        """soil : <local_declaration> <case_statements> | epsilon"""
         if self._peek().type == "soil":
             self._advance()
             self._expect(":")
             self._declaration()
             self._case_statements()
 
-    # -- control (break, continue) ------------------------------------------
 
     def _control_stmt(self):
-        tok = self._advance()  # prune or skip
+        tok = self._advance()
         self._expect(";")
         if tok.type == "prune":
-            self._emit("GOTO", None, None, "BREAK")   # placeholder; real label resolved later
+            self._emit("GOTO", None, None, "BREAK")
         else:
             self._emit("GOTO", None, None, "CONTINUE")
 
-    # ======================================================================
-    # EXPRESSIONS  (precedence climbing, matching the CFG)
-    # ======================================================================
 
     def _expression(self) -> str:
-        """Parse assignment as the lowest-precedence, right-associative expression."""
         left = self._logic_or()
         if self._peek().type not in ASSIGN_OPS:
             return left
@@ -938,7 +817,6 @@ class ICGenerator:
         return left
 
     def _logic_or(self) -> str:
-        """<logic_or> → <logic_and> <logic_or_next>"""
         left = self._logic_and()
         while self._peek().type == "||":
             self._advance()
@@ -949,7 +827,6 @@ class ICGenerator:
         return left
 
     def _logic_and(self) -> str:
-        """<logic_and> → <relational> <logic_and_next>"""
         left = self._relational()
         while self._peek().type == "&&":
             self._advance()
@@ -960,7 +837,6 @@ class ICGenerator:
         return left
 
     def _relational(self) -> str:
-        """<relational> → <arithmetic> <relational_next>"""
         left = self._arithmetic()
         if self._peek().type in (">", "<", ">=", "<=", "==", "!="):
             op = self._advance().type
@@ -971,7 +847,6 @@ class ICGenerator:
         return left
 
     def _arithmetic(self) -> str:
-        """<arithmetic> → <term> <arithmetic_next>"""
         left = self._term()
         while self._peek().type in ("+", "-"):
             op = self._advance().type
@@ -982,7 +857,6 @@ class ICGenerator:
         return left
 
     def _term(self) -> str:
-        """<term> → <factor> <term_next>"""
         left = self._power()
         while self._peek().type in ("*", "/", "%"):
             op = self._advance().type
@@ -1003,17 +877,14 @@ class ICGenerator:
         return left
 
     def _factor(self) -> str:
-        """<factor> → ( <expr> ) | <unary_op> <factor> | id ... | literal"""
         tok = self._peek()
 
-        # ( expression )
         if tok.type == "(":
             self._advance()
             val = self._expression()
             self._expect(")")
             return val
 
-        # Unary: ~ or !
         if tok.type in ("~", "!"):
             op = self._advance()
             inner = self._factor()
@@ -1024,12 +895,10 @@ class ICGenerator:
                 self._emit("NOT", inner, None, tmp)
             return tmp
 
-        # Identifier (variable, array, struct, or function call)
         if tok.type == "id":
             id_tok = self._advance()
             nxt = self._peek()
 
-            # Function call in expression
             if nxt.type == "(":
                 self._advance()
                 args = self._arguments()
@@ -1040,12 +909,10 @@ class ICGenerator:
                 self._emit("CALL", id_tok.value, str(len(args)), tmp)
                 return tmp
 
-            # Array access
             if nxt.type == "[":
                 self._advance()
                 idx = self._expression()
                 self._expect("]")
-                # multi-dim
                 while self._peek().type == "[":
                     self._advance()
                     idx2 = self._expression()
@@ -1060,7 +927,6 @@ class ICGenerator:
                 self._emit("ARRAY_LOAD", id_tok.value, idx, tmp)
                 return tmp
 
-            # Struct access
             if nxt.type == ".":
                 self._advance()
                 member = self._expect("id")
@@ -1076,10 +942,8 @@ class ICGenerator:
                 self._emit("STRUCT_LOAD", id_tok.value, chain, tmp)
                 return tmp
 
-            # Simple variable
             return id_tok.value
 
-        # Literals
         if tok.type == "intlit":
             return self._advance().value
         if tok.type == "dbllit":
@@ -1095,15 +959,12 @@ class ICGenerator:
             self._advance()
             return "false"
 
-        # Fallback
         self.errors.append(f"ICG Line {tok.line}: unexpected token in expression: '{tok.type}'")
         self._advance()
         return "???"
 
-    # -- arguments ----------------------------------------------------------
 
     def _arguments(self) -> List[str]:
-        """<arguments> → <expression> <arg_next> | λ"""
         args: List[str] = []
         if self._peek().type in (")", "EOF"):
             return args
@@ -1113,19 +974,7 @@ class ICGenerator:
         return args
 
 
-# ===========================================================================
-# Public API
-# ===========================================================================
-
 def generate_icg(tokens: List[Any]) -> Dict[str, Any]:
-    """
-    Main entry point for intermediate code generation.
-    Returns a dict with:
-      - 'success': bool
-      - 'tac': list of TAC instruction dicts
-      - 'tac_text': human-readable TAC string
-      - 'errors': list of error strings
-    """
     gen = ICGenerator(tokens)
     code, errors = gen.generate()
 

@@ -1,36 +1,11 @@
-# ============================================================================
-# AST NODE CLASSES - The shape of every node in the GAL syntax tree
-# ============================================================================
-# Extracted from GALsemantic.py during the modular restructure.
-# Every compiler phase after parsing consumes these node types:
-#   - parser/builder.py constructs them
-#   - semantic/analyzer.py validates them
-#   - icg/generator.py walks them to emit TAC
-#   - interpreter/ evaluates them
-#
-# Named ast_nodes.py (not ast.py / not in an ast/ folder) so it does not
-# shadow Python's stdlib "ast" module — many third-party libraries
-# (flask, eventlet, werkzeug) call into stdlib ast and would break if
-# we hijacked the name.
-# ============================================================================
 
 
-# ============================================================================
-# AST NODE CLASSES
-# Each node has:
-#   - node_type   : a string label (e.g. "Program", "VariableDeclaration")
-#   - value       : the node's primary data (function name, operator, etc.)
-#   - children    : list of child ASTNodes
-#   - line        : source line for error reporting
-#   - parent      : back-pointer for traversals (set by add_child)
-# Subclasses below define convenient constructors for each AST shape.
-# ============================================================================
 class ASTNode:
     def __init__(self, node_type, value=None, line=None):
-        self.node_type = node_type  # Type of node (e.g., 'VariableDeclaration', 'BinaryOp')
-        self.value = value  # E.g. variable name, operator, etc.
-        self.children = []  # List of child nodes
-        self.parent = None  # Reference to parent node
+        self.node_type = node_type
+        self.value = value
+        self.children = []
+        self.parent = None
         self.line = line
 
     def add_child(self, child):
@@ -38,7 +13,6 @@ class ASTNode:
         self.children.append(child)
 
     def print_tree(self, level=0):
-        """Pretty-print the AST."""
         indent = ' ' * (level * 3)
         print(f"{indent}╚═{self.node_type}: {self.value if self.value else ''}")
         for child in self.children:
@@ -105,7 +79,6 @@ class WhileLoopNode(ASTNode):
 class DoWhileLoopNode(ASTNode):
     def __init__(self, condition, line=None):
         super().__init__("DoWhileLoop", line=line)
-        #self.add_child(condition)
 
 class PrintNode(ASTNode):
     def __init__(self, args, line=None):
@@ -217,18 +190,16 @@ class ListAccessNode(ASTNode):
 
 
 class MemberAccessNode(ASTNode):
-    """Represents bundle member access: p.age or p.addr.zip (nested)"""
     def __init__(self, object_name, member_name, line=None):
         super().__init__("MemberAccess", line=line)
         if isinstance(object_name, ASTNode):
-            self.add_child(object_name)  # Nested MemberAccessNode for chained access
+            self.add_child(object_name)
         else:
             self.add_child(ASTNode("Object", object_name, line=line))
         self.add_child(ASTNode("Member", member_name, line=line))
 
 
 class ArrayMemberAccessNode(ASTNode):
-    """Represents bundle array element member access: p[0].x"""
     def __init__(self, list_access_node, member_name, line=None):
         super().__init__("ArrayMemberAccess", line=line)
         self.add_child(list_access_node)
@@ -236,9 +207,8 @@ class ArrayMemberAccessNode(ASTNode):
 
 
 class BundleDefinitionNode(ASTNode):
-    """Represents a bundle (struct) type definition."""
     def __init__(self, bundle_name, members, line=None):
         super().__init__("BundleDefinition", line=line)
         self.bundle_name = bundle_name
-        self.members = members  # dict: {member_name: member_type}
+        self.members = members
 

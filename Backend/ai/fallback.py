@@ -1,28 +1,10 @@
-"""
-NLP-based fallback responder for the GAL AI chat.
-
-Three-layer hybrid architecture:
-  Layer 1 — Rule Engine: regex matches compiler error messages → structured explanations
-  Layer 2 — Retriever: sentence-transformers (gal-mpnet-finetuned) semantic search over 50+ KB topics
-  Layer 3 — Default: help menu when nothing matches
-
-Plus: synonym expansion, greeting detection, follow-up context, multi-topic blending.
-Uses the #1 ranked sentence embedding model for best semantic matching accuracy.
-All heavy imports are deferred so the server binds its port immediately.
-"""
 
 import re as _re
 
-# Minimum cosine similarity score to return a topic match (else use default)
 _THRESHOLD = 0.35
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# STRUCTURED RESPONSE BUILDER
-# ═══════════════════════════════════════════════════════════════════════
-
 def _structured_error(stage, cause, rule="", fix="", explanation=""):
-    """Build a structured error explanation from labeled slots."""
     parts = [f"**Stage:** {stage}", f"**Cause:** {cause}"]
     if rule:
         parts.append(f"**Rule:** {rule}")
@@ -46,14 +28,7 @@ def _runtime_err(cause, rule, fix, explanation=""):
     return _structured_error("Runtime (Interpreter)", cause, rule, fix, explanation)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# LAYER 1: RULE ENGINE — regex-based compiler error pattern matching
-# ═══════════════════════════════════════════════════════════════════════
-# Each entry: (compiled_regex, response_string_or_callable)
-# If callable, it receives the re.Match object and returns a string.
-
 _ERROR_PATTERNS = [
-    # ── Lexer Errors ──────────────────────────────────────────────
 
     (_re.compile(r"Identifier exceeds maximum length of 15 characters", _re.I),
      _lexer_err(
@@ -125,7 +100,6 @@ _ERROR_PATTERNS = [
          "/* This is a comment */  // Correct\n/* Unclosed comment      // ERROR",
      )),
 
-    # ── Parser: Operator Errors ───────────────────────────────────
 
     (_re.compile(r"'===' is not valid", _re.I),
      _parser_err(
@@ -149,7 +123,6 @@ _ERROR_PATTERNS = [
          "// BAD:  spring (a | b) { ... }\n// GOOD: spring (a || b) { ... }",
      )),
 
-    # ── Parser: Keyword Mistakes (generic — catches all 20+) ─────
 
     (_re.compile(r"'(\w+)' is not a GAL keyword\.\s*Use '(\w+)' instead", _re.I),
      lambda m: _parser_err(
@@ -159,7 +132,6 @@ _ERROR_PATTERNS = [
          "GAL uses botanical-themed keywords. See the keyword reference for all mappings.",
      )),
 
-    # ── Parser: Missing Delimiters ────────────────────────────────
 
     (_re.compile(r"Expected\s*['\"]?;['\"]?|Unexpected token.*Expected\s*['\"]?;['\"]?", _re.I),
      _parser_err(
@@ -249,7 +221,6 @@ _ERROR_PATTERNS = [
          "// BAD:  leaf c = '';\n// GOOD: leaf c = 'A';",
      )),
 
-    # ── Semantic Errors ───────────────────────────────────────────
 
     (_re.compile(r"Variable '(\w+)' already declared", _re.I),
      lambda m: _semantic_err(
@@ -414,7 +385,6 @@ _ERROR_PATTERNS = [
          "seed arr[] = {10, 20, 30};\nseed i = 1;\nplant(arr[i]);  // OK: seed index",
      )),
 
-    # ── Runtime Errors ────────────────────────────────────────────
 
     (_re.compile(r"Division by zero", _re.I),
      _runtime_err(
@@ -463,8 +433,6 @@ _ERROR_PATTERNS = [
 
 
 def _rule_engine_match(msg):
-    """Try each regex pattern against the user message.
-    Return a structured response string if matched, else None."""
     for pattern, response in _ERROR_PATTERNS:
         m = pattern.search(msg)
         if m:
@@ -472,13 +440,7 @@ def _rule_engine_match(msg):
     return None
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# LAYER 2: EXPANDED KNOWLEDGE BASE (50+ topics)
-# ═══════════════════════════════════════════════════════════════════════
-# Each entry: (training_phrases_list, response_string)
-
 _KNOWLEDGE_BASE = [
-    # ── 1. Data types ─────────────────────────────────────────────
     ([
         "what are the data types",
         "data types in GAL",
@@ -526,7 +488,6 @@ leaf ch = 'A';
 branch flag = sunshine;
 ```"""),
 
-    # ── 2. Variables / declarations ───────────────────────────────
     ([
         "how to declare a variable",
         "variable declaration",
@@ -558,7 +519,6 @@ Constants use `fertile`:
 fertile seed MAX = 100;
 ```"""),
 
-    # ── 3. Arrays ─────────────────────────────────────────────────
     ([
         "how to use arrays",
         "array declaration",
@@ -593,7 +553,6 @@ seed grid[][] = {{1, 2}, {3, 4}};  // nested init
 ```
 Arrays are 0-indexed."""),
 
-    # ── 4. For loop (cultivate) ───────────────────────────────────
     ([
         "for loop",
         "cultivate loop",
@@ -631,7 +590,6 @@ cultivate(seed i = 0; i < TS(arr); i++) {
 }
 ```"""),
 
-    # ── 5. While loop (grow) ──────────────────────────────────────
     ([
         "while loop",
         "grow loop",
@@ -664,7 +622,6 @@ grow (count < 3) {
 - Use `prune;` (break) to exit early
 - Use `skip;` (continue) to skip to next iteration"""),
 
-    # ── 6. Do-while loop (tend...grow) ────────────────────────────
     ([
         "do while loop",
         "do-while loop",
@@ -698,7 +655,6 @@ tend {
 - Use `prune;` (break) to exit early
 - Use `skip;` (continue) to skip to next iteration"""),
 
-    # ── 7. Loops overview ─────────────────────────────────────────
     ([
         "how to make a loop",
         "loop types in GAL",
@@ -739,7 +695,6 @@ tend {
 
 Use `prune;` (break) and `skip;` (continue) inside loops."""),
 
-    # ── 8. If / else ──────────────────────────────────────────────
     ([
         "if else condition",
         "conditional statement",
@@ -778,7 +733,6 @@ spring (x > 0) {
 - `bud` = else if
 - `wither` = else"""),
 
-    # ── 9. Switch ─────────────────────────────────────────────────
     ([
         "switch case statement",
         "harvest variety soil",
@@ -811,7 +765,6 @@ harvest (choice) {
 - `soil` = default
 - `prune` = break"""),
 
-    # ── 10. Functions ─────────────────────────────────────────────
     ([
         "how to create a function",
         "function declaration definition",
@@ -856,7 +809,6 @@ root() {
 }
 ```"""),
 
-    # ── 11. Input (water) ─────────────────────────────────────────
     ([
         "how to read input",
         "get user input",
@@ -885,7 +837,6 @@ water(arr[i][j]);           // read into 2D array element
 ```
 `water(seed x)` is WRONG — don't combine type + variable name."""),
 
-    # ── 12. Output (plant) ────────────────────────────────────────
     ([
         "how to print output",
         "display show output",
@@ -917,7 +868,6 @@ Backtick concatenation may join `vine` and `leaf` values in plant():
 - `plant("Hello {}", name);` is valid formatting
 - `plant("Hello " ` name);` is valid string concatenation"""),
 
-    # ── 13. Bundles (structs) ─────────────────────────────────────
     ([
         "struct bundle record",
         "create a struct",
@@ -963,7 +913,6 @@ p.addr.zip = 1000;
 
 No inline init: `bundle Point p = {5, 10};` is NOT supported."""),
 
-    # ── 14. Operators ─────────────────────────────────────────────
     ([
         "operators in GAL",
         "arithmetic comparison logical",
@@ -986,7 +935,6 @@ No inline init: `bundle Point p = {5, 10};` is NOT supported."""),
 
 `**` (exponent) is NOT supported."""),
 
-    # ── 15. Errors / debugging ────────────────────────────────────
     ([
         "error bug debug fix",
         "why is my code not working",
@@ -1017,7 +965,6 @@ No inline init: `bundle Point p = {5, 10};` is NOT supported."""),
 
 Tip: Check the OUTPUT panel for line numbers to locate errors."""),
 
-    # ── 16. Keywords reference ────────────────────────────────────
     ([
         "keyword reference list",
         "all GAL keywords",
@@ -1054,7 +1001,6 @@ Tip: Check the OUTPUT panel for line numbers to locate errors."""),
 | `frost` | false |
 | `~` | unary minus |"""),
 
-    # ── 17. Example / template ────────────────────────────────────
     ([
         "example program template",
         "hello world starter code",
@@ -1083,7 +1029,6 @@ root() {
 ```
 Every GAL program needs a `root()` function as the entry point."""),
 
-    # ── 18. Convert from C ────────────────────────────────────────
     ([
         "convert C to GAL",
         "translate from C language",
@@ -1105,7 +1050,6 @@ Every GAL program needs a `root()` function as the entry point."""),
 - `return` -> `reclaim`, `void` -> `empty`
 - `-x` -> `~x` (unary negation uses tilde)"""),
 
-    # ── 19. Comments ──────────────────────────────────────────────
     ([
         "how to write comments in GAL code",
         "comment syntax slash slash",
@@ -1125,7 +1069,6 @@ Every GAL program needs a `root()` function as the entry point."""),
 ```
 Same syntax as C/Java."""),
 
-    # ── 20. Identifier rules ──────────────────────────────────────
     ([
         "identifier rules naming",
         "variable name rules",
@@ -1144,7 +1087,6 @@ Same syntax as C/Java."""),
 Valid: `x`, `count`, `myVar`, `total_sum`, `playerScore1`
 Invalid: `2count`, `_name`, `thisIsWayTooLong`"""),
 
-    # ── 21. Type casting ──────────────────────────────────────────
     ([
         "type casting conversion",
         "convert between types",
@@ -1171,7 +1113,6 @@ Supported casts:
 - `(vine)` — converts anything to string
 - `(branch)` — converts to boolean"""),
 
-    # ── 22. Array built-in operations ─────────────────────────────
     ([
         "array built-in methods operations",
         "append to array add element",
@@ -1210,7 +1151,6 @@ seed slen = TS("hello"); // 5
 leaf chars[] = taper("abc"); // chars = ['a','b','c']
 ```"""),
 
-    # ── 23. Escape sequences ──────────────────────────────────────
     ([
         "escape sequences special characters",
         "newline tab in string",
@@ -1239,7 +1179,6 @@ plant("Name:\\tAlice");
 plant("She said \\"hi\\"");
 ```"""),
 
-    # ── 24. String concatenation ──────────────────────────────────
     ([
         "string concatenation combine join",
         "concatenate two strings",
@@ -1262,11 +1201,7 @@ For output, prefer format strings:
 plant("{} {}", first, second);  // cleaner
 ```"""),
 
-    # ══════════════════════════════════════════════════════════════
-    #  NEW TOPICS (25–54) — expanded coverage
-    # ══════════════════════════════════════════════════════════════
 
-    # ── 25. Program structure & root() ────────────────────────────
     ([
         "program structure organization",
         "where does root go",
@@ -1302,7 +1237,6 @@ root() {
 - `root()` must end with `reclaim;`
 - No code is allowed after `root()`'s closing `}`"""),
 
-    # ── 26. Scope rules ───────────────────────────────────────────
     ([
         "scope rules variable visibility",
         "local variable global variable",
@@ -1346,7 +1280,6 @@ pollinate empty test() {
 
 Variables in inner scopes can see outer scopes, but not vice versa."""),
 
-    # ── 27. Constants (fertile) ───────────────────────────────────
     ([
         "how to make constant",
         "fertile keyword constant",
@@ -1372,7 +1305,6 @@ fertile branch DEBUG = frost;
 - Multiple `fertile` declarations on one line are **not** allowed
 - `fertile` goes before the type: `fertile seed`, not `seed fertile`"""),
 
-    # ── 28. Boolean values ────────────────────────────────────────
     ([
         "boolean values in GAL",
         "sunshine and frost meaning",
@@ -1403,7 +1335,6 @@ branch equal = (x == y);    // depends on x, y
 
 Use `!` to negate: `!sunshine` = `frost`"""),
 
-    # ── 29. Function return types ─────────────────────────────────
     ([
         "function return type options",
         "empty function void return",
@@ -1442,7 +1373,6 @@ pollinate empty sayHi() {          // returns nothing
 - Non-empty functions must provide a value in their required final `reclaim`
 - The CFG requires every function to end with `reclaim`"""),
 
-    # ── 30. Recursive functions ───────────────────────────────────
     ([
         "recursive function in GAL",
         "recursion example",
@@ -1471,7 +1401,6 @@ root() {
 - Each recursive call should move toward the base case
 - Be mindful of the 10,000 iteration limit (applies to deep recursion too)"""),
 
-    # ── 31. Nested conditionals ───────────────────────────────────
     ([
         "nested if statements",
         "if inside if nested",
@@ -1510,7 +1439,6 @@ bud (condition3) { ... }
 wither { ... }
 ```"""),
 
-    # ── 32. Prune (break) & skip (continue) ──────────────────────
     ([
         "break statement prune",
         "continue statement skip",
@@ -1544,7 +1472,6 @@ cultivate (seed i = 0; i < 10; i++) {
 - `skip` can only be used in loops (not in `harvest`)
 - Using them outside their valid context gives a semantic error"""),
 
-    # ── 33. Nested loops ──────────────────────────────────────────
     ([
         "nested loop inside loop",
         "double loop two loops",
@@ -1574,7 +1501,6 @@ cultivate (seed r = 0; r < 3; r++) {
 
 Note: `prune` only exits the **innermost** loop. To exit an outer loop, use a flag variable."""),
 
-    # ── 34. 2D arrays detailed ────────────────────────────────────
     ([
         "two dimensional array detailed",
         "matrix operations rows columns",
@@ -1616,7 +1542,6 @@ cultivate (seed i = 0; i < 3; i++) {
 
 Arrays are 0-indexed: valid indices for `arr[M][N]` are `[0..M-1][0..N-1]`."""),
 
-    # ── 35. Array of bundles ──────────────────────────────────────
     ([
         "array of bundles structs",
         "list of struct objects",
@@ -1654,7 +1579,6 @@ root() {
 **Syntax:** `bundle <Type> <name>[<size>];`
 Then access: `name[index].member`"""),
 
-    # ── 36. Nested bundles ────────────────────────────────────────
     ([
         "nested bundle struct inside struct",
         "bundle with bundle member",
@@ -1690,7 +1614,6 @@ root() {
 
 Define inner bundles **before** the outer bundle that uses them."""),
 
-    # ── 37. TS() function ─────────────────────────────────────────
     ([
         "ts function get length",
         "array length size",
@@ -1719,7 +1642,6 @@ cultivate (seed i = 0; i < TS(arr); i++) {
 - Does NOT work on `seed`, `tree`, `leaf`, or `branch` scalars
 - `TS()` is GAL's equivalent of `len()` / `.length`"""),
 
-    # ── 38. Taper() function ──────────────────────────────────────
     ([
         "taper function usage",
         "split string into characters",
@@ -1746,7 +1668,6 @@ cultivate (seed i = 0; i < TS(chars); i++) {
 - Works on `vine` (string) values
 - `taper()` is GAL's equivalent of `split('')` / `toCharArray()`"""),
 
-    # ── 39. Operator precedence ───────────────────────────────────
     ([
         "operator precedence order",
         "which operator evaluated first",
@@ -1772,7 +1693,6 @@ seed result = (2 + 3) * 4;  // 20, not 14
 branch check = (a > 0) && (b < 10);
 ```"""),
 
-    # ── 40. Increment / decrement ─────────────────────────────────
     ([
         "prefix postfix increment",
         "i++ vs ++i difference",
@@ -1807,7 +1727,6 @@ count--;   // count = 1
 - Cannot be chained: `x++++` is invalid
 - Cannot combine with binary ops: `x++ + 1` needs separate statements"""),
 
-    # ── 41. Unary negation (tilde) ────────────────────────────────
     ([
         "tilde operator negation",
         "negative number in GAL",
@@ -1837,7 +1756,6 @@ seed neg = ~42;      // -42
 tree negPi = ~3.14;  // -3.14
 ```"""),
 
-    # ── 42. Compound assignment ───────────────────────────────────
     ([
         "compound assignment operators",
         "plus equals minus equals",
@@ -1869,7 +1787,6 @@ score %= 5;     // score = 2
 - `%=` requires `seed` operands (modulo needs integers)
 - Cannot use on `fertile` (const) variables"""),
 
-    # ── 43. Format strings in plant() ─────────────────────────────
     ([
         "format string in plant",
         "placeholder curly braces",
@@ -1900,7 +1817,6 @@ plant("Name: {}, Age: {}", name, 25);   // mixed types
 // GOOD: plant("{} {}", a, b);        // 2 placeholders, 2 args
 ```"""),
 
-    # ── 44. Limits & constraints ──────────────────────────────────
     ([
         "limits constraints maximum GAL",
         "what are the GAL limits",
@@ -1933,7 +1849,6 @@ plant("Name: {}, Age: {}", name, 25);   // mixed types
 - Arrays are 0-indexed
 - `root()` function is required"""),
 
-    # ── 45. Compiler stages ───────────────────────────────────────
     ([
         "how does compiler work",
         "compilation process stages",
@@ -1969,7 +1884,6 @@ Source Code → Lexer → Parser → Semantic Analyzer → Interpreter
 **5. ICG** (`icg.py`) — Generates three-address code (parallel to semantic):
 - Produces intermediate representation for analysis"""),
 
-    # ── 46. Error: missing semicolons ─────────────────────────────
     ([
         "forgot semicolon error",
         "where do I put semicolons",
@@ -1998,7 +1912,6 @@ Source Code → Lexer → Parser → Semantic Analyzer → Interpreter
 - Functions: `pollinate seed fn() { ... }`
 - `root()`: `root() { ... }`"""),
 
-    # ── 47. Error: type mismatches ────────────────────────────────
     ([
         "type mismatch error help",
         "cannot assign wrong type",
@@ -2033,7 +1946,6 @@ branch b = 5;        // ERROR: seed → branch
 - `!` only works on `branch`
 - Comparisons require compatible types"""),
 
-    # ── 48. Error: undeclared variables ────────────────────────────
     ([
         "variable not declared error",
         "undefined undeclared variable",
@@ -2069,7 +1981,6 @@ seed x = 10;
 // Fix: move declaration before use
 ```"""),
 
-    # ── 49. Error: wrong C keywords ───────────────────────────────
     ([
         "used wrong keyword from C",
         "if instead of spring",
@@ -2102,7 +2013,6 @@ GAL uses botanical-themed keywords. If you use C/Java/Python keywords, the compi
 
 Tip: Use the keyword reference for the complete mapping."""),
 
-    # ── 50. Error: fertile (const) issues ─────────────────────────
     ([
         "fertile constant error",
         "cannot reassign fertile",
@@ -2142,7 +2052,6 @@ fertile seed B = 2;
 - Only literal values (no expressions): `fertile seed X = 2 + 3;` is invalid
 - `fertile` goes before the type: `fertile seed`, not `seed fertile`"""),
 
-    # ── 51. Example: Factorial / recursion ─────────────────────────
     ([
         "factorial example program",
         "recursive example code",
@@ -2184,7 +2093,6 @@ root() {
 }
 ```"""),
 
-    # ── 52. Example: Array operations ─────────────────────────────
     ([
         "array operations example",
         "sum of array elements",
@@ -2241,7 +2149,6 @@ root() {
 }
 ```"""),
 
-    # ── 53. Example: Bubble sort ──────────────────────────────────
     ([
         "sorting example program",
         "bubble sort GAL code",
@@ -2274,7 +2181,6 @@ root() {
 }
 ```"""),
 
-    # ── 54. Example: Bundle usage ─────────────────────────────────
     ([
         "bundle struct example program",
         "complete bundle example",
@@ -2315,7 +2221,6 @@ root() {
 }
 ```"""),
 
-    # ── Topic 55: GAL vs C comparison overview ──────────────────────
     ([
         "difference between GAL and C", "GAL vs C", "how is GAL different from C",
         "compare GAL and C", "GAL compared to C", "what makes GAL unique",
@@ -2354,7 +2259,6 @@ root() {
 - GAL uses `~` for **unary negation** (not `-`)
 - Format strings use `{}` placeholders (like Python), not `%d`/`%s`"""),
 
-    # ── Topic 56: Common mistakes / pitfalls ────────────────────────
     ([
         "common mistakes in GAL", "GAL pitfalls", "beginners mistakes",
         "what mistakes do people make", "things to watch out for in GAL",
@@ -2394,7 +2298,6 @@ root() {
 
 10. **Array index out of bounds** — indices are 0 to `TS(arr)-1`"""),
 
-    # ── Topic 57: How to debug GAL code ─────────────────────────────
     ([
         "how to debug GAL", "debugging GAL code", "my GAL code doesn't work",
         "GAL code not working", "how to fix GAL errors", "debug my code",
@@ -2428,7 +2331,6 @@ The compiler tells you exactly what's wrong and which line. Error messages inclu
 
 **Pro tip:** Paste any error message into this chat — I can explain it in detail!"""),
 
-    # ── Topic 58: What is GAL? ──────────────────────────────────────
     ([
         "what is GAL", "what is the GAL language", "tell me about GAL",
         "GAL programming language", "what is this language", "about GAL",
@@ -2454,7 +2356,6 @@ root() {
 ```
 This prints "Hello, Garden!" — `root()` is like `main()`, `plant()` is like `printf()`, and `reclaim` is like `return`."""),
 
-    # ── Topic 59: How to run a GAL program ──────────────────────────
     ([
         "how to run GAL", "how to execute", "run my program", "how to compile",
         "how to use this IDE", "how to use the editor", "where do I type code",
@@ -2486,7 +2387,6 @@ root() {
 
 Just type this in the editor and hit Run!"""),
 
-    # ── Topic 60: String operations in GAL ──────────────────────────
     ([
         "string operations", "how to work with strings", "vine operations",
         "string manipulation", "string functions", "what can I do with strings",
@@ -2529,7 +2429,6 @@ plant("Name: {}, Length: {}", name, TS(name));
 - `\\\\"` — literal double quote
 - `\\\\` — literal backslash"""),
 
-    # ── Topic 61: Number operations / math in GAL ───────────────────
     ([
         "math in GAL", "arithmetic operations", "math operations",
         "how to do math", "calculations in GAL", "number operations",
@@ -2573,19 +2472,14 @@ x %= 4;   // x = 2
 ]
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# Sentence-Transformers (gal-mpnet-finetuned) — lazy-loaded on first query
-# ═══════════════════════════════════════════════════════════════════════
-
 _st_model = None
 _phrase_embeddings = None
 _phrase_topic_idx = []
 _responses = []
-_last_topic_idx = None          # track last matched topic for follow-ups
-_last_query = ""                # last user message for dedup
+_last_topic_idx = None
+_last_query = ""
 
 
-# ── GAL synonym map: C/common terms → GAL equivalents ────────────────
 _SYNONYMS = {
     "int":       "seed",    "integer":    "seed",
     "float":     "tree",    "double":     "tree",   "decimal": "tree",
@@ -2633,9 +2527,6 @@ _SYNONYMS = {
     "number":    "seed tree integer float arithmetic",
 }
 
-# ── Reverse map: GAL keywords → concept descriptions ─────────────────
-# When a user casually says "cultivate" or "tree", we expand it into
-# a rich query the embedding model can match against KB topics.
 _GAL_KEYWORD_MAP = {
     "seed":       "seed data type integer variable declaration",
     "tree":       "tree data type float decimal variable declaration",
@@ -2671,8 +2562,6 @@ _GAL_KEYWORD_MAP = {
 }
 
 
-# ── Greeting / meta patterns ─────────────────────────────────────────
-
 _GREETING_PATTERNS = [
     (_re.compile(r"^\s*(hi|hello|hey|howdy|sup|yo|greetings|good\s*(morning|afternoon|evening))\b", _re.I),
      "Hey there! I'm the GAL AI Assistant. Ask me anything about GAL — data types, loops, functions, arrays, I/O, and more!"),
@@ -2681,19 +2570,17 @@ _GREETING_PATTERNS = [
     (_re.compile(r"^\s*(bye|goodbye|see\s*ya|later|cya)\b", _re.I),
      "Goodbye! Happy coding with GAL! 🌱"),
     (_re.compile(r"\b(what can you do|help me|what do you know|how can you help)\b", _re.I),
-     None),  # None → return _DEFAULT_RESPONSE (the help menu)
+     None),
     (_re.compile(r"^\s*(who are you|what are you)\b", _re.I),
      "I'm the GAL AI Assistant — I help with GAL syntax, concepts, and debugging. Ask me about data types, loops, functions, arrays, or anything else in GAL!"),
 ]
 
 
 def _encode(texts):
-    """Encode texts using sentence-transformers (returns L2-normalised embeddings)."""
     return _st_model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
 def _ensure_model():
-    """Load sentence-transformers model and encode training phrases on first call."""
     global _st_model, _phrase_embeddings, _phrase_topic_idx, _responses
     if _st_model is not None:
         return
@@ -2701,7 +2588,6 @@ def _ensure_model():
     from sentence_transformers import SentenceTransformer
     import os
 
-    # Prefer fine-tuned model, fall back to base
     finetuned = os.path.join(os.path.dirname(__file__), "..", "gal-mpnet-finetuned")
     if os.path.isdir(finetuned):
         _st_model = SentenceTransformer(finetuned)
@@ -2721,7 +2607,6 @@ def _ensure_model():
     _phrase_embeddings = _encode(all_phrases)
 
 
-# Default fallback when no topic is similar enough
 _DEFAULT_RESPONSE = """I can help with GAL syntax and concepts! Try asking about:
 - **Data types**: seed, tree, leaf, vine, branch
 - **Variables**: declarations, constants (`fertile`), scope rules
@@ -2740,8 +2625,6 @@ Or ask for "keyword reference", "example program", or "how does the compiler wor
 
 *Note: I'm running in offline mode right now. For more detailed help, try again later when the AI service is available.*"""
 
-# ── Conversational wrappers ─────────────────────────────────────────
-# These make retrieval answers feel more natural (like Gemini would respond)
 import random as _random
 
 _CONFIDENT_INTROS = [
@@ -2751,7 +2634,7 @@ _CONFIDENT_INTROS = [
     "Absolutely! ",
     "Good question — ",
     "Here you go:\n\n",
-    "",  # sometimes no intro feels most natural
+    "",
     "",
 ]
 
@@ -2780,40 +2663,31 @@ _OUTROS = [
     "\n\n---\n*Feel free to ask follow-up questions!*",
     "\n\n---\n*Let me know if you need more details on any part!*",
     "\n\n---\n*Want me to explain any part further?*",
-    "",  # sometimes no outro
+    "",
     "",
 ]
 
-# ── Conversation memory (per-process, lightweight) ──────────────────
-_conv_history = []       # list of (query, topic_idx, score) tuples
-_MAX_HISTORY = 8         # remember last 8 exchanges
+_conv_history = []
+_MAX_HISTORY = 8
 
 
 def _expand_query(text):
-    """Inject GAL synonyms into the query so the model sees both vocabularies.
-    Also resolves bare GAL keywords (e.g. 'cultivate') into rich concept
-    descriptions so short/casual queries match KB topics."""
     words = text.lower().split()
     extras = set()
 
-    # Forward: C/common terms → GAL equivalents
     for w in words:
         if w in _SYNONYMS:
             extras.add(_SYNONYMS[w])
 
-    # Also check 2-word combos (e.g. "else if" → "bud")
     lower = text.lower()
     for phrase, replacement in _SYNONYMS.items():
         if " " in phrase and phrase in lower:
             extras.add(replacement)
 
-    # Reverse: GAL keywords → concept descriptions
-    # This is the key for casual queries like "what is cultivate"
     for w in words:
         if w in _GAL_KEYWORD_MAP:
             extras.add(_GAL_KEYWORD_MAP[w])
 
-    # Also check multi-word GAL constructs in the raw text
     for kw, desc in _GAL_KEYWORD_MAP.items():
         if " " in kw and kw in lower:
             extras.add(desc)
@@ -2824,7 +2698,6 @@ def _expand_query(text):
 
 
 def _detect_intent(msg):
-    """Classify user intent to pick better response framing."""
     low = msg.lower()
     if any(w in low for w in ["how do i", "how to", "how can i", "how would"]):
         return "how-to"
@@ -2844,22 +2717,18 @@ def _detect_intent(msg):
 
 
 def _is_followup(msg):
-    """Detect if the user is asking a follow-up to the previous topic."""
     low = msg.lower().split()
-    # Short pronoun-based queries
     if len(low) <= 5 and any(w in msg.lower() for w in [
         "it", "that", "this", "those", "them", "more", "also",
         "too", "same", "again", "another", "other"
     ]):
         return True
-    # "tell me more" / "explain further" type
     if _detect_intent(msg) == "more":
         return True
     return False
 
 
 def _pick_intro(score, intent, is_followup):
-    """Choose a conversational intro based on confidence and context."""
     if is_followup:
         return _random.choice(_FOLLOWUP_INTROS)
     if score > 0.6:
@@ -2870,21 +2739,17 @@ def _pick_intro(score, intent, is_followup):
 
 
 def _wrap_response(raw_response, score, intent, is_followup, has_blend=False):
-    """Wrap a raw KB response with conversational framing."""
     intro = _pick_intro(score, intent, is_followup)
     outro = _random.choice(_OUTROS) if not has_blend else ""
     return intro + raw_response + outro
 
 
 def fallback_reply(user_message):
-    """Hybrid fallback: greeting → rule engine → semantic retriever → default.
-    Enhanced with conversational wrapping, intent detection, and conversation memory."""
     import numpy as np
     global _last_topic_idx, _last_query
 
     msg = user_message.strip()
 
-    # ── Layer 0: Greeting / meta patterns ─────────────────────────
     for pattern, response in _GREETING_PATTERNS:
         if pattern.search(msg):
             return response if response else _DEFAULT_RESPONSE
@@ -2892,11 +2757,9 @@ def fallback_reply(user_message):
     if not msg or len(msg) < 2:
         return _DEFAULT_RESPONSE
 
-    # Allow short queries if they contain a known GAL keyword
     if len(msg) < 4 and msg.lower() not in _GAL_KEYWORD_MAP:
         return _DEFAULT_RESPONSE
 
-    # ── Layer 1: Rule Engine — exact compiler error matching ──────
     rule_match = _rule_engine_match(msg)
     if rule_match:
         _last_query = msg
@@ -2905,26 +2768,20 @@ def fallback_reply(user_message):
             _conv_history.pop(0)
         return rule_match
 
-    # ── Layer 2: Semantic Retriever — similarity search ───────────
     _ensure_model()
 
     intent = _detect_intent(msg)
     is_followup = _is_followup(msg) and _conv_history
 
-    # Synonym expansion
     expanded = _expand_query(msg)
 
-    # Follow-up context injection — use conversation history
     if is_followup and _conv_history:
-        # Grab last 1-2 queries for context
         recent = [h[0] for h in _conv_history[-2:]]
         expanded = " ".join(recent) + " " + expanded
 
-    # Encode and score
     query_emb = _encode([expanded])
     scores = np.dot(_phrase_embeddings, query_emb.T).flatten()
 
-    # Get best score per topic (deduped)
     topic_best = {}
     for i, score in enumerate(scores):
         tidx = _phrase_topic_idx[i]
@@ -2936,7 +2793,6 @@ def fallback_reply(user_message):
 
     if best_score < _THRESHOLD:
         _last_query = msg
-        # If follow-up failed, try without history context
         if is_followup:
             bare_expanded = _expand_query(msg)
             query_emb2 = _encode([bare_expanded])
@@ -2955,24 +2811,19 @@ def fallback_reply(user_message):
         else:
             return _DEFAULT_RESPONSE
 
-    # ── Build response ────────────────────────────────────────────
     result = _responses[best_idx]
     has_blend = False
 
-    # Multi-topic blending with smooth transitions
     if len(ranked) >= 2:
         second_idx, second_score = ranked[1]
         gap = best_score - second_score
         if second_score >= _THRESHOLD and gap < 0.07:
-            # Avoid blending if both topics are too similar or same category
             transition = _random.choice(_BLEND_TRANSITIONS)
             result += transition + _responses[second_idx]
             has_blend = True
 
-    # Wrap with conversational framing
     result = _wrap_response(result, best_score, intent, is_followup, has_blend)
 
-    # Update conversation memory
     _last_topic_idx = best_idx
     _last_query = msg
     _conv_history.append((msg, best_idx, best_score))

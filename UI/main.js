@@ -54,7 +54,6 @@
                   [/\b(bloom|wither|spring)\b/, "io"],
                   // Comments
                   [/\/\/.*/, "comment"],
-                  [/#.*/, "comment"],
                   [/\/\*/, 'comment', '@comment'],
                   // Numbers (integers and decimals)
                   [/\d+\.\d+/, "number"],
@@ -213,7 +212,6 @@
               // Start of comment
               if (ch === '/' && next === '/') { inLineComment = true; col++; continue; }
               if (ch === '/' && next === '*') { inBlockComment = true; i++; col += 2; continue; }
-              if (ch === '#') { inLineComment = true; col++; continue; }
               // Start of string/char
               if (ch === '"') { inString = true; col++; continue; }
               if (ch === "'") { inChar = true; col++; continue; }
@@ -268,7 +266,7 @@
                 continue;
               }
               // Skip empty lines, line comments, and brace-only lines
-              if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue;
+              if (!trimmed || trimmed.startsWith('//')) continue;
               // Strip inline comments to get actual code
               const codePart = trimmed.replace(/\/\/.*$/, '').trimEnd();
               if (!codePart) continue;

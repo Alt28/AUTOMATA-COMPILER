@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python)",
+      "Bash(rm -rf __pycache__ */__pycache__)",
+      "Bash(python _smoke_test.py)"
+    ]
+  }
+}
