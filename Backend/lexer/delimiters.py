@@ -11,12 +11,12 @@ WHITESPACE = ' \t\n'
 EOF = None
 
 statement_end_delim = set(ALPHA + WHITESPACE + '}') | {EOF}
-open_paren_delim = set(ALPHA + ZERODIGIT + '"' + "'" + '~' + '!' + '(' + ')')
+open_paren_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '"' + "'" + '~' + '!' + '(' + ')')
 close_paren_delim = set(WHITESPACE) | {';', '{', ')', ',', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', ']'}
-open_bracket_delim = set(ALPHA + ZERODIGIT + '~' + '!' + '(' + '"' + "'")
-close_bracket_delim = {';', ',', ')', ']', '[', '.', '=', '+', '-', '*', '/', '%', '>', '<', '!', '&', '|'}
-block_start_delim = set(ALPHA + WHITESPACE + '}/')
-block_end_delim = set(ALPHA + WHITESPACE + '};')
+open_bracket_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '~' + '!' + '(' + '"' + "'")
+close_bracket_delim = set(WHITESPACE) | {';', ',', ')', ']', '[', '.', '=', '+', '-', '*', '/', '%', '>', '<', '!', '&', '|'}
+block_start_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '}/{"\'~!(')
+block_end_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '};,)]')
 case_colon_delim = set(ALPHA + WHITESPACE + '}/')
 after_comma_delim = set(ALPHA + ZERODIGIT + WHITESPACE + '"' + "'" + '~' + '!' + '(' + '{')
 space_delim = {' ', '\t', '\n'}
@@ -48,8 +48,9 @@ delim20 = set(ALPHA + ZERODIGIT + '"' + "'" + '{')
 delim21 = set(DIGIT)
 delim22 = {',', ';', '(', ')', '{', '[', ']'}
 delim23 = {';', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|'}
-delim24 = set(ZERODIGIT + ALPHA + '~' + '(')
+delim24 = set(ZERODIGIT + ALPHA + '~(' + ' \t\n')
 delim25 = set(ALPHANUM + ';) \t\n')
+delim26 = set(ZERODIGIT + ALPHA + '~(' + '"\'' + ' \t\n')
 idf_delim = {' ', ',', ';', '(', ')', '{', '}', '[', ']', ':', '+', '-', '*', '/', '%',
              '>', '<', '=', '\t', '\n', '.', '"', "'"}
 whlnum_delim = {';', ' ', ',', '}', ']', ')', ':', '+', '-', '*', '/', '%', '=', '>', '<',
