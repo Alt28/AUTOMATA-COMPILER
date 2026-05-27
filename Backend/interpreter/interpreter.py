@@ -447,7 +447,7 @@ class Interpreter:
                 la_node = type_chain_current.children[0]
                 while hasattr(la_node, 'node_type') and la_node.node_type == "ListAccess":
                     la_node = la_node.children[0].value
-                var_type = self.lookup_variable(la_node)["type"] if not isinstance(self.lookup_variable(la_node), str) else None
+                var_type = self.lookup_variable(la_node)["type"] if not isinstance(self.lookup_variable(la_node), str) else None  # type: ignore
             else:
                 obj_name = type_chain_current.value
                 var_info = self.lookup_variable(obj_name)
@@ -674,7 +674,7 @@ class Interpreter:
             elif operator == '!':
                 return not bool(left)
             elif operator == 'neg':
-                return -left
+                return -left  # type: ignore
             else:
                 raise Exception(f"Unknown operator: {operator}")
         
@@ -772,7 +772,7 @@ class Interpreter:
             for arg in node.children[1:]:
                 value = self.interpret(arg)
                 if isinstance(value, str) and not isinstance(self.lookup_variable(value), str):
-                    value = self.lookup_variable(value)["value"]
+                    value = self.lookup_variable(value)["value"]  # type: ignore[index]
                 
                 if isinstance(value, float):
                     whole, dot, dec = str(value).partition('.')
@@ -836,7 +836,7 @@ class Interpreter:
         else:
             list_name = name_or_node
             list_entry = self.lookup_variable(list_name)
-            list_value = list_entry["value"]
+            list_value = list_entry["value"]  # type: ignore
             display_name = list_name
 
         index_node = node.children[1]
@@ -905,7 +905,7 @@ class Interpreter:
 
         for child in node.children:
             value = self.interpret(child)
-            list_info["value"].append(value)
+            list_info["value"].append(value)  # type: ignore
 
         
     def eval_insert(self, node):
@@ -917,12 +917,12 @@ class Interpreter:
         if not isinstance(index, int):
             raise InterpreterError("Runtime Error: Insert index must be an integer", node.line)
 
-        if index < 0 or index > len(list_info["value"]):
+        if index < 0 or index > len(list_info["value"]):  # type: ignore
             raise InterpreterError(f"Runtime Error: Index {index} out of range for insert", node.line)
 
         for child in node.children[1:]:
             value = self.interpret(child)
-            list_info["value"].insert(index, value)
+            list_info["value"].insert(index, value)  # type: ignore
             index += 1
 
 
@@ -1071,8 +1071,8 @@ class Interpreter:
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
         
-        if var_info["type"] == "leaf":
-            value = list(var_info["value"])
+        if var_info["type"] == "leaf":  # type: ignore
+            value = list(var_info["value"])  # type: ignore
 
         return value
 
@@ -1080,23 +1080,23 @@ class Interpreter:
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
 
-        if var_info["is_list"]:
-            result = len(var_info["value"])
+        if var_info["is_list"]:  # type: ignore
+            result = len(var_info["value"])  # type: ignore
         
-        elif var_info["type"] in ("leaf", "vine"):
-            result = len(var_info["value"])
+        elif var_info["type"] in ("leaf", "vine"):  # type: ignore
+            result = len(var_info["value"])  # type: ignore
         
         return result
 
     def eval_soil(self, node):
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
-        return var_info["value"].lower()
+        return var_info["value"].lower()  # type: ignore
 
     def eval_bloom(self, node):
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
-        return var_info["value"].upper()
+        return var_info["value"].upper()  # type: ignore
 
     def eval_if_statement(self, node):
         condition_result = self.interpret(node.children[0].children[0])
@@ -1159,7 +1159,7 @@ class Interpreter:
             elif isinstance(instantiate_node, AssignmentNode):
                 var_name = instantiate_node.children[0].value
                 initial_value_node = self.interpret(instantiate_node.children[1])
-                self.lookup_variable(var_name)["value"] = initial_value_node
+                self.lookup_variable(var_name)["value"] = initial_value_node  # type: ignore
 
             condition_node = node.children[1].children[0]
             condition_result = self.interpret(condition_node)
@@ -1385,10 +1385,10 @@ class Interpreter:
                 while hasattr(current, 'node_type') and current.node_type == "ListAccess":
                     current = current.children[0].value
                 var_name = current if isinstance(current, str) else str(current)
-                var_type = self.lookup_variable(var_name)["type"]
+                var_type = self.lookup_variable(var_name)["type"]  # type: ignore
             else:
                 var_name = target.value
-                var_type = self.lookup_variable(var_name)["type"]
+                var_type = self.lookup_variable(var_name)["type"]  # type: ignore
 
         else:
             var_name = "_input"
@@ -1412,24 +1412,24 @@ class Interpreter:
         if var_type == "seed":
             original_input = input_value
             if isinstance(input_value, str) and input_value.startswith('-'):
-                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
+                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)  # type: ignore
             if isinstance(input_value, str) and input_value.startswith('~'):
                 input_value = '-' + input_value[1:]
             try:
                 if len(input_value.strip('-').lstrip('0')) > 16:
                     raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
-                input_value = int(float(input_value))
+                input_value = int(float(input_value))  # type: ignore
             except ValueError:
                 raise InterpreterError(f"Runtime Error: Expected integer value, got '{original_input}'", node.line)
 
         elif var_type == "tree":
             original_input = input_value
             if isinstance(input_value, str) and input_value.startswith('-'):
-                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)
+                raise InterpreterError(f"Runtime Error: GAL uses '~' for negative numbers, not '-'. Got '{original_input}'; did you mean '~{original_input[1:]}'?", node.line)  # type: ignore
             if isinstance(input_value, str) and input_value.startswith('~'):
                 input_value = '-' + input_value[1:]
             try:
-                if '.' in input_value:
+                if '.' in input_value:  # type: ignore
                     integer_part, decimal_part = str(input_value).split('.')
                     if len(integer_part.strip('-').lstrip('0')) > 16:
                         raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
@@ -1440,7 +1440,7 @@ class Interpreter:
                     if len(input_value.strip('-').lstrip('0')) > 16:
                         raise InterpreterError(f"Runtime Error: Input value exceeds maximum number of 16 digits", node.line)
 
-                input_value = float(input_value)
+                input_value = float(input_value)  # type: ignore
 
 
             except ValueError:
@@ -1458,7 +1458,7 @@ class Interpreter:
                 raise InterpreterError(f"Runtime Error: expected branch value (sunshine/frost), got '{input_value}'", node.line)
             
         elif var_type == "leaf":
-            if len(input_value) != 1:
+            if len(input_value) != 1:  # type: ignore
                 raise InterpreterError(f"Runtime Error: Expected a single character for leaf, got '{input_value}'", node.line)
             input_value = str(input_value)
 

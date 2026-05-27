@@ -68,13 +68,6 @@
   border-radius: 2px;
 }
 
-/* Missing semicolon ghost indicator */
-.semicolon-ghost::after {
-  content: ' ;';
-  color: rgba(255, 255, 255, 0.35) !important;
-  font-weight: normal;
-}
-
 /* Base */
 body{
   font-family: 'Baloo 2', Arial, sans-serif;

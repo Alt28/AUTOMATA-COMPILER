@@ -90,7 +90,8 @@ REJECTED_PROGRAMS = [
 
 def run():
     parser = LL1Parser(cfg=cfg, predict_sets=predict_sets, first_sets=first_sets,
-                       start_symbol='<program>', end_marker='EOF', skip_token_types={'\n'})
+                       start_symbol='<program>', end_marker='EOF',
+                       skip_token_types={'\n', 'comment', 'mcommentlit'})
     ok = 0
     for name, src, expected in PROGRAMS:
         tokens, lex_errs = lex(src)

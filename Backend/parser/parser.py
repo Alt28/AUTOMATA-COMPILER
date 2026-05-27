@@ -203,7 +203,7 @@ class LL1Parser:
                         return f"SYNTAX error line {line} col {col} Unexpected token ')' after binary operator '{prev_tok.value}'. {self._format_expected(expected, non_terminal)}"
                     
                     if prev_tok.type == ',' and param_type_tokens & expected:
-                        return f"SYNTAX error line {line} col {col}: Unexpected token ')'. Expected parameter type (seed, tree, leaf, vine, branch) after ','"
+                        return f"SYNTAX error line {line} col {col} Unexpected token ')'. Expected parameter type (seed, tree, leaf, vine, branch) after ','"
                     
                     if prev_tok.type == '(':
                         kw_index = prev_index - 1
@@ -565,11 +565,11 @@ class LL1Parser:
             return f"SYNTAX error line {line} col {col} Postfix {op_name} operator '{token_value}' not allowed in expression context. {self._format_expected(expected, non_terminal)}"
         
         if param_type_tokens & expected and ')' in expected and token_type == 'id':
-            return f"SYNTAX error line {line} col {col}: Unexpected token '{token_value}'. Expected parameter type (seed, tree, leaf, vine, branch) or ')'"
+            return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. Expected parameter type (seed, tree, leaf, vine, branch) or ')'"
         
         if ')' in expected and token_type not in {')'}:
             if ',' in expected and token_type in {'intlit', 'dblit', 'stringlit', 'chrlit', 'id', 'sunshine', 'frost', '~', '!'}:
-                return f"SYNTAX error line {line} col {col}: Unexpected token '{token_value}'. Expected ',' between arguments or ')' to close function call"
+                return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. Expected ',' between arguments or ')' to close function call"
             if token_type in {'~', '!'}:
                 return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
             return f"SYNTAX error line {line} col {col} Unexpected token '{token_value}'. {self._format_expected(expected, non_terminal)}"
@@ -1131,12 +1131,12 @@ class LL1Parser:
                         
                         if prev_index >= 0:
                             prev_tok = toks[prev_index]
-                            error_msg = f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {prev_tok.line} col {prev_tok.col + len(str(prev_tok.value))} Unexpected token '{token_value}'. {self._format_expected(expected)}"
                             line = prev_tok.line
                         else:
-                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
+                            error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. {self._format_expected(expected)}"
                     else:
-                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. Expected ';'. {self._format_expected(expected)}"
+                        error_msg = f"SYNTAX error line {line} col {tok.col} Unexpected token '{token_value}'. {self._format_expected(expected)}"
                 
                 return False, [error_msg]
             else:
@@ -1183,11 +1183,14 @@ class LL1Parser:
     def parse_and_build(self, tokens: Sequence[Any]):
         syntax_ok, syntax_errors = self.parse(tokens)
         if not syntax_ok:
+            first_err = syntax_errors[0] if syntax_errors else ""
+            stage = "semantic" if first_err.startswith("SEMANTIC error") else "syntax"
             return {
                 "success": False,
                 "errors": syntax_errors,
                 "ast": None,
                 "symbol_table": {},
+                "error_stage": stage,
             }
 
         try:

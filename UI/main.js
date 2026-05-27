@@ -304,15 +304,7 @@
               message: 'Missing semicolon ;'
             }));
             monaco.editor.setModelMarkers(model, 'gal-semicolons', markers);
-            // Ghost ";" after the last code character (not after comments)
-            const decs = bad.map(b => ({
-              range: new monaco.Range(b.line, b.col, b.line, b.col + 1),
-              options: {
-                afterContentClassName: 'semicolon-ghost',
-                overviewRuler: { color: '#ff9900', position: monaco.editor.OverviewRulerLane.Center }
-              }
-            }));
-            semicolonDecCollection.set(decs);
+            semicolonDecCollection.set([]);
           }
 
           editor.onDidChangeModelContent(() => {
@@ -327,15 +319,21 @@
           // ── Error line highlighting ──
           let errorDecCollection = editor.createDecorationsCollection([]);
 
-          // Parse error string for line/col: supports "LEXICAL/SYNTAX error line X col Y" and "Ln X Semantic Error"
+          // Parse error string for line/col.
+          // Unified format: "<TYPE> error line X[ col Y][:] ..." for LEXICAL/SYNTAX/SEMANTIC/RUNTIME.
+          // Legacy fallback: "Ln X ..." for older Semantic/Runtime errors.
           function parseErrorLocations(errors) {
             const locs = [];
-            const re1 = /(?:LEXICAL|SYNTAX)\s+error\s+line\s+(\d+)\s+col\s+(\d+)/i;
+            const re1 = /(?:LEXICAL|SYNTAX|SEMANTIC|RUNTIME)\s+error\s+line\s+(\d+)(?:\s+col\s+(\d+))?/i;
             const re2 = /^Ln\s+(\d+)\s/i;
             (errors || []).forEach(err => {
               const s = String(err);
               let m = re1.exec(s);
-              if (m) { locs.push({ line: parseInt(m[1],10), col: parseInt(m[2],10), msg: s }); return; }
+              if (m) {
+                const col = m[2] ? parseInt(m[2], 10) : 1;
+                locs.push({ line: parseInt(m[1], 10), col, msg: s });
+                return;
+              }
               m = re2.exec(s);
               if (m) { locs.push({ line: parseInt(m[1],10), col: 1, msg: s }); }
             });

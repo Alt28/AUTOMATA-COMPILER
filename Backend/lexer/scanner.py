@@ -1079,8 +1079,9 @@ class Lexer:
                     while self.current_char is not None and self.current_char != "\n":
                         ident_str += self.current_char
                         self.advance()
+                    tokens.append(Token(TT_COMMENT, ident_str, line, pos.col))
                     continue
-                    
+
                 elif self.current_char == "*":
                     ident_str += self.current_char
                     self.advance()
@@ -1097,11 +1098,12 @@ class Lexer:
                             if self.current_char == "\n":
                                 line += 1
                             self.advance()
-                    
+
                     if not found_close:
                         errors.append(LexicalError(pos, f"Missing closing '*/' after '{ident_str}'"))
                         continue
-                    continue    
+                    tokens.append(Token(TT_MCOMMENT, ident_str, line, pos.col))
+                    continue
                 elif self.current_char == "=":
                     ident_str += self.current_char
                     self.advance()
@@ -1511,9 +1513,12 @@ def run(source_code):
 def lex(source_code):
     lexer = Lexer(source_code)
     tokens, errors = lexer.make_tokens()
-    
+
+    # Report lexical errors one at a time — only surface the first.
+    # The user fixes it, re-runs, and sees the next one (if any).
     str_errors = []
-    for e in errors:
+    if errors:
+        e = errors[0]
         try:
             if hasattr(e, 'as_string') and callable(getattr(e, 'as_string')):
                 str_errors.append(e.as_string())

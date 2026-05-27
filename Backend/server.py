@@ -53,7 +53,7 @@ parser = LL1Parser(
     first_sets=first_sets,
     start_symbol="<program>",
     end_marker="EOF",
-    skip_token_types={'\n'}
+    skip_token_types={'\n', 'comment', 'mcommentlit'}
 )
 
 @app.after_request

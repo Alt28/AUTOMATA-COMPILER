@@ -376,7 +376,7 @@ def parse_variable(tokens, index, var_name, var_type):
             while tokens[index].type == "[":
                 index += 1
                 dim_size = 0
-                if tokens[index].type == "dbllit":
+                if tokens[index].type == "dblit":
                     raise SemanticError(f"Semantic Error: Array size must be of type 'seed' (integer), got 'tree' (float) '{tokens[index].value}'.", line)
                 if tokens[index].type == "intlit":
                     dim_size = int(tokens[index].value)
@@ -492,7 +492,7 @@ def parse_statement(tokens, index, func_type = None):
 
         if tokens[index].type == "[":
             index += 1
-            if tokens[index].type == "dbllit":
+            if tokens[index].type == "dblit":
                 raise SemanticError(f"Semantic Error: Array size must be of type 'seed' (integer), got 'tree' (float) '{tokens[index].value}'.", token.line)
             array_size = 0
             if tokens[index].type == "intlit":
@@ -1397,7 +1397,7 @@ def parse_factor(tokens, index):
         index += 1  
         return node, index, inner_type
     
-    if token.type in {"intlit", "dbllit", "chrlit", "stringlit", "sunshine", "frost"}:
+    if token.type in {"intlit", "dblit", "chrlit", "stringlit", "sunshine", "frost"}:
         node = ASTNode("Value", token.value)
         index += 1
         return node, index, infer_literal_type(token.type)
@@ -1807,7 +1807,7 @@ def parse_operand(tokens, index):
         index += 1
         return expr_node, index, expr_type
 
-    if token.type in {"intlit", "dbllit"}:
+    if token.type in {"intlit", "dblit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
@@ -1846,7 +1846,7 @@ def parse_operand(tokens, index):
         expr_node, index, expr_type = parse_expression(tokens, index)
         return expr_node, index, expr_type
 
-    if token.type in {"intlit", "dbllit"}:
+    if token.type in {"intlit", "dblit"}:
         expr_node, index, _ = parse_expression(tokens, index)
         return expr_node, index, infer_literal_type(token.type)
 
@@ -1917,7 +1917,7 @@ def parse_operand(tokens, index):
 def infer_literal_type(token_type):
     if token_type == "intlit":
         return "seed"
-    if token_type == "dbllit":
+    if token_type == "dblit":
         return "tree"
     if token_type == "stringlit":
         return "vine"
@@ -2206,7 +2206,7 @@ def parse_print(tokens, index):
                 index += 1
                 args.append(ASTNode("Value", identif_name, line=line))
                 
-    elif tokens[index].type in {"intlit", "dbllit"}:
+    elif tokens[index].type in {"intlit", "dblit"}:
         expr_node, index, _ = parse_expression_branch(tokens, index)
         args.append(expr_node)
 
@@ -2233,7 +2233,7 @@ def parse_print(tokens, index):
     while tokens[index].type == ",":
         index += 1
         
-        if tokens[index].type in {"intlit", "dbllit", "-"}:
+        if tokens[index].type in {"intlit", "dblit", "-"}:
             arg_node, index, _ = parse_expression_branch(tokens, index)
             actual_args.append(arg_node)
 
@@ -2435,7 +2435,7 @@ def parse_fertile(tokens, index):
 
     expected_literals = {
         "seed": {"intlit"},
-        "tree": {"dbllit"},
+        "tree": {"dblit"},
         "vine": {"stringlit"},
         "leaf": {"chrlit"},
         "branch": {"sunshine", "frost"}
@@ -3014,7 +3014,7 @@ def parse_switch(tokens, index, func_type):
     elif tokens[index].type in {"stringlit"}:
         raise SemanticError(f"Semantic Error: 'harvest' expression must be 'seed'/'leaf'/'branch', not 'vine'.", line)
 
-    elif tokens[index].type in {"dbllit"}:
+    elif tokens[index].type in {"dblit"}:
         raise SemanticError(f"Semantic Error: 'harvest' expression must be 'seed'/'leaf'/'branch', not 'tree'.", line)
 
     else:
@@ -3039,12 +3039,12 @@ def parse_switch(tokens, index, func_type):
         index += 1
         line = tokens[index].line
 
-        if tokens[index].type not in {"chrlit", "stringlit", "sunshine", "frost", "intlit", "dbllit"}:
+        if tokens[index].type not in {"chrlit", "stringlit", "sunshine", "frost", "intlit", "dblit"}:
             raise SemanticError(f"Semantic Error: Expected valid literal value after 'variety'.", line)
 
         lit_type_map = {
             "intlit": "seed",
-            "dbllit": "tree",
+            "dblit": "tree",
             "stringlit": "vine",
             "chrlit": "leaf",
             "sunshine": "branch",

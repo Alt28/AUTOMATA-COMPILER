@@ -946,7 +946,7 @@ class ICGenerator:
 
         if tok.type == "intlit":
             return self._advance().value
-        if tok.type == "dbllit":
+        if tok.type == "dblit":
             return self._advance().value
         if tok.type == "chrlit":
             return self._advance().value

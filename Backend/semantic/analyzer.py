@@ -41,7 +41,7 @@ class ASTValidator:
     def _check_VariableDeclaration(self, node):
         if len(node.children) < 2:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: Malformed variable declaration.")
+                f"SEMANTIC error line {node.line}: Malformed variable declaration.")
         for child in node.children:
             self._walk(child)
 
@@ -52,14 +52,14 @@ class ASTValidator:
     def _check_SturdyDeclaration(self, node):
         if len(node.children) < 3:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: Fertile declaration must have type, name, and value.")
+                f"SEMANTIC error line {node.line}: Fertile declaration must have type, name, and value.")
         for child in node.children:
             self._walk(child)
 
     def _check_FunctionDeclaration(self, node):
         if not node.value:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: Function declaration missing name.")
+                f"SEMANTIC error line {node.line}: Function declaration missing name.")
         prev_in_func = self._in_function
         prev_func_type = self._current_func_type
         self._in_function = True
@@ -133,12 +133,12 @@ class ASTValidator:
     def _check_Break(self, node):
         if self._in_loop == 0 and self._in_switch == 0:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: 'prune' used outside a loop or switch.")
+                f"SEMANTIC error line {node.line}: 'prune' used outside a loop or switch.")
 
     def _check_Continue(self, node):
         if self._in_loop == 0:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: 'skip' used outside a loop.")
+                f"SEMANTIC error line {node.line}: 'skip' used outside a loop.")
 
     def _check_Return(self, node):
         for child in node.children:
@@ -175,7 +175,7 @@ class ASTValidator:
     def _check_BundleDefinition(self, node):
         if not node.bundle_name:
             self.errors.append(
-                f"Ln {node.line} Semantic Error: Bundle definition missing name.")
+                f"SEMANTIC error line {node.line}: Bundle definition missing name.")
 
     def _check_Append(self, node):
         for child in node.children:
