@@ -930,32 +930,44 @@
             if (el) el.remove();
           }
 
+          function setChatBusy(busy) {
+            chatBusy = busy;
+            chatSendBtn.disabled = busy;
+            chatMessages.querySelectorAll('.chat-retry-btn').forEach(function(btn) {
+              btn.disabled = busy;
+            });
+            if (!busy) chatInput.focus();
+          }
+
+          function addFailureMessage(errorText, requestBody) {
+            var errorHtml = '<div class="chat-error-content">'
+              + '<em class="chat-error-text">' + escapeHtml(errorText) + '</em>'
+              + '<button class="chat-retry-btn" type="button" title="Retry message" aria-label="Retry message" disabled>'
+              + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>'
+              + '<span>Retry</span></button></div>';
+            var errorMessage = addMessage('assistant', errorHtml);
+            errorMessage.classList.add('chat-msg-error');
+            var retryBody = {
+              message: requestBody.message,
+              session_id: requestBody.session_id,
+              editor_code: requestBody.editor_code || ''
+            };
+            var retryButton = errorMessage.querySelector('.chat-retry-btn');
+            retryButton.addEventListener('click', function() {
+              if (chatBusy) return;
+              errorMessage.remove();
+              submitChatRequest(retryBody);
+            });
+          }
+
           // Minimum thinking time so it feels deliberate (ms)
           var _thinkStart = 0;
           var THINK_MIN_MS = 1500;
 
-          async function sendMessage() {
-            if (chatBusy) return;
-            var msg = chatInput.value.trim();
-            if (!msg) return;
-
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            addMessage('user', escapeHtml(msg));
-
-            chatBusy = true;
-            chatSendBtn.disabled = true;
+          async function submitChatRequest(body) {
+            setChatBusy(true);
             _thinkStart = Date.now();
             addTyping();
-
-            var body = {
-              message: msg,
-              session_id: chatSessionId,
-              editor_code: ''
-            };
-            if (chatIncludeCode && chatIncludeCode.checked && window.editor) {
-              try { body.editor_code = window.editor.getValue(); } catch(e) {}
-            }
 
             try {
               var resp = await fetch(API + '/api/chat', {
@@ -981,27 +993,41 @@
                 if (subtitle) subtitle.style.color = '';
               }
               if (data.error) {
-                addMessage('assistant', '<em style="color:#ff8a5b;">' + escapeHtml(data.error) + '</em>');
-                chatBusy = false;
-                chatSendBtn.disabled = false;
-                chatInput.focus();
+                addFailureMessage(data.error, body);
+                setChatBusy(false);
               } else {
                 var modePrefix = data.mode === 'fallback'
                   ? '<div class="chat-fallback-badge">⚠ Offline mode — AI unavailable, using built-in knowledge base</div>'
                   : '';
                 typewriterMessage(data.reply || 'No response.', function() {
-                  chatBusy = false;
-                  chatSendBtn.disabled = false;
-                  chatInput.focus();
+                  setChatBusy(false);
                 }, modePrefix);
               }
             } catch(err) {
               removeTyping();
-              addMessage('assistant', '<em style="color:#ff8a5b;">Could not connect to server.</em>');
-              chatBusy = false;
-              chatSendBtn.disabled = false;
-              chatInput.focus();
+              addFailureMessage('Could not connect to server.', body);
+              setChatBusy(false);
             }
+          }
+
+          function sendMessage() {
+            if (chatBusy) return;
+            var msg = chatInput.value.trim();
+            if (!msg) return;
+
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            addMessage('user', escapeHtml(msg));
+
+            var body = {
+              message: msg,
+              session_id: chatSessionId,
+              editor_code: ''
+            };
+            if (chatIncludeCode && chatIncludeCode.checked && window.editor) {
+              try { body.editor_code = window.editor.getValue(); } catch(e) {}
+            }
+            submitChatRequest(body);
           }
 
           if (chatSendBtn) chatSendBtn.addEventListener('click', sendMessage);

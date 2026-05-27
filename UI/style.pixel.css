@@ -2495,6 +2495,53 @@ img, canvas{ image-rendering: pixelated; }
   font-size: 12px;
 }
 
+/* Retry action shown only when a chat request fails */
+.chat-msg-error .chat-bubble {
+  color: var(--accent-3);
+}
+.chat-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.chat-error-text {
+  color: var(--accent-3) !important;
+}
+.chat-retry-btn {
+  height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), .08);
+  border: 1px solid rgba(var(--accent-rgb), .28);
+  border-radius: 6px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.chat-retry-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chat-retry-btn:hover:not(:disabled) {
+  color: var(--ink);
+  background: rgba(var(--accent-rgb), .16);
+  border-color: rgba(var(--accent-rgb), .52);
+}
+.chat-retry-btn:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
 /* Typing indicator */
 .chat-typing {
   display: flex;

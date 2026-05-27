@@ -111,9 +111,10 @@ def compute_predict(cfg, first, follow):
             else:
                 first_set.add(epsilon)
 
-            predict[key] = first_set
             if epsilon in first_set:
-                predict[key] |= follow[lhs] 
+                predict[key] = (first_set - {epsilon}) | follow[lhs]
+            else:
+                predict[key] = first_set
 
     return predict
 
@@ -202,13 +203,11 @@ cfg = {
 
     "<array_dim_opt>": [
         ["intlit"],
-        ["dblit"],
         [EPSILON],
     ],
 
     "<array_init_opt>": [
         ["{", "<init_vals>", "}"],
-        [EPSILON],
     ],
 
     "<init_vals>": [
@@ -481,7 +480,10 @@ cfg = {
     ],
 
     "<case_literal>": [
-        ["<literal>"],
+        ["intlit"],
+        ["chrlit"],
+        ["sunshine"],
+        ["frost"],
     ],
 
     "<case_statements>": [

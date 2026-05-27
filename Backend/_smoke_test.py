@@ -79,6 +79,12 @@ REJECTED_PROGRAMS = [
      "expected 'reclaim;' before '}'"),
     ('missing_function_reclaim', 'pollinate empty greet() { plant("hi"); } root() { reclaim; }',
      "expected 'reclaim;' before '}'"),
+    ('array_decimal_size', 'root() { seed arr[2.5]; reclaim; }',
+     "Expected: ']', intlit"),
+    ('empty_initializer', 'root() { seed x = ; reclaim; }',
+     "Missing value after '=' operator."),
+    ('string_case_literal', 'root() { seed x = 1; harvest (x) { variety "a": { prune; } } reclaim; }',
+     "Expected: chrlit, 'frost', intlit, 'sunshine'"),
 ]
 
 

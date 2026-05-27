@@ -588,7 +588,7 @@ tend { plant("at least once"); } grow (frost);
 <case_list> → variety <case_literal> : <local_declaration> <case_statements> <case_list>
             | λ
 
-<case_literal> → intlit | chrlit | stringlit | sunshine | frost
+<case_literal> → intlit | chrlit | sunshine | frost
 
 <default_opt> → soil : <local_declaration> <case_statements> | λ
 ```
@@ -613,6 +613,8 @@ Level 5:           <arithmetic> → <term> ( (+|-|`) <term> )*
 Level 6:           <term>       → <factor> ( (*|/|%) <factor> )*
 Level 7 (highest): <factor>     → ( <paren_expr> ) | <unary_op> <factor>
                                  | id <factor_id_next> | <literal>
+
+<literal> → intlit | dblit | chrlit | stringlit | sunshine | frost
 ```
 
 **Operator Precedence Table:**
