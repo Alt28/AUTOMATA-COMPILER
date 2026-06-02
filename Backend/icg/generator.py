@@ -124,7 +124,7 @@ class ICGenerator:
         toks: List[_Tok] = []
         for t in raw_tokens:
             tv = _as_tok(t)
-            if tv.type == "\n":
+            if tv.type in ("\n", "comment", "mcommentlit"):
                 continue
             toks.append(tv)
         if not toks or toks[-1].type != "EOF":

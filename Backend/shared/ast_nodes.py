@@ -136,16 +136,6 @@ class ListNode(ASTNode):
         for element in self.elements:
             self.add_child(element)
 
-class TaperNode(ASTNode):
-    def __init__(self, variable_name, line=None):
-        super().__init__("TaperFunction", line=line)
-        self.add_child(ASTNode("Identifier", variable_name, line=line))
-
-class TSNode(ASTNode):
-    def __init__(self, variable_name, line=None):
-        super().__init__("TSFunction", line=line)
-        self.add_child(ASTNode("Identifier", variable_name, line=line))
-
 class SoilNode(ASTNode):
     def __init__(self, variable_name, line=None):
         super().__init__("SoilFunction", line=line)

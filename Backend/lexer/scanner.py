@@ -1079,6 +1079,9 @@ class Lexer:
                     while self.current_char is not None and self.current_char != "\n":
                         ident_str += self.current_char
                         self.advance()
+                    # Comments are emitted as tokens so they show up in the
+                    # lexeme table, but they are filtered out before parsing
+                    # (see strip_comments) so the parser never sees them.
                     tokens.append(Token(TT_COMMENT, ident_str, line, pos.col))
                     continue
 
@@ -1102,6 +1105,8 @@ class Lexer:
                     if not found_close:
                         errors.append(LexicalError(pos, f"Missing closing '*/' after '{ident_str}'"))
                         continue
+                    # Multi-line comments are emitted for the lexeme table and
+                    # filtered out before parsing (see strip_comments).
                     tokens.append(Token(TT_MCOMMENT, ident_str, line, pos.col))
                     continue
                 elif self.current_char == "=":

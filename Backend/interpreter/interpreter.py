@@ -161,10 +161,6 @@ class Interpreter:
             return self.eval_sturdy_declaration(node)
         elif isinstance(node, CastNode):
             return self.eval_cast(node)
-        elif isinstance(node, TaperNode):
-            return self.eval_taper(node)
-        elif isinstance(node, TSNode):
-            return self.eval_ts(node)
         elif isinstance(node, SoilNode):
             return self.eval_soil(node)
         elif isinstance(node, BloomNode):
@@ -258,8 +254,6 @@ class Interpreter:
             else:
                 value = self.interpret(value_node)
 
-                if isinstance(value_node, TaperNode):
-                    is_list = True
                 if var_type == "seed" and isinstance(value, float):
                     value = int(value)
 
@@ -1067,27 +1061,6 @@ class Interpreter:
             raise InterpreterError(f"Unknown cast type: {cast_type}", node.line)
 
 
-    def eval_taper(self, node):
-        var_name = node.children[0].value
-        var_info = self.lookup_variable(var_name)
-        
-        if var_info["type"] == "leaf":  # type: ignore
-            value = list(var_info["value"])  # type: ignore
-
-        return value
-
-    def eval_ts(self, node):
-        var_name = node.children[0].value
-        var_info = self.lookup_variable(var_name)
-
-        if var_info["is_list"]:  # type: ignore
-            result = len(var_info["value"])  # type: ignore
-        
-        elif var_info["type"] in ("leaf", "vine"):  # type: ignore
-            result = len(var_info["value"])  # type: ignore
-        
-        return result
-
     def eval_soil(self, node):
         var_name = node.children[0].value
         var_info = self.lookup_variable(var_name)
@@ -1466,5 +1439,4 @@ class Interpreter:
             input_value = str(input_value)
 
         return input_value
-
 

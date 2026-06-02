@@ -583,28 +583,7 @@ harvest (x) {
 }
 ```
 
-### Built-in Properties and Methods
-
-#### `.ts` — Length/Size Property
-Works on **arrays** (any type) and **`leaf`** variables. Returns a `seed` (integer).
-```
-seed arr[5];
-seed len = arr.ts;     // len = 5 (array size)
-
-leaf ch = 'A';
-seed chlen = ch.ts;    // chlen = 1 (character length)
-```
-Note: `.ts` does NOT work on `vine` (string) variables — only arrays and `leaf`.
-
-#### `.taper` — Split into Characters
-Works on **`leaf`** variables. Splits the value into a list of individual characters.
-```
-leaf word = 'H';
-vine letters = word.taper;  // splits into character list
-```
-Note: The source variable must be of type `leaf`. The result is a list.
-
-#### List Methods: `append`, `insert`, `remove`
+### List Methods: `append`, `insert`, `remove`
 ```
 seed arr[3];
 arr[0] = 1;

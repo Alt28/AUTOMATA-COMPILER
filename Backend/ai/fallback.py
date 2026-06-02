@@ -343,20 +343,6 @@ _ERROR_PATTERNS = [
          f"bundle {m.group(1)} {{\n    seed x;\n    seed y;\n}};\n\nbundle {m.group(1)} obj;\nobj.x = 5;",
      )),
 
-    (_re.compile(r"'ts\(\)' can only be used on lists or vines", _re.I),
-     _semantic_err(
-         "`ts()` was called on a non-list, non-string value.",
-         "`ts()` only works on arrays and `vine` strings.",
-         "seed arr[] = {1, 2, 3};\nseed len = ts(arr);  // 3\nvine msg = \"hello\";\nseed slen = ts(msg); // 5",
-     )),
-
-    (_re.compile(r"'taper\(\)' can only be used on 'leaf' type", _re.I),
-     _semantic_err(
-         "`taper()` was called on a non-string/char value.",
-         "`taper()` splits a string into individual characters.",
-         'leaf chars[] = taper("hello");  // [\'h\',\'e\',\'l\',\'l\',\'o\']',
-     )),
-
     (_re.compile(r"Exceeded maximum.*15 arguments in plant", _re.I),
      _semantic_err(
          "A `plant()` statement has more than 15 arguments.",
@@ -406,7 +392,7 @@ _ERROR_PATTERNS = [
      lambda m: _runtime_err(
          f"Index `{m.group(1)}` is out of bounds for array `{m.group(2)}`.",
          "Array indices must be between 0 and length-1.",
-         f"// Valid indices: 0 to ts({m.group(2)})-1\ncultivate (seed i = 0; i < ts({m.group(2)}); i++) {{\n    plant({m.group(2)}[i]);\n}}",
+         f"// Keep a separate seed variable for the array size.\nseed size = 3;\ncultivate (seed i = 0; i < size; i++) {{\n    plant({m.group(2)}[i]);\n}}",
      )),
 
     (_re.compile(r"Evaluated number exceeds maximum.*16 digits", _re.I),
@@ -1119,8 +1105,6 @@ Supported casts:
         "insert into array",
         "remove from array delete element",
         "array length size count",
-        "taper split string to chars",
-        "TS function array size",
         "add item to list",
         "delete item from list",
         "how many elements in array",
@@ -1141,15 +1125,7 @@ arr.insert(1, 99);     // insert 99 at index 1
 ```
 arr.remove(0);         // remove first element
 ```
-**TS** — get length of array or string:
-```
-seed len = TS(arr);    // number of elements
-seed slen = TS("hello"); // 5
-```
-**Taper** — split string into char array:
-```
-leaf chars[] = taper("abc"); // chars = ['a','b','c']
-```"""),
+Array size must be managed explicitly with your own `seed` counter variable."""),
 
     ([
         "escape sequences special characters",
@@ -1613,60 +1589,6 @@ root() {
 ```
 
 Define inner bundles **before** the outer bundle that uses them."""),
-
-    ([
-        "ts function get length",
-        "array length size",
-        "string length character count",
-        "how many elements in list",
-        "count items in array",
-        "TS usage examples",
-     ],
-     """**`TS()`** — returns the length of an array or string:
-```
-seed arr[] = {10, 20, 30, 40};
-seed len = TS(arr);         // 4
-
-vine msg = "Hello World";
-seed slen = TS(msg);        // 11
-
-// Common pattern — loop with TS:
-cultivate (seed i = 0; i < TS(arr); i++) {
-    plant(arr[i]);
-}
-```
-
-**Rules:**
-- Works on arrays/lists and `vine` strings
-- Returns a `seed` (integer) value
-- Does NOT work on `seed`, `tree`, `leaf`, or `branch` scalars
-- `TS()` is GAL's equivalent of `len()` / `.length`"""),
-
-    ([
-        "taper function usage",
-        "split string into characters",
-        "string to char array",
-        "character array from string",
-        "taper examples",
-     ],
-     """**`taper()`** — splits a string into an array of characters:
-```
-leaf chars[] = taper("Hello");
-// chars = ['H', 'e', 'l', 'l', 'o']
-
-plant(chars[0]);  // H
-plant(TS(chars));  // 5
-
-// Iterate over characters:
-cultivate (seed i = 0; i < TS(chars); i++) {
-    plant(chars[i]);
-}
-```
-
-**Rules:**
-- Returns a `leaf` array
-- Works on `vine` (string) values
-- `taper()` is GAL's equivalent of `split('')` / `toCharArray()`"""),
 
     ([
         "operator precedence order",
@@ -2255,7 +2177,7 @@ root() {
 **Key differences:**
 - GAL uses **botanical/garden-themed** keywords instead of C's traditional keywords
 - GAL has **built-in string type** (`vine`) — no pointer arithmetic needed
-- GAL has **built-in array operations**: `append()`, `insert()`, `remove()`, `TS()`, `taper()`
+- GAL has **built-in array operations**: `append()`, `insert()`, `remove()`
 - GAL uses `~` for **unary negation** (not `-`)
 - Format strings use `{}` placeholders (like Python), not `%d`/`%s`"""),
 
@@ -2407,20 +2329,9 @@ vine second = "World";
 vine result = first ` " " ` second;  // "Hello World"
 ```
 
-**Length** — use `TS()`:
-```
-seed len = TS(name);  // 5
-```
-
-**Split into characters** — use `taper()`:
-```
-vine word = "GAL";
-vine chars[3] = taper(word);  // ["G", "A", "L"]
-```
-
 **Print with format strings:**
 ```
-plant("Name: {}, Length: {}", name, TS(name));
+plant("Name: {}", name);
 ```
 
 **Escape sequences:**
@@ -2509,8 +2420,8 @@ _SYNONYMS = {
     "format":    "format string placeholder curly braces",
     "limit":     "limits constraints maximum",
     "compile":   "compiler stages lexer parser",
-    "length":    "ts array length size",
-    "split":     "taper split string characters",
+    "length":    "array size manual bounds",
+    "split":     "manual character array",
     "negative":  "tilde negation unary",
     "increment": "increment prefix postfix",
     "decrement": "decrement prefix postfix",
@@ -2554,8 +2465,6 @@ _GAL_KEYWORD_MAP = {
     "sunshine":   "sunshine true boolean value",
     "frost":      "frost false boolean value",
     "empty":      "empty void no return type function",
-    "ts":         "TS length size array string built-in function",
-    "taper":      "taper split string into characters array",
     "append":     "append add element to array built-in",
     "insert":     "insert element at index array built-in",
     "remove":     "remove element from array built-in",
@@ -2614,11 +2523,11 @@ _DEFAULT_RESPONSE = """I can help with GAL syntax and concepts! Try asking about
 - **Conditions**: spring (if), bud (else if), wither (else)
 - **Functions**: pollinate, reclaim, root(), recursion
 - **I/O**: plant() (print), water() (input), format strings
-- **Arrays**: declaration, 2D arrays, built-ins (append, insert, remove, TS)
+- **Arrays**: declaration, 2D arrays, built-ins (append, insert, remove)
 - **Bundles**: struct-like types, nested bundles, array of bundles
 - **Type casting**: `(seed)`, `(tree)`, `(vine)`, etc.
 - **Operators**: arithmetic, comparison, logical, precedence
-- **Built-ins**: TS() (length), taper() (split), append/insert/remove
+- **Built-ins**: append/insert/remove
 - **Errors**: paste any compiler error for a detailed explanation!
 
 Or ask for "keyword reference", "example program", or "how does the compiler work"!

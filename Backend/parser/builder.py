@@ -323,27 +323,7 @@ def parse_variable(tokens, index, var_name, var_type):
         if tokens[index].type == "=":
             index += 1
 
-            if (
-                var_type == "vine" and
-                tokens[index].type == "id" and
-                tokens[index + 1].type == "." and
-                tokens[index + 2].value == "taper"
-            ):
-                identifier = tokens[index].value
-
-                identifier_info = symbol_table.lookup_variable(identifier)
-                if isinstance(identifier_info, str):
-                    raise SemanticError(f"Semantic Error: Variable '{identifier}' used before declaration.", line)
-
-                if identifier_info["type"] != "leaf":
-                    raise SemanticError(f"Semantic Error: Cannot use taper function on '{identifier}'. Must be a leaf type identifier.", line)
-
-                index += 3
-                is_list = True
-                taper_node = TaperNode(identifier, line=line)
-                var_node.add_child(taper_node)
-
-            elif tokens[index].type == "[":
+            if tokens[index].type == "[":
                 is_list = True
                 value_node, index = parse_list(tokens, index, var_type)
                 var_node.add_child(value_node)
@@ -698,12 +678,12 @@ def parse_statement(tokens, index, func_type = None):
 
                 elif tokens[index + 1].type == "=":
                     var_name = token.value
-                    error = symbol_table.lookup_variable(var_name)
-                    if isinstance(error, str):
-                        raise SemanticError(error, token.line)
+                    var_info = symbol_table.lookup_variable(var_name)
+                    if isinstance(var_info, str):
+                        raise SemanticError(var_info, token.line)
 
                     index += 2
-                    node, index = parse_assignment(tokens, index, token.value, symbol_table.lookup_variable(token.value)["type"])
+                    node, index = parse_assignment(tokens, index, token.value, var_info["type"])
                     assignments_node.add_child(node)
 
                 elif tokens[index + 1].type in {"++", "--"}:
@@ -965,34 +945,21 @@ def parse_list_assignment(tokens, index):
 
         source_type = source_info["type"]
 
-        if var_type == "vine":
-            if source_type == "leaf" and tokens[index + 1].type == ".":
-                if (
-                    tokens[index].type == "id" and
-                    tokens[index + 1].type == "." and
-                    tokens[index + 2].value == "taper"
-                ):
-                    if source_info["type"] != "leaf":
-                        raise SemanticError(f"Semantic Error: Cannot use taper function on '{source_var}'. Must be a leaf type identifier.", line)
+        if source_type == "leaf" and tokens[index + 1].type == ".":
+            member_name = tokens[index + 2].value
+            raise SemanticError(f"Semantic Error: Unsupported member access '{source_var}.{member_name}'.", line)
 
-                    index += 3
-                    is_list = True
-                    taper_node = TaperNode(source_var, line=line)
-                    value_node = ASTNode("Value", source_var, line=line)
-                    value_node.add_child(taper_node)
+        if source_type == "leaf" and tokens[index + 1].type != ".":
+            raise SemanticError(f"Semantic Error: Cannot assign non-list '{source_var}' to list '{var_name}'.", line)
 
-            elif source_type == "leaf" and tokens[index + 1].type != ".":
-                raise SemanticError(f"Semantic Error: Cannot assign non-list '{source_var}' to list '{var_name}'.", line)
-
-        elif var_type != source_type:
+        if var_type != source_type:
             if not (var_type in {"seed", "tree"} and source_type in {"seed", "tree"}):
                 raise SemanticError(
                     f"Semantic Error: Cannot assign list of '{source_type}' type to list of '{var_type}' type.", line
                 )
-            
-        else:
-            value_node = ASTNode("Value", source_var, line=line)
-            index += 1
+
+        value_node = ASTNode("Value", source_var, line=line)
+        index += 1
 
     elif tokens[index].type == "[":
         value_node, index = parse_list(tokens, index, var_type)
@@ -1415,25 +1382,6 @@ def parse_factor(tokens, index):
         node, index = parse_function_call(tokens, index, func_name, func_return_type, func_params)
 
         return node, index, func_return_type
-
-    elif (
-        tokens[index].type == "id" and
-        tokens[index + 1].type == "." and
-        tokens[index + 2].value == "ts"
-    ):
-        identifier = tokens[index].value
-
-        identifier_info = symbol_table.lookup_variable(identifier)
-        if isinstance(identifier_info, str):
-            raise SemanticError(f"Semantic Error: Variable '{identifier}' used before declaration.", token.line)  
-
-        if not identifier_info["is_list"] and identifier_info["type"] not in ("leaf", "vine"):
-            raise SemanticError(f"Semantic Error: ts() can only be used on lists or strings, but '{identifier}' is of type {identifier_info['type']}.", token.line)
-        
-        index += 3
-
-        ts_node, index = TSNode(identifier, line=token.line), index
-        return ts_node, index, "seed"
 
     elif (
         tokens[index].type == "id" and
@@ -2756,13 +2704,13 @@ def parse_update(tokens, index):
 
                 elif tokens[index + 1].type == "=":
                     var_name = tokens[index].value
-                    error = symbol_table.lookup_variable(var_name)
+                    var_info = symbol_table.lookup_variable(var_name)
                     
-                    if isinstance(error, str):
-                        raise SemanticError(error, tokens[index].line)
+                    if isinstance(var_info, str):
+                        raise SemanticError(var_info, tokens[index].line)
 
                     index += 2
-                    node, index = parse_assignment(tokens, index, var_name, error['type'])
+                    node, index = parse_assignment(tokens, index, var_name, var_info["type"])
                     assignments_node.add_child(node)
 
                 elif tokens[index + 1].type in {"+=", "-=", "*=", "/=", "%=", "**="}:
@@ -3253,7 +3201,7 @@ def is_inside_loop_or_switch_stack():
 
 def analyze_semantics(tokens):
     try:
-        filtered = [t for t in tokens if t.type != '\n']
+        filtered = [t for t in tokens if t.type not in ('\n', 'comment', 'mcommentlit')]
         ast = build_ast(filtered)
 
         st = {
@@ -3298,5 +3246,3 @@ def analyze_semantics(tokens):
             "symbol_table": {},
             "ast": None,
         }
-
-

@@ -55,7 +55,10 @@ class LL1Parser:
         self.start_symbol = start_symbol
         self.end_marker = end_marker
 
-        self.skip_token_types: Set[str] = set(skip_token_types or {"\n"})
+        # Comments ('comment' = //..., 'mcommentlit' = /*...*/) are emitted by
+        # the lexer for the lexeme table but are not grammar tokens, so the
+        # parser skips them just like newlines.
+        self.skip_token_types: Set[str] = set(skip_token_types or {"\n", "comment", "mcommentlit"})
         self.token_type_alias = token_type_alias or {
             'idf': 'id',
             'dbllit': 'dblit',
@@ -1194,7 +1197,7 @@ class LL1Parser:
             }
 
         try:
-            filtered = [t for t in tokens if getattr(t, 'type', '') != '\n']
+            filtered = [t for t in tokens if getattr(t, 'type', '') not in ('\n', 'comment', 'mcommentlit')]
             ast = _build_ast(filtered)
 
             st = {

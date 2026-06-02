@@ -189,15 +189,6 @@ class ASTValidator:
         for child in node.children:
             self._walk(child)
 
-    def _check_TaperFunction(self, node):
-        for child in node.children:
-            self._walk(child)
-
-    def _check_TSFunction(self, node):
-        for child in node.children:
-            self._walk(child)
-
-
 def validate_ast(ast, symbol_table_data):
     validator = ASTValidator()
     return validator.validate(ast, symbol_table_data)
